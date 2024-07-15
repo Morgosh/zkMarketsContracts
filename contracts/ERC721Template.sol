@@ -1,12 +1,13 @@
 //SPDX-License-Identifier: Unlicense
-//pragma solidity ^0.8.11;
-
-//import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
-/*import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+pragma solidity ^0.8.23;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
+import "./ERC721A.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
-contract ERC721Template is ERC721Enumerable, IERC2981, Ownable {
+contract ERC721Template is IERC2981, Ownable, ERC721A  {
     using Strings for uint256;
 
     string private baseURI;
@@ -16,21 +17,38 @@ contract ERC721Template is ERC721Enumerable, IERC2981, Ownable {
     uint256 public publicMaxMintAmount;
     uint256 public publicSaleStartTime = type(uint256).max;
     bool public isRevealed;
-    // address that will receive a part of revenue on withdrawal
-    address public comissionRecipient;
-    // percentage of revenue to be sent to comissionRecipient
-    uint256 public comissionPercentageIn10000;
-    // Add this to your variables declarations
+    address payable public withdrawalRecipientAddress; // address that will receive revenue
+    
+    address payable public comissionRecipientAddress;// address that will receive a part of revenue on withdrawal
+    uint256 public comissionPercentageIn10000; // percentage of revenue to be sent to comissionRecipientAddress
+    uint256 private totalComissionWithdrawn = 0;    
+    uint256 private fixedCommissionTreshold;
+
     string public contractURI;
     //presale price is set after
 
     // Default royalty info
     address payable public defaultRoyaltyRecipient;
     uint256 public defaultRoyaltyPercentageIn10000;
+
+    // Add new state variables to handle ERC20 payments
+    address public ERC20TokenAddress;
+    uint256 public ERC20FixedPricePerToken; // Fixed price per token in ERC20
+    uint256 public ERC20DiscountIn10000; // Discount percentage for ERC20 payments
+    
+    address public ERC20PriceFeedAddress;
+    address public ethPriceFeedAddress;
+
     // Per-token royalty info
     mapping(uint256 => address payable) public tokenRoyaltyRecipient;
     mapping(uint256 => uint256) public tokenRoyaltyPercentage;
 
+    event ContractURIUpdated();
+    bool public tradingEnabled = true;
+    mapping(address => bool) public blacklist;
+
+
+    // todo check burnable adition
     constructor(
         string memory _name,
         string memory _symbol,
@@ -39,19 +57,22 @@ contract ERC721Template is ERC721Enumerable, IERC2981, Ownable {
         uint256 _publicPrice,
         string memory _defaultBaseURI,
         string memory _notRevealedURI,
-        address _comissionRecipient,
+        address payable _withdrawalRecipientAddress,
+        address payable _comissionRecipientAddress,
         uint256 _fixedCommisionTreshold,
         uint256 _comissionPercentageIn10000,
-        address payable _defaultRoyaltyRecipient,
+        address payable _defaultRoyaltyRecipient, // separate from withdrawal recipient to enhance security
         uint256 _defaultRoyaltyPercentageIn10000
-    ) ERC721(_name, _symbol) {
+        // set max mint amount after deployment
+    ) ERC721A(_name, _symbol) Ownable(msg.sender) {
         setMaxSupply(_maxSupply);
         setPublicPrice(_publicPrice);
-        setContractURI(_contractURI);
+        contractURI = _contractURI; // no need to emit event here, as it's set in the constructor
         setBaseURI(_defaultBaseURI);
         setNotRevealedURI(_notRevealedURI);
         publicMaxMintAmount = 10000;
-        comissionRecipient = _comissionRecipient;
+        withdrawalRecipientAddress = _withdrawalRecipientAddress;
+        comissionRecipientAddress = _comissionRecipientAddress;
         fixedCommissionTreshold = _fixedCommisionTreshold;
         // Ensure commission percentage is between 0 and 10000 (0-100%)
         require(_comissionPercentageIn10000 <= 10000, "Invalid commission percentage");
@@ -81,12 +102,27 @@ contract ERC721Template is ERC721Enumerable, IERC2981, Ownable {
     //         )
     //     );
     // }
+
+    function _beforeTokenTransfers(
+        address from,
+        address to,
+        uint256 tokenId,
+        uint256 batchSize
+    )
+        internal override
+    {
+        if (from != address(0)) {
+            require(tradingEnabled, "Trading is disabled");
+            require(!blacklist[msg.sender], "Blacklisted entities cannot execute trades");
+        }
+        super._beforeTokenTransfers(from, to, tokenId, batchSize);
+    }
     
     function tokenURI(
         uint256 tokenId
     ) public view virtual override returns (string memory) {
         require(
-            _exists(tokenId),
+            ownerOf(tokenId) != address(0),
             "ERC721Metadata: URI query for nonexistent token"
         );
         if (isRevealed == false) {
@@ -99,38 +135,112 @@ contract ERC721Template is ERC721Enumerable, IERC2981, Ownable {
                 : "";
     }
 
-    function isContract(address _address) public view returns (bool) {
-        uint32 size;
-        assembly {
-            size := extcodesize(_address)
+    function getPublicMintEligibility() public view returns (uint256) {
+        uint256 balance = balanceOf(msg.sender);
+        if (balance >= publicMaxMintAmount) {
+            return 0;
         }
-        return (size > 0);
+        return publicMaxMintAmount - balance;
     }
 
-    // public
-    // !important, if you use burnable, mint wont work properly, imagine 5 tokens minted, burning token 1, you try to mint, you would override token 5
-    function mint(uint256 _mintAmount) public payable {
-        uint256 supply = totalSupply();
-        require(block.timestamp >= publicSaleStartTime, "Public sale not active");
-        require(_mintAmount > 0, "You have to mint alteast one");
-        require(supply + _mintAmount <= maxSupply, "Max supply reached");
-        require(
-            msg.value >= publicPrice * _mintAmount,
-            "Cost is higher than the amount sent"
-        );
-        require(
-            balanceOf(msg.sender) + _mintAmount <= publicMaxMintAmount,
-            "Invalid amount to be minted"
-        );
-        for (uint256 i = 1; i <= _mintAmount; i++) {
-            _safeMint(msg.sender, supply + i);
+    function getLaunchpadDetails() public view returns (uint256, uint256, uint256, uint256) {
+        uint256 totalSupply = totalSupply();
+        return (maxSupply, publicPrice, totalSupply, publicSaleStartTime);
+    }
+
+    function getLaunchpadDetailsERC20() public view returns (address, uint256, uint256) {
+        uint256 requiredTokens;
+
+        try this.getRequiredERC20TokensChainlink(publicPrice) returns (uint256 tokens) {
+            requiredTokens = tokens;
+        } catch {
+            requiredTokens = 0;
         }
+
+        return (ERC20TokenAddress, ERC20FixedPricePerToken, requiredTokens);
+    }
+
+    function checkMintRequirements(uint256 _mintAmount) internal view {
+        uint256 supply = totalSupply();
+        require(supply + _mintAmount <= maxSupply, "Total supply exceeded");
+        require(block.timestamp >= publicSaleStartTime, "Public sale not active");
+        require(_mintAmount > 0, "You have to mint at least one");
+        require(getPublicMintEligibility() >= _mintAmount, "Invalid amount to be minted");
+        require(balanceOf(msg.sender) + _mintAmount <= publicMaxMintAmount, "Invalid amount to be minted");
+    }
+
+    function mint(uint256 _mintAmount) public payable {
+        checkMintRequirements(_mintAmount);
+        require(msg.value >= publicPrice * _mintAmount, "Cost is higher than the amount sent");
+        _safeMint(msg.sender, _mintAmount);
+    }
+
+    function getLatestPrice(address priceFeedAddress) internal view returns (uint256) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(priceFeedAddress);
+        (, int256 price,,,) = priceFeed.latestRoundData();
+        require(price > 0, "Invalid price from Chainlink");
+        return uint256(price);
+    }
+
+    function getRequiredERC20TokensChainlink(uint256 ethPrice) public view returns (uint256) {
+        require(ethPriceFeedAddress != address(0) && ERC20PriceFeedAddress != address(0), "Price feed addresses not set");
+
+        // Get the latest prices from Chainlink
+        uint256 ethPriceInUsd = getLatestPrice(ethPriceFeedAddress);
+        uint256 ERC20PriceInUsd = getLatestPrice(ERC20PriceFeedAddress);
+
+        // Prices from Chainlink are usually returned with 8 decimals
+        uint256 ethPriceInUsdScaled = ethPriceInUsd * 10**10; // Scale to 18 decimals
+        uint256 ERC20PriceInUsdScaled = ERC20PriceInUsd * 10**10; // Scale to 18 decimals
+
+        // Calculate the equivalent cost in ERC20 tokens
+        uint256 totalERC20Cost = (ethPrice * ethPriceInUsdScaled) / ERC20PriceInUsdScaled;
+
+        // Apply discount if set
+        if (ERC20DiscountIn10000 > 0) {
+            totalERC20Cost = (totalERC20Cost * (10000 - ERC20DiscountIn10000)) / 10000;
+        }
+
+        return totalERC20Cost;
+    }
+
+    function mintWithERC20ChainlinkPrice(uint256 _mintAmount) public {
+        checkMintRequirements(_mintAmount);
+        // Let's make sure price feed contract address exists
+        require(ERC20TokenAddress != address(0), "Payment token address not set");
+
+        // Calculate the cost in ERC20 tokens
+        uint256 requiredTokenAmount = getRequiredERC20TokensChainlink(publicPrice * _mintAmount);
+
+        IERC20 paymentToken = IERC20(ERC20TokenAddress);
+        require(paymentToken.transferFrom(msg.sender, address(this), requiredTokenAmount), "ERC20 payment failed");
+
+        _safeMint(msg.sender, _mintAmount);
+    }
+
+    function mintWithFixedERC20Price(uint256 _mintAmount) public {
+        checkMintRequirements(_mintAmount);
+        require(ERC20TokenAddress != address(0), "Payment token address not set");
+        require(ERC20FixedPricePerToken > 0, "Price per token not set");
+
+        // Calculate the cost in ERC20 tokens
+        uint256 requiredTokenAmount = ERC20FixedPricePerToken * _mintAmount;
+
+        IERC20 paymentToken = IERC20(ERC20TokenAddress);
+        require(paymentToken.transferFrom(msg.sender, address(this), requiredTokenAmount), "ERC20 payment failed");
+
+        _safeMint(msg.sender, _mintAmount);
     }
 
     function adminMint(address _to, uint256 _mintAmount) public onlyOwner {
         uint256 supply = totalSupply();
-        for (uint256 i = 1; i <= _mintAmount; i++) {
-            _safeMint(_to, supply + i);
+        require(supply + _mintAmount <= maxSupply, "Total supply exceeded");
+        _safeMint(_to, _mintAmount);
+    }
+
+    function batchAdminMint(address[] calldata recipients, uint256[] calldata amounts) external onlyOwner {
+        for (uint256 i = 0; i < recipients.length; i++) {
+            adminMint(recipients[i], amounts[i]);
         }
     }
 
@@ -142,22 +252,12 @@ contract ERC721Template is ERC721Enumerable, IERC2981, Ownable {
         baseURI = _baseURI;
     }
 
-    function setPublicMaxMintAmount(
-        uint256 _publicMaxMintAmount
-    ) public onlyOwner {
-        publicMaxMintAmount = _publicMaxMintAmount;
-    }
-
     function setNotRevealedURI(string memory _notRevealedURI) public onlyOwner {
         notRevealedURI = _notRevealedURI;
     }
 
     function setMaxSupply(uint256 _newmaxSupply) public onlyOwner {
         maxSupply = _newmaxSupply;
-    }
-
-    function setContractURI(string memory _contractURI) public onlyOwner {
-        contractURI = _contractURI;
     }
 
     function togglePublicSaleActive() external onlyOwner {
@@ -174,11 +274,13 @@ contract ERC721Template is ERC721Enumerable, IERC2981, Ownable {
         publicSaleStartTime = _publicSaleStartTime;
     }
 
+    function setPublicMaxMintAmount(uint256 _publicMaxMintAmount) external onlyOwner {
+        publicMaxMintAmount = _publicMaxMintAmount;
+    }
+
     function toggleReveal() external onlyOwner {
         isRevealed = !isRevealed;
     }
-
-    // existing functions
 
     function setDefaultRoyaltyInfo(address payable _defaultRoyaltyRecipient, uint256 _defaultRoyaltyPercentageIn10000) public onlyOwner {
         defaultRoyaltyRecipient = _defaultRoyaltyRecipient;
@@ -186,9 +288,35 @@ contract ERC721Template is ERC721Enumerable, IERC2981, Ownable {
     }
 
     function setTokenRoyaltyInfo(uint256 _tokenId, address payable _royaltyRecipient, uint256 _royaltyPercentage) public onlyOwner {
-        require(_exists(_tokenId), "Token does not exist");
+        require(ownerOf(_tokenId) != address(0), "Token does not exist");
         tokenRoyaltyRecipient[_tokenId] = _royaltyRecipient;
         tokenRoyaltyPercentage[_tokenId] = _royaltyPercentage;
+    }
+    
+    function setContractURI(string memory newURI) external onlyOwner {
+        contractURI = newURI;
+        emit ContractURIUpdated();
+    }
+
+    function setERC20TokenAddress(address _ERC20TokenAddress) external onlyOwner {
+        ERC20TokenAddress = _ERC20TokenAddress;
+    }
+
+    function setErc20FixedPricePerToken(uint256 _erc20FixedPricePerToken) external onlyOwner {
+        ERC20FixedPricePerToken = _erc20FixedPricePerToken;
+    }
+
+    function setERC20PriceFeedAddress(address _ERC20PriceFeedAddress) external onlyOwner {
+        ERC20PriceFeedAddress = _ERC20PriceFeedAddress;
+    }
+
+    function setETHPriceFeedAddress(address _ethPriceFeedAddress) external onlyOwner {
+        ethPriceFeedAddress = _ethPriceFeedAddress;
+    }
+
+    function setERC20DiscountIn10000(uint256 _erc20DiscountIn10000) external onlyOwner {
+        require(_erc20DiscountIn10000 <= 10000, "Invalid discount percentage");
+        ERC20DiscountIn10000 = _erc20DiscountIn10000;
     }
 
     // implement ERC2981
@@ -198,13 +326,9 @@ contract ERC721Template is ERC721Enumerable, IERC2981, Ownable {
         return (royaltyRecipient, (_salePrice * royaltyPercentage) / 10000);
     }
 
-    // Specify the withdrawal thresholds
-    uint256 private totalComissionWithdrawn = 0;    
-    uint256 private fixedCommissionTreshold;
-
     function withdrawFixedComission() external {
         require(
-            msg.sender == owner() || msg.sender == comissionRecipient,
+            msg.sender == owner() || msg.sender == comissionRecipientAddress,
             "Only owner or commission recipient can withdraw"
         );
         uint256 remainingCommission = fixedCommissionTreshold - totalComissionWithdrawn;
@@ -219,15 +343,14 @@ contract ERC721Template is ERC721Enumerable, IERC2981, Ownable {
 
         // Updating the total withdrawn by A before making the transfer
         totalComissionWithdrawn += amount;
-        (bool success, ) = payable(comissionRecipient).call{value: amount}("");
+        (bool success, ) = comissionRecipientAddress.call{value: amount}("");
         require(success, "Transfer failed");
     }
-
 
     function withdraw() external virtual {
         require(totalComissionWithdrawn >= fixedCommissionTreshold, "Threshold for A must be reached first");
         require(
-            msg.sender == owner() || msg.sender == comissionRecipient,
+            msg.sender == owner() || msg.sender == comissionRecipientAddress  || msg.sender == withdrawalRecipientAddress,
             "Only owner or commission recipient can withdraw"
         );
 
@@ -236,14 +359,56 @@ contract ERC721Template is ERC721Enumerable, IERC2981, Ownable {
         uint256 ownerAmount = address(this).balance - comission;
 
         if (comission > 0) {
-            (bool cs, ) = payable(comissionRecipient).call{value: comission}("");
+            (bool cs, ) = comissionRecipientAddress.call{value: comission}("");
             require(cs);
         }
 
         if (ownerAmount > 0) {
-            (bool os, ) = payable(owner()).call{value: ownerAmount}("");
+            (bool os, ) = withdrawalRecipientAddress.call{value: ownerAmount}("");
             require(os);
         }
     }
+
+    function withdrawERC20(address erc20Token) external {
+        require(
+            msg.sender == owner() || msg.sender == comissionRecipientAddress  || msg.sender == withdrawalRecipientAddress,
+            "Only owner or commission recipient can withdraw"
+        );
+        IERC20 erc20 = IERC20(erc20Token);
+        uint256 erc20Balance = erc20.balanceOf(address(this));
+        uint256 comission = (erc20Balance * comissionPercentageIn10000) / 10000;
+        uint256 withdrawalAddressAmount = erc20Balance - comission;
+
+        //withdrawalRecipientAddress
+        if(comission > 0) {
+            erc20.transfer(comissionRecipientAddress, comission);
+        }
+
+        if(withdrawalAddressAmount > 0) {
+            erc20.transfer(withdrawalRecipientAddress, withdrawalAddressAmount);
+        }
+    }
+
+    function setTradingEnabled(bool _tradingEnabled) external onlyOwner {
+        tradingEnabled = _tradingEnabled;
+    }
+
+    function addToBlacklist(address _address) external onlyOwner {
+        blacklist[_address] = true;
+    }
+
+    function removeFromBlacklist(address _address) external onlyOwner {
+        blacklist[_address] = false;
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721A, IERC165) returns (bool) {
+        return interfaceId == type(IERC2981).interfaceId || 
+            ERC721A.supportsInterface(interfaceId) || 
+            super.supportsInterface(interfaceId);
+    }
+
+    // Override _startTokenId if you want your token IDs to start from 1 instead of 0
+    function _startTokenId() internal view virtual override returns (uint256) {
+        return 1;
+    }
 }
-*/

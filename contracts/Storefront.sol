@@ -1,71 +1,43 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.11;
+pragma solidity ^0.8.23;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "./ERC721AStoreFront.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
 
-
-contract Storefront is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable {
-    using Counters for Counters.Counter;
-
-    Counters.Counter private _tokenIdCounter;
-    
-    // ContractURI
+contract Storefront is ERC721AStoreFront, Ownable {
+    uint256 public mintPrice;
     string public contractURI;
 
-    constructor(
-        string memory _contractURI
-        ) ERC721("zkMarkets Storefront", "ZKM") {
-            setContractURI(_contractURI);
-        }
-
-    function mint(string memory uri) public payable {
-        _tokenIdCounter.increment();
-        uint256 tokenId = _tokenIdCounter.current();
-        _safeMint(msg.sender, tokenId);
-        _setTokenURI(tokenId, uri);
-    }
-
-    function setContractURI(string memory _contractURI) public onlyOwner {
+    constructor(string memory name, string memory symbol, uint256 _mintPrice, string memory _contractURI)
+        ERC721AStoreFront(name, symbol)
+        Ownable(msg.sender) // Set the deployer as the owner
+    {
+        mintPrice = _mintPrice;
         contractURI = _contractURI;
     }
 
+    function mint(string memory cid) public payable {
+        require(msg.value >= mintPrice, "Insufficient funds to mint.");
+        _safeMint(msg.sender, cid, '');
+    }
+
+    function setMintPrice(uint256 _newMintPrice) public onlyOwner {
+        mintPrice = _newMintPrice;
+    }
+
+    function setContractURI(string calldata _newContractURI) public onlyOwner {
+        contractURI = _newContractURI;
+    }
+
     function withdraw() public onlyOwner {
-        (bool success, ) = payable(owner()).call{value: address(this).balance}("");
+        uint256 balance = address(this).balance;
+        require(balance > 0, "No funds available.");
+        (bool success, ) = payable(owner()).call{value: balance}("");
         require(success, "Transfer failed.");
     }
 
-    // The following functions are overrides required by Solidity.
-
-    function _beforeTokenTransfer(address from, address to, uint256 tokenId, uint256 batchSize)
-        internal
-        override(ERC721, ERC721Enumerable)
-    {
-        super._beforeTokenTransfer(from, to, tokenId, batchSize);
-    }
-
-    function _burn(uint256 tokenId) internal override(ERC721, ERC721URIStorage) {
-        super._burn(tokenId);
-    }
-
-    function tokenURI(uint256 tokenId)
-        public
-        view
-        override(ERC721, ERC721URIStorage)
-        returns (string memory)
-    {
-        return super.tokenURI(tokenId);
-    }
-
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(ERC721, ERC721Enumerable, ERC721URIStorage)
-        returns (bool)
-    {
-        return super.supportsInterface(interfaceId);
+    // Override _startTokenId if you want your token IDs to start from 1 instead of 0
+    function _startTokenId() internal view virtual override returns (uint256) {
+        return 1;
     }
 }

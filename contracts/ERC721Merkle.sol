@@ -1,15 +1,21 @@
 //SPDX-License-Identifier: MIT
-/*pragma solidity ^0.8.17;
+pragma solidity ^0.8.23;
+
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./ERC721Template.sol";
 
 contract ERC721Merkle is ERC721Template {
-    uint256 public presalePrice;
-    uint256 public presaleStartTime = type(uint256).max;
-    mapping(uint256 => bytes32) private presaleMerkleRoots;
-    uint256[] private tiers;
-    mapping(address => uint256) private presaleMints;
+    struct Tier {
+        string title;
+        bytes32 merkleRoot;
+        uint256 price;
+        uint256 maxMintAmount;
+        uint256 saleStartTime;
+        mapping(address => uint256) mints;
+    }
+    mapping(uint256 => Tier) public tiers;
+    uint256[] public tierIds;
 
     constructor(
         string memory _name,
@@ -19,12 +25,12 @@ contract ERC721Merkle is ERC721Template {
         uint256 _publicPrice,
         string memory _defaultBaseURI,
         string memory _notRevealedURI,
-        address _comissionRecipient,
+        address payable _withdrawalRecipientAddress,
+        address payable _comissionRecipientAddress,
         uint256 _fixedCommisionTreshold,
         uint256 _comissionPercentageIn10000,
-        address payable _defaultRoyaltyRecipient,
-        uint256 _defaultRoyaltyPercentageIn10000,
-        uint256 _presalePrice
+        address payable _defaultRoyaltyRecipient, // separate from withdrawal recipient to enhance security
+        uint256 _defaultRoyaltyPercentageIn10000
     ) ERC721Template(
         _name,
         _symbol,
@@ -33,85 +39,130 @@ contract ERC721Merkle is ERC721Template {
         _publicPrice,
         _defaultBaseURI,
         _notRevealedURI,
-        _comissionRecipient,
+        _withdrawalRecipientAddress,
+        _comissionRecipientAddress,
         _fixedCommisionTreshold,
         _comissionPercentageIn10000,
         _defaultRoyaltyRecipient,
         _defaultRoyaltyPercentageIn10000
     ) {
         // add code here if you want to do something specific during contract deployment
-        presalePrice = _presalePrice;
     }
 
-    // Get a root for a tier
-    function getPresaleMerkleRoot(uint256 tier) public view returns (bytes32) {
-        return presaleMerkleRoots[tier];
-    }
-
-    function getValidTier(address _user, bytes32[] calldata _studentProof) public view returns (uint256) {
-        // if (balanceOf(_user) > 0) {
-        //     return 0;
-        // }
-
-        uint256 highestValidTier = 0;
-        for (uint256 i = 0; i < tiers.length; i++) {
-            bytes32 root = presaleMerkleRoots[tiers[i]];
-            if (MerkleProof.verify(_studentProof, root, keccak256(abi.encodePacked(_user)))) {
-                // Check if the current valid tier is higher than the highestValidTier
-                if (tiers[i] > highestValidTier) {
-                    highestValidTier = tiers[i];
-                }
+    function setTier(uint256 tierId, string calldata title, bytes32 merkleRoot, uint256 price, uint256 maxMintAmount, uint256 saleStartTime) external onlyOwner {
+        Tier storage tier = tiers[tierId];
+        tier.merkleRoot = merkleRoot;
+        tier.title = title;
+        tier.price = price;
+        tier.maxMintAmount = maxMintAmount;
+        tier.saleStartTime = saleStartTime; // type(uint256).max; is used to disable the tier
+        // check if tierId is already in the array
+        bool isNewTierId = true;
+        for (uint256 i = 0; i < tierIds.length; i++) {
+            if (tierIds[i] == tierId) {
+                isNewTierId = false;
+                break;
             }
         }
-
-        return highestValidTier - presaleMintedBy(msg.sender);
-    }
-
-    function presaleMintedBy(address account) public view returns (uint256) {
-        return presaleMints[account];
-    }
-
-    function presaleMint(
-        uint256 k,
-        bytes32[] calldata _studentProof
-    ) external payable {
-        require(block.timestamp >= presaleStartTime, "Presale not active");
-        require(msg.value >= k * presalePrice, "Insufficient funds for mint");
-        uint256 ts = totalSupply();
-        require(ts + k <= maxSupply, "Cannot mint more than max supply");
-        uint256 validTier = getValidTier(msg.sender, _studentProof);
-        // error if the user is not in any tier or if the tier is smaller than the number of tokens user wants to mint
-        require(validTier > 0 && validTier >= k, "Not prelisted");
-        presaleMints[msg.sender] += k;
-        for (uint256 i = 1; i <= k; i++) {
-            _safeMint(msg.sender, ts + i);
+        if (isNewTierId) {
+            tierIds.push(tierId);
         }
     }
 
-    function setPresaleMerkleRoot(uint256 tier, bytes32 _presaleMerkleRoot) external onlyOwner {
-        // If the tier has not been set yet, add it to the tiers list
-        if(presaleMerkleRoots[tier] == bytes32(0)) {
-            tiers.push(tier);
+    // enable a tier
+    function enableTier(uint256 tierId) external onlyOwner {
+        tiers[tierId].saleStartTime = 0;
+    }
+
+    function getTierIds() external view returns (uint256[] memory) {
+        return tierIds;
+    }
+
+    // get how many more the user is eligible to mint
+    function getMintEligibility(uint256 tierId, address user, bytes32[] calldata proof) external view returns (uint256) {
+        //require(MerkleProof.verify(proof, tier.merkleRoot, keccak256(abi.encodePacked(msg.sender))), "Not in presale list for this tier");
+        // return 0 if user is not in the merkleRoot
+        if (!MerkleProof.verify(proof, tiers[tierId].merkleRoot, keccak256(abi.encodePacked(user)))) {
+            return 0;
         }
-        presaleMerkleRoots[tier] = _presaleMerkleRoot;
-    }
-
-    function setPresalePrice(uint256 _newPrice) public onlyOwner {
-        presalePrice = _newPrice;
-    }
-
-    function togglePresaleActive() external onlyOwner {
-        if (block.timestamp < presaleStartTime) {
-            presaleStartTime = block.timestamp;
-        } else {
-            // This effectively disables the presale sale by setting the start time to a far future
-            presaleStartTime = type(uint256).max;
+        if (tiers[tierId].mints[user] >= tiers[tierId].maxMintAmount) {
+            return 0;
         }
+        return tiers[tierId].maxMintAmount - tiers[tierId].mints[user];
     }
 
-    // Sets the start time of the public sale to a specific timestamp
-    function setPresaleStartTime(uint256 _presaleStartTime) external onlyOwner {
-        presaleStartTime = _presaleStartTime;
+    //helper to disable a tier
+    function disableTier(uint256 tierId) external onlyOwner {
+        tiers[tierId].saleStartTime = type(uint256).max;
+    }
+
+    // set startTime
+    function setTierSaleStartTime(uint256 tierId, uint256 saleStartTime) external onlyOwner {
+        require(tiers[tierId].merkleRoot != bytes32(0), "Tier does not exist");
+        tiers[tierId].saleStartTime = saleStartTime;
+    }
+
+    // set price
+    function setTierPrice(uint256 tierId, uint256 price) external onlyOwner {
+        require(tiers[tierId].merkleRoot != bytes32(0), "Tier does not exist");
+        tiers[tierId].price = price;
+    }
+
+    // set maxMintAmount
+    function setTierMaxMintAmount(uint256 tierId, uint256 maxMintAmount) external onlyOwner {
+        require(tiers[tierId].merkleRoot != bytes32(0), "Tier does not exist");
+        tiers[tierId].maxMintAmount = maxMintAmount;
+    }
+
+    // set merkleRoot
+    function setTierMerkleRoot(uint256 tierId, bytes32 merkleRoot) external onlyOwner {
+        require(tiers[tierId].merkleRoot != bytes32(0), "Tier does not exist");
+        tiers[tierId].merkleRoot = merkleRoot;
+    }
+
+    function getTierDetails(uint256 tierId) external view returns (bytes32 merkleRoot, uint256 price, uint256 maxMintAmount, uint256 saleStartTime, string memory title, uint256 ERC20Price) {
+        Tier storage tier = tiers[tierId];
+        uint256 requiredTokens;
+        try this.getRequiredERC20TokensChainlink(tier.price) returns (uint256 tokens) {
+            requiredTokens = tokens;
+        } catch {
+            requiredTokens = 0;
+        }
+        return (tier.merkleRoot, tier.price, tier.maxMintAmount, tier.saleStartTime, tier.title, requiredTokens);
+    }
+
+    function checkWhitelistMintRequirements(uint256 _mintAmount, Tier storage tier, bytes32[] calldata _proof) internal view {
+        require(tier.merkleRoot != bytes32(0), "Tier does not exist");
+        require(tier.saleStartTime != type(uint256).max, "Tier is not active");
+        require(block.timestamp >= tier.saleStartTime, "Tier sale not started");
+        require(MerkleProof.verify(_proof, tier.merkleRoot, keccak256(abi.encodePacked(msg.sender))), "Not in presale list for this tier");
+        require(_mintAmount <= tier.maxMintAmount - tier.mints[msg.sender], "Exceeds tier max mint amount");
+        uint256 supply = totalSupply();
+        require(supply + _mintAmount <= maxSupply, "Exceeds max supply");
+    }
+
+    function whitelistMint(uint256 tierId, uint256 amount, bytes32[] calldata proof) external payable {
+        Tier storage tier = tiers[tierId];
+        checkWhitelistMintRequirements(amount, tier, proof);
+        require(msg.value >= amount * tier.price, "Insufficient funds for mint");
+        tier.mints[msg.sender] += amount;
+        _safeMint(msg.sender, amount);
+    }
+
+    function whitelistMintWithERC20ChainlinkPrice(uint256 tierId, uint256 amount, bytes32[] calldata proof) public {
+        Tier storage tier = tiers[tierId];
+        checkWhitelistMintRequirements(amount, tier, proof);
+        // Let's make sure price feed contract address exists
+        require(ERC20TokenAddress != address(0), "Payment token address not set");
+
+        // Calculate the cost in ERC20 tokens
+        uint256 requiredTokenAmount = getRequiredERC20TokensChainlink(tier.price * amount);
+
+        tier.mints[msg.sender] += amount;
+
+        IERC20 paymentToken = IERC20(ERC20TokenAddress);        
+        require(paymentToken.transferFrom(msg.sender, address(this), requiredTokenAmount), "ERC20 payment failed");
+
+        _safeMint(msg.sender, amount);
     }
 }
-*/
