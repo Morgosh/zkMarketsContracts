@@ -1,0 +1,38 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "Address",
+  "sourceName": "@openzeppelin/contracts/utils/Address.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "target",
+          "type": "address"
+        }
+      ],
+      "name": "AddressEmptyCode",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "AddressInsufficientBalance",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "FailedInnerCall",
+      "type": "error"
+    }
+  ],
+  "bytecode": "0x60808060405234601757603a9081601d823930815050f35b600080fdfe600080fdfea26469706673582212207810407ef146b0d88a8d3ccf8eed178a7405a04c58547495abfc0a0bbe90e24c64736f6c63430008170033",
+  "deployedBytecode": "0x600080fdfea26469706673582212207810407ef146b0d88a8d3ccf8eed178a7405a04c58547495abfc0a0bbe90e24c64736f6c63430008170033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

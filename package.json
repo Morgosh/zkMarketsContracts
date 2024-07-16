@@ -1,0 +1,39 @@
+{
+  "name": "zkmarkets-contracts",
+  "description": "zkMarkets contracts",
+  "private": true,
+  "author": "zkMarkets",
+  "license": "Business Source License 1.1",
+  "repository": "https://github.com/Morgosh/zkMarkets",
+  "scripts": {
+    "compile": "hardhat compile && ts-node moveAbi.ts",
+    "clean": "hardhat clean",
+    "test": "cross-env NODE_ENV=test hardhat test --network hardhat",
+    "testzk": "cross-env NODE_ENV=test hardhat test --network zkHardhat"
+  },
+  "devDependencies": {
+    "@chainlink/contracts": "^1.1.1",
+    "@matterlabs/hardhat-zksync": "^1.1.0",
+    "@matterlabs/hardhat-zksync-deploy": "^1.5.0",
+    "@matterlabs/hardhat-zksync-solc": "^1.2.1",
+    "@matterlabs/hardhat-zksync-verify": "^1.6.0",
+    "@matterlabs/zksync-contracts": "^0.6.1",
+    "@nomiclabs/hardhat-etherscan": "^3.1.7",
+    "@openzeppelin/contracts": "^5.0.2",
+    "@types/chai": "^4.3.4",
+    "@types/mocha": "^10.0.1",
+    "chai": "^4.3.7",
+    "dotenv": "^16.0.3",
+    "ethers": "^6.9.2",
+    "hardhat": "^2.22.6",
+    "mocha": "^10.2.0",
+    "ts-node": "^10.9.1",
+    "typescript": "^4.9.5",
+    "keccak256": "^1.0.6",
+    "merkletreejs": "^0.3.9",
+    "zksync-ethers": "^6.10.0"
+  },
+  "dependencies": {
+    "cross-env": "^7.0.3"
+  }
+}
