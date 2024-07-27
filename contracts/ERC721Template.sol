@@ -221,8 +221,8 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         publicPrice = _newPrice;
     }
 
-    function setBaseURI(string memory _baseURI) external onlyOwner {
-        baseURI = _baseURI;
+    function setBaseURI(string memory _newBaseURI) external onlyOwner {
+        baseURI = _newBaseURI;
     }
 
     function setNotRevealedURI(string memory _notRevealedURI) external onlyOwner {
