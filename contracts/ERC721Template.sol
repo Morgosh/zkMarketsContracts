@@ -82,27 +82,7 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         isRevealed = keccak256(abi.encodePacked(_notRevealedURI)) == keccak256(abi.encodePacked("")) || 
             keccak256(abi.encodePacked(_notRevealedURI)) == keccak256(abi.encodePacked("null"));
     }
-
-    // //onchain metadata, offchain image
-    // //import "./Base64.sol";
-    // function tokenURI(
-    //     uint256 tokenId
-    // ) public view virtual override returns (string memory) {
-    //     bytes memory dataURI = abi.encodePacked(
-    //         '{',
-    //             '"name": "Chain Battles #', tokenId.toString(), '",',
-    //             '"description": "Battles on chain",',
-    //             '"image": "', generateCharacter(tokenId), '"',
-    //         '}'
-    //     );
-    //     return string(
-    //         abi.encodePacked(
-    //             "data:application/json;base64,",
-    //             Base64.encode(dataURI)
-    //         )
-    //     );
-    // }
-
+    
     function _beforeTokenTransfers(
         address from,
         address to,
