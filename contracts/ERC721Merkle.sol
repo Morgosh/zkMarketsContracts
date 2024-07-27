@@ -122,12 +122,11 @@ contract ERC721Merkle is ERC721Template {
 
     function getTierDetails(uint256 tierId) external view returns (bytes32 merkleRoot, uint256 price, uint256 maxMintAmount, uint256 saleStartTime, string memory title, uint256 ERC20Price) {
         Tier storage tier = tiers[tierId];
-        uint256 requiredTokens;
-        try this.getRequiredERC20TokensChainlink(tier.price) returns (uint256 tokens) {
-            requiredTokens = tokens;
-        } catch {
-            requiredTokens = 0;
+        uint256 requiredTokens = 0;
+        if (ethPriceFeedAddress != address(0) && ERC20PriceFeedAddress != address(0)) {
+            requiredTokens = getRequiredERC20TokensChainlink(publicPrice);
         }
+
         return (tier.merkleRoot, tier.price, tier.maxMintAmount, tier.saleStartTime, tier.title, requiredTokens);
     }
 

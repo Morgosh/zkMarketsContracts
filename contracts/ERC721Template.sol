@@ -127,12 +127,9 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
     }
 
     function getLaunchpadDetailsERC20() external view returns (address, uint256, uint256) {
-        uint256 requiredTokens;
-
-        try this.getRequiredERC20TokensChainlink(publicPrice) returns (uint256 tokens) {
-            requiredTokens = tokens;
-        } catch {
-            requiredTokens = 0;
+        uint256 requiredTokens = 0;
+        if (ethPriceFeedAddress != address(0) && ERC20PriceFeedAddress != address(0)) {
+            requiredTokens = getRequiredERC20TokensChainlink(publicPrice);
         }
 
         return (ERC20TokenAddress, ERC20FixedPricePerToken, requiredTokens);
