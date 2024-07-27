@@ -82,7 +82,7 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         isRevealed = keccak256(abi.encodePacked(_notRevealedURI)) == keccak256(abi.encodePacked("")) || 
             keccak256(abi.encodePacked(_notRevealedURI)) == keccak256(abi.encodePacked("null"));
     }
-    
+
     function _beforeTokenTransfers(
         address from,
         address to,
@@ -124,8 +124,7 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
     }
 
     function getLaunchpadDetails() public view returns (uint256, uint256, uint256, uint256) {
-        uint256 totalSupply = totalSupply();
-        return (maxSupply, publicPrice, totalSupply, publicSaleStartTime);
+        return (maxSupply, publicPrice, totalSupply(), publicSaleStartTime);
     }
 
     function getLaunchpadDetailsERC20() public view returns (address, uint256, uint256) {
@@ -141,8 +140,7 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
     }
 
     function checkMintRequirements(uint256 _mintAmount) internal view {
-        uint256 supply = totalSupply();
-        require(supply + _mintAmount <= maxSupply, "Total supply exceeded");
+        require(totalSupply() + _mintAmount <= maxSupply, "Total supply exceeded");
         require(block.timestamp >= publicSaleStartTime, "Public sale not active");
         require(_mintAmount > 0, "You have to mint at least one");
         require(getPublicMintEligibility() >= _mintAmount, "Invalid amount to be minted");
@@ -206,15 +204,13 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         // Calculate the cost in ERC20 tokens
         uint256 requiredTokenAmount = ERC20FixedPricePerToken * _mintAmount;
 
-        IERC20 paymentToken = IERC20(ERC20TokenAddress);
-        require(paymentToken.transferFrom(msg.sender, address(this), requiredTokenAmount), "ERC20 payment failed");
+        require(IERC20(ERC20TokenAddress).transferFrom(msg.sender, address(this), requiredTokenAmount), "ERC20 payment failed");
 
         _safeMint(msg.sender, _mintAmount);
     }
 
     function adminMint(address _to, uint256 _mintAmount) public onlyOwner {
-        uint256 supply = totalSupply();
-        require(supply + _mintAmount <= maxSupply, "Total supply exceeded");
+        require(totalSupply() + _mintAmount <= maxSupply, "Total supply exceeded");
         _safeMint(_to, _mintAmount);
     }
 

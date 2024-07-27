@@ -137,8 +137,7 @@ contract ERC721Merkle is ERC721Template {
         require(block.timestamp >= tier.saleStartTime, "Tier sale not started");
         require(MerkleProof.verify(_proof, tier.merkleRoot, keccak256(abi.encodePacked(msg.sender))), "Not in presale list for this tier");
         require(_mintAmount <= tier.maxMintAmount - tier.mints[msg.sender], "Exceeds tier max mint amount");
-        uint256 supply = totalSupply();
-        require(supply + _mintAmount <= maxSupply, "Exceeds max supply");
+        require(totalSupply() + _mintAmount <= maxSupply, "Exceeds max supply");
     }
 
     function whitelistMint(uint256 tierId, uint256 amount, bytes32[] calldata proof) external payable {
