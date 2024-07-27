@@ -47,6 +47,7 @@ contract TransactFacet is ReentrancyGuard {
         uint256 startTime;
         uint256 endTime;
         uint256 createdTime; // useful for canceling all orders and can act as unique salt
+        address premiumAddress;
     }
 
     enum ItemType {
@@ -68,7 +69,7 @@ contract TransactFacet is ReentrancyGuard {
         uint256 amount;
     }
 
-    string private constant _ORDER_PARAMETERS_TYPE = "OrderParameters(address offerer,uint8 orderType,Item offer,Item consideration,address royaltyReceiver,uint256 royaltyPercentageIn10000,uint256 startTime,uint256 endTime,uint256 createdTime)";
+    string private constant _ORDER_PARAMETERS_TYPE = "OrderParameters(address offerer,uint8 orderType,Item offer,Item consideration,address royaltyReceiver,uint256 royaltyPercentageIn10000,uint256 startTime,uint256 endTime,uint256 createdTime,address premiumAddress)";
     string private constant _TEST_SUBSTRUCT_TYPE = "Item(uint8 itemType,address tokenAddress,uint256 identifier,uint256 amount)";
     bytes32 private constant _ORDER_PARAMETERS_TYPEHASH = keccak256(abi.encodePacked(_ORDER_PARAMETERS_TYPE, _TEST_SUBSTRUCT_TYPE));
     bytes32 private constant _TEST_SUBSTRUCT_TYPEHASH = keccak256(abi.encodePacked(_TEST_SUBSTRUCT_TYPE));
@@ -100,7 +101,8 @@ contract TransactFacet is ReentrancyGuard {
                 orderParameters.royaltyPercentageIn10000,
                 orderParameters.startTime,
                 orderParameters.endTime,
-                orderParameters.createdTime
+                orderParameters.createdTime,
+                orderParameters.premiumAddress
             ))
         ));
     }
@@ -173,16 +175,16 @@ contract TransactFacet is ReentrancyGuard {
 
     
     // Accepts an order for processing and handles the necessary payments according to the order parameters.
-    function acceptOrder(Order memory order, uint256 royaltyPercentageIn10000) external payable whenNotPaused nonReentrant {
+    function acceptOrder(Order memory order, uint256 royaltyPercentageIn10000, address premiumAddress) external payable whenNotPaused nonReentrant {
         if(order.parameters.orderType == BasicOrderType.ERC721_FOR_ETH) {
             require(msg.value == order.parameters.consideration.amount, "Incorrect ETH value sent");
         }
         bytes32 orderHash = createOrderHash(order.parameters);
         validateOrderAndClaim(order, orderHash, royaltyPercentageIn10000);
-        handlePayments(order.parameters, orderHash);
+        handlePayments(order.parameters, orderHash, premiumAddress);
     }
 
-    function batchAcceptOrder(Order[] memory orders, uint256[] memory royaltyPercentagesIn10000) external payable whenNotPaused nonReentrant {
+    function batchAcceptOrder(Order[] memory orders, uint256[] memory royaltyPercentagesIn10000, address premiumAddress) external payable whenNotPaused nonReentrant {
         require(orders.length == royaltyPercentagesIn10000.length, "Orders and royalty percentages length mismatch");
 
         // msg.value should be total of all orders order.consideration.amount
@@ -197,12 +199,12 @@ contract TransactFacet is ReentrancyGuard {
             require(orders[i].parameters.orderType == BasicOrderType.ERC721_FOR_ETH, "Invalid order type");
             bytes32 orderHash = createOrderHash(orders[i].parameters);
             validateOrderAndClaim(orders[i], orderHash, royaltyPercentagesIn10000[i]);
-            handlePayments(orders[i].parameters, orderHash);
+            handlePayments(orders[i].parameters, orderHash, premiumAddress);
         }
     }
 
     // Similar to acceptOrder, but specifically designed to handle collection offers where the exact NFT may not initially be specified.
-    function acceptCollectionOffer(Order memory order, uint256 royaltyPercentageIn10000, uint256 nftIdentifier) external whenNotPaused nonReentrant {
+    function acceptCollectionOffer(Order memory order, uint256 royaltyPercentageIn10000, uint256 nftIdentifier, address premiumAddress) external whenNotPaused nonReentrant {
         bytes32 orderHash = createOrderHash(order.parameters);
         validateOrderAndClaim(order, orderHash, royaltyPercentageIn10000);
         require(order.parameters.orderType == BasicOrderType.ERC20_FOR_ERC721_ANY, "Invalid order type");
@@ -211,11 +213,11 @@ contract TransactFacet is ReentrancyGuard {
         order.parameters.orderType = BasicOrderType.ERC20_FOR_ERC721;
         order.parameters.consideration.identifier = nftIdentifier;
 
-        handlePayments(order.parameters, orderHash);
+        handlePayments(order.parameters, orderHash, premiumAddress);
     }
 
     // Handles the distribution of payments between the parties involved in a transaction including royalties and platform fees.
-    function handlePayments(OrderParameters memory order, bytes32 orderHash) internal {
+    function handlePayments(OrderParameters memory order, bytes32 orderHash, address premiumAddress) internal {
         uint256 defaultPlatformCut;
         uint256 platformCut;
         uint256 royaltyCut;
@@ -223,25 +225,25 @@ contract TransactFacet is ReentrancyGuard {
         SharedStorage.Storage storage ds = SharedStorage.getStorage();
         uint256 platformFeePercentageIn10000 = ds.platformFee;
         
-
         if(order.orderType == BasicOrderType.ERC721_FOR_ETH) {
             IERC721 nftContract = IERC721(order.offer.tokenAddress);
             royaltyCut = (order.consideration.amount * order.royaltyPercentageIn10000) / 10000;
             defaultPlatformCut = (order.consideration.amount * platformFeePercentageIn10000) / 10000;
             platformCut = defaultPlatformCut; // platformcut equals to platformEarnings
-            uint premiumDiscount = (defaultPlatformCut * ds.premiumDiscount) / 10000;
 
             uint256 ethRemainder = order.consideration.amount - royaltyCut - defaultPlatformCut;
 
-            if (defaultPlatformCut > 0 && isPremiumHolder(msg.sender)) {
+            uint256 takerDiscount = (defaultPlatformCut * getPremiumDiscount(msg.sender, premiumAddress)) / 10000;
+            if (defaultPlatformCut > 0 && takerDiscount > 0) {
                 //seller should not be impacted by taker premium discount
-                platformCut -= premiumDiscount;
-                (bool takerCashbackSuccess,) = msg.sender.call{value: premiumDiscount}("");
+                platformCut -= takerDiscount;
+                (bool takerCashbackSuccess,) = msg.sender.call{value: takerDiscount}("");
                 require(takerCashbackSuccess, "Taker premium cashback transfer failed");
             }
-            if (defaultPlatformCut > 0 && isPremiumHolder(order.offerer)) {
-                platformCut -= premiumDiscount;
-                ethRemainder += premiumDiscount;
+            uint256 offererDiscount = (defaultPlatformCut * getPremiumDiscount(order.offerer, order.premiumAddress)) / 10000;
+            if (defaultPlatformCut > 0 && offererDiscount > 0) {
+                platformCut -= offererDiscount;
+                ethRemainder += offererDiscount;
             }
             
             (bool royaltySuccess,) = payable(order.royaltyReceiver).call{value: royaltyCut}("");
@@ -260,16 +262,17 @@ contract TransactFacet is ReentrancyGuard {
             royaltyCut = (order.offer.amount * order.royaltyPercentageIn10000) / 10000;
             defaultPlatformCut = (order.offer.amount * platformFeePercentageIn10000) / 10000;
             platformCut = defaultPlatformCut; // platformcut equals to platformEarnings
-            uint premiumDiscount = (defaultPlatformCut * ds.premiumDiscount) / 10000;
             
             uint256 ethRemainder = order.offer.amount - royaltyCut - platformCut;
 
-            if (defaultPlatformCut > 0 && isPremiumHolder(msg.sender)) {
-                platformCut -= premiumDiscount;
-                ethRemainder += premiumDiscount;
+            uint256 takerDiscount = (defaultPlatformCut * getPremiumDiscount(msg.sender, premiumAddress)) / 10000;
+            if (defaultPlatformCut > 0 && takerDiscount > 0) {
+                platformCut -= takerDiscount;
+                ethRemainder += takerDiscount;
             }
-            if (defaultPlatformCut > 0 && isPremiumHolder(order.offerer)) {
-                platformCut -= premiumDiscount;
+            uint256 offererDiscount = (defaultPlatformCut * getPremiumDiscount(order.offerer, order.premiumAddress)) / 10000;
+            if (defaultPlatformCut > 0 && offererDiscount > 0) {
+                platformCut -= offererDiscount;
             }
             if (royaltyCut > 0 && order.royaltyReceiver != address(0)) {
                 handleERC20Payments(order.offerer, order.offer.tokenAddress, royaltyCut, order.royaltyReceiver);
@@ -302,13 +305,13 @@ contract TransactFacet is ReentrancyGuard {
     }
 
     // Determines if a user holds a premium NFT, which might grant them special privileges or discounts.
-    function isPremiumHolder(address user) public view returns (bool) {
+    function getPremiumDiscount(address user, address premiumAddress) public view returns (uint256) {
         SharedStorage.Storage storage ds = SharedStorage.getStorage();
-        if (ds.premiumNftAddress == address(0)) {
-            return false;
+        uint256 discount = ds.premiumDiscounts[premiumAddress];
+        if (discount == 0 || IERC721(premiumAddress).balanceOf(user) == 0) {
+            return 0;
         }
-        IERC721 premiumNft = IERC721(ds.premiumNftAddress);
-        return premiumNft.balanceOf(user) > 0;
+        return discount;
     }
 
     // Verifies a signature against a hash and signer, supporting both EOA and contract accounts.

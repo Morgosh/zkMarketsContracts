@@ -8,8 +8,7 @@ contract ManagementFacet {
     using SafeERC20 for IERC20;
 
     event PlatformFeeUpdated(uint256 newPlatformFee);
-    event PremiumDiscountUpdated(uint256 newPremiumFee);
-    event PremiumNFTAddressUpdated(address newPremiumNftAddress);
+    event PremiumDiscountUpdated(address premiumAddress, uint256 newPremiumDiscount);
     event WETHAddressUpdated(address newWETHAddress);
     event MarketplacePaused();
 
@@ -24,31 +23,21 @@ contract ManagementFacet {
         return SharedStorage.getStorage().platformFee;
     }
 
-    function setPremiumDiscount(uint256 _premiumDiscount) external {
+    function setPremiumDiscount(address _premiumAddress, uint256 _premiumDiscount) external {
         LibDiamond.enforceIsContractOwner();
         require(_premiumDiscount <= 5000, "Discount exceeds maximum limit");
-        SharedStorage.setPremiumDiscount(_premiumDiscount);
-        emit PremiumDiscountUpdated(_premiumDiscount);
+        SharedStorage.setPremiumDiscount(_premiumAddress, _premiumDiscount);
+        emit PremiumDiscountUpdated(_premiumAddress, _premiumDiscount);
     }
 
-    function getPremiumDiscount() external view returns (uint256) {
-        return SharedStorage.getStorage().premiumDiscount;
+    function getPremiumDiscount(address _premiumAddress) external view returns (uint256) {
+        return SharedStorage.getStorage().premiumDiscounts[_premiumAddress];
     }
 
     function setWETHAddress(address _wethAddress) external {
         LibDiamond.enforceIsContractOwner();
         SharedStorage.setWETHAddress(_wethAddress);
         emit WETHAddressUpdated(_wethAddress);
-    }
-
-    function setPremiumNftAddress(address _premiumNftAddress) external {
-        LibDiamond.enforceIsContractOwner();
-        SharedStorage.setPremiumNftAddress(_premiumNftAddress);
-        emit PremiumNFTAddressUpdated(_premiumNftAddress);
-    }
-
-    function getPremiumNftAddress() external view returns (address) {
-        return SharedStorage.getStorage().premiumNftAddress;
     }
 
     function setMarketplacePaused(bool _paused) external {
