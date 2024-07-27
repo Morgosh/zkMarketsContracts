@@ -1,0 +1,934 @@
+{
+  "clientRemote": "https://github.com/Morgosh/zkMarkets",
+  "gitRemote": "https://github.com/Morgosh/zkMarkets",
+  "gitSha": "9110fc8b0aeae46583ba9d2255529245e41a481d",
+  "treeEntries": [
+    {
+      "label": "might need nonreetrant modifier",
+      "entryType": 1,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Template.sol",
+          "startLine": 171,
+          "endLine": 171,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "info/gas: modify super so it can be calling super from here on",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Merkle.sol",
+          "startLine": 154,
+          "endLine": 154,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "info: maybe start false so maxMint is effective",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Template.sol",
+          "startLine": 46,
+          "endLine": 46,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "gas: save storage slots",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/diamond/libraries/SharedStorage.sol",
+          "startLine": 4,
+          "endLine": 4,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "reentrancy ?",
+      "entryType": 1,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/diamond/facets/custom/TransactFacet.sol",
+          "startLine": 331,
+          "endLine": 331,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "reentrancy",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/diamond/facets/custom/TransactFacet.sol",
+          "startLine": 244,
+          "endLine": 244,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "seller can fake sell by reverting here automatically + reentrancy",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/diamond/facets/custom/TransactFacet.sol",
+          "startLine": 256,
+          "endLine": 256,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    }
+  ],
+  "auditedFiles": [],
+  "resolvedEntries": [
+    {
+      "label": "info: remove commented code",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Template.sol",
+          "startLine": 103,
+          "endLine": 103,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "gas: set var directly instead of setter",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Template.sol",
+          "startLine": 67,
+          "endLine": 67,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "gas: use custom errors",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Template.sol",
+          "startLine": 77,
+          "endLine": 77,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "gas/info: useless",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Template.sol",
+          "startLine": 146,
+          "endLine": 146,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "gas: useless",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Merkle.sol",
+          "startLine": 139,
+          "endLine": 139,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "info: make external",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Template.sol",
+          "startLine": 206,
+          "endLine": 206,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "gas: not needed",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Template.sol",
+          "startLine": 228,
+          "endLine": 228,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "med: missing staleness check and sequencer issue",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Template.sol",
+          "startLine": 181,
+          "endLine": 181,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "info: move the try inside the function + don't think it's even needed",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Template.sol",
+          "startLine": 153,
+          "endLine": 153,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "bruhh",
+      "entryType": 1,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Merkle.sol",
+          "startLine": 125,
+          "endLine": 125,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "info/low: don't hardcode decimals",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Template.sol",
+          "startLine": 192,
+          "endLine": 192,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "med: missing erc20 decimals scale",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Template.sol",
+          "startLine": 203,
+          "endLine": 203,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "gas: useless",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Template.sol",
+          "startLine": 163,
+          "endLine": 163,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "gas: not optimal",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Template.sol",
+          "startLine": 242,
+          "endLine": 242,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "gas: can prob be one variable that get reduced up to 0 then change line 342 & 351",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Template.sol",
+          "startLine": 333,
+          "endLine": 333,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "gas: not needed",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Template.sol",
+          "startLine": 339,
+          "endLine": 339,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "med: gas griefing to make it always revert",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Template.sol",
+          "startLine": 361,
+          "endLine": 361,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "info: missing natspec everywhere",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Merkle.sol",
+          "startLine": 50,
+          "endLine": 50,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "gas: could merge this and the check after",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Merkle.sol",
+          "startLine": 135,
+          "endLine": 135,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "not ideal as balance can change, should be using minted counter",
+      "entryType": 1,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Template.sol",
+          "startLine": 138,
+          "endLine": 138,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "useless initialisation",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Template.sol",
+          "startLine": 23,
+          "endLine": 23,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "info: shadowing",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/ERC721Template.sol",
+          "startLine": 251,
+          "endLine": 251,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "info: wrong error msg",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/diamond/facets/custom/ManagementFacet.sol",
+          "startLine": 26,
+          "endLine": 26,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "gas: use msg.sender here and in the following function",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/diamond/facets/custom/ManagementFacet.sol",
+          "startLine": 55,
+          "endLine": 55,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "info: no getter ?",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/diamond/facets/custom/ManagementFacet.sol",
+          "startLine": 47,
+          "endLine": 47,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "gas: not needed ?",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/diamond/facets/custom/TransactFacet.sol",
+          "startLine": 142,
+          "endLine": 142,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "gas/info: move this into acceptOrder and remove orderHash param",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/diamond/facets/custom/TransactFacet.sol",
+          "startLine": 261,
+          "endLine": 261,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "gas/info: repetitive",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/diamond/facets/custom/TransactFacet.sol",
+          "startLine": 264,
+          "endLine": 268,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "info: rename variable as it can be another token than weth",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/diamond/facets/custom/TransactFacet.sol",
+          "startLine": 272,
+          "endLine": 272,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "gas/info: think you can just have one variable",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/diamond/facets/custom/TransactFacet.sol",
+          "startLine": 234,
+          "endLine": 234,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "gas: not needed for 99% tokens",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/diamond/facets/custom/TransactFacet.sol",
+          "startLine": 302,
+          "endLine": 306,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "maybe could make it a mapping so can whitelist other nfts ",
+      "entryType": 1,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/diamond/facets/custom/TransactFacet.sol",
+          "startLine": 319,
+          "endLine": 319,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "move into handle payment ? + 2 loops seems not ideal",
+      "entryType": 1,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/diamond/facets/custom/TransactFacet.sol",
+          "startLine": 192,
+          "endLine": 196,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "maybe move this into handle payment ?",
+      "entryType": 1,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/diamond/facets/custom/TransactFacet.sol",
+          "startLine": 181,
+          "endLine": 181,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    },
+    {
+      "label": "gas: not needed ?",
+      "entryType": 0,
+      "author": "hhk",
+      "locations": [
+        {
+          "path": "contracts/diamond/facets/custom/TransactFacet.sol",
+          "startLine": 237,
+          "endLine": 237,
+          "label": "",
+          "description": ""
+        }
+      ],
+      "details": {
+        "severity": "",
+        "difficulty": "",
+        "type": "",
+        "description": "",
+        "exploit": "",
+        "recommendation": "Short term, \nLong term, \n"
+      }
+    }
+  ]
+}
