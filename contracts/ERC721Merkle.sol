@@ -11,8 +11,9 @@ contract ERC721Merkle is ERC721Template {
         string title;
         bytes32 merkleRoot;
         uint256 price;
-        uint256 maxMintAmount;
-        uint256 saleStartTime;
+        uint256 erc20Price;
+        uint128 maxMintAmount;
+        uint128 saleStartTime;
         mapping(address => uint256) mints;
     }
     mapping(uint256 => Tier) public tiers;
@@ -50,13 +51,14 @@ contract ERC721Merkle is ERC721Template {
         // add code here if you want to do something specific during contract deployment
     }
 
-    function setTier(uint256 tierId, string calldata title, bytes32 merkleRoot, uint256 price, uint256 maxMintAmount, uint256 saleStartTime) external onlyOwner {
+    function setTier(uint256 tierId, string calldata title, bytes32 merkleRoot, uint256 price, uint256 erc20Price, uint256 maxMintAmount, uint256 saleStartTime) external onlyOwner {
         Tier storage tier = tiers[tierId];
         tier.merkleRoot = merkleRoot;
         tier.title = title;
         tier.price = price;
-        tier.maxMintAmount = maxMintAmount;
-        tier.saleStartTime = saleStartTime; // type(uint256).max; is used to disable the tier
+        tier.erc20Price = erc20Price;
+        tier.maxMintAmount = uint128(maxMintAmount);
+        tier.saleStartTime = uint128(saleStartTime); // type(uint256).max; is used to disable the tier
         // check if tierId is already in the array
         bool isNewTierId = true;
         for (uint256 i = 0; i < tierIds.length; i++) {
@@ -94,25 +96,26 @@ contract ERC721Merkle is ERC721Template {
 
     //helper to disable a tier
     function disableTier(uint256 tierId) external onlyOwner {
-        tiers[tierId].saleStartTime = type(uint256).max;
+        tiers[tierId].saleStartTime = type(uint128).max;
     }
 
     // set startTime
     function setTierSaleStartTime(uint256 tierId, uint256 saleStartTime) external onlyOwner {
         require(tiers[tierId].merkleRoot != bytes32(0), "Tier does not exist");
-        tiers[tierId].saleStartTime = saleStartTime;
+        tiers[tierId].saleStartTime = uint128(saleStartTime);
     }
 
     // set price
-    function setTierPrice(uint256 tierId, uint256 price) external onlyOwner {
+    function setTierPrice(uint256 tierId, uint256 price, uint256 erc20Price) external onlyOwner {
         require(tiers[tierId].merkleRoot != bytes32(0), "Tier does not exist");
         tiers[tierId].price = price;
+        tiers[tierId].erc20Price = erc20Price;
     }
 
     // set maxMintAmount
     function setTierMaxMintAmount(uint256 tierId, uint256 maxMintAmount) external onlyOwner {
         require(tiers[tierId].merkleRoot != bytes32(0), "Tier does not exist");
-        tiers[tierId].maxMintAmount = maxMintAmount;
+        tiers[tierId].maxMintAmount = uint128(maxMintAmount);
     }
 
     // set merkleRoot
@@ -155,6 +158,23 @@ contract ERC721Merkle is ERC721Template {
 
         // Calculate the cost in ERC20 tokens
         uint256 requiredTokenAmount = getRequiredERC20TokensChainlink(tier.price * amount);
+
+        tier.mints[msg.sender] += amount;
+
+        IERC20(ERC20TokenAddress).safeTransferFrom(msg.sender, address(this), requiredTokenAmount);
+
+        _safeMint(msg.sender, amount);
+    }
+
+    function mintWithFixedERC20Price(uint256 tierId, uint256 amount, bytes32[] calldata proof) external {
+        Tier storage tier = tiers[tierId];
+        uint256 erc20Price = tier.erc20Price;
+        checkWhitelistMintRequirements(amount, tier, proof);
+        require(ERC20TokenAddress != address(0), "Payment token address not set");
+        require(erc20Price > 0, "Price per token not set");
+
+        // Calculate the cost in ERC20 tokens
+        uint256 requiredTokenAmount = erc20Price * amount;
 
         tier.mints[msg.sender] += amount;
 

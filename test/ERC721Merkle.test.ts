@@ -96,9 +96,9 @@ describe("ERC721Merkle Test", function () {
     tier1MerkleTree = new MerkleTree(getLeafNodes(tier1Addresses), keccak256, { sortPairs: true })
     tier2MerkleTree = new MerkleTree(getLeafNodes(tier2Addresses), keccak256, { sortPairs: true })
     tier3MerkleTree = new MerkleTree(getLeafNodes(tier3Data.addresses), keccak256, { sortPairs: true })
-    const a = await adminContract.setTier(1, "wl", getRootHash(tier1MerkleTree), ethers.parseEther("0.02"), 1, ethers.MaxUint256)
-    const b = await adminContract.setTier(2, "OG", getRootHash(tier2MerkleTree), ethers.parseEther("0.01"), 2, ethers.MaxUint256)
-    const c = await adminContract.setTier(3, "BIG", getRootHash(tier3MerkleTree), tier3Data.priceWei, tier3Data.maxMint, tier3Data.startTime)
+    const a = await adminContract.setTier(1, "wl", getRootHash(tier1MerkleTree), ethers.parseEther("0.02"), ethers.parseEther("2"), 1, ethers.MaxUint256)
+    const b = await adminContract.setTier(2, "OG", getRootHash(tier2MerkleTree), ethers.parseEther("0.01"), ethers.parseEther("1"), 2, ethers.MaxUint256)
+    const c = await adminContract.setTier(3, "BIG", getRootHash(tier3MerkleTree), tier3Data.priceWei, ethers.parseEther("3"), tier3Data.maxMint, tier3Data.startTime)
 
     const tierDetails = await adminContract.getTierDetails(3)
 
