@@ -19,12 +19,12 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
     uint256 public publicMaxMintAmount;
     uint256 public publicSaleStartTime = type(uint256).max;
     bool public isRevealed;
-    address payable public withdrawalRecipientAddress; // address that will receive revenue
-    
-    address payable public comissionRecipientAddress;// address that will receive a part of revenue on withdrawal
-    uint256 public comissionPercentageIn10000; // percentage of revenue to be sent to comissionRecipientAddress
-    uint256 private totalComissionWithdrawn = 0;    
-    uint256 private fixedCommissionTreshold;
+
+    address payable public immutable withdrawalRecipientAddress; // address that will receive revenue
+    address payable public immutable comissionRecipientAddress;// address that will receive a part of revenue on withdrawal
+    uint256 public immutable comissionPercentageIn10000; // percentage of revenue to be sent to comissionRecipientAddress
+    uint256 private immutable fixedCommissionTreshold;
+    uint256 private totalComissionWithdrawn;
 
     string public contractURI;
     //presale price is set after
