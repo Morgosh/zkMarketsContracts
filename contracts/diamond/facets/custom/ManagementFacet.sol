@@ -22,11 +22,19 @@ contract ManagementFacet {
         emit PlatformFeeUpdated(_platformFee);
     }
 
+    function getPlatformFee() external view returns (uint256) {
+        return SharedStorage.getStorage().platformFee;
+    }
+
     function setPremiumDiscount(uint256 _premiumDiscount) external {
         LibDiamond.enforceIsContractOwner();
         require(_premiumDiscount <= 5000, "Fee exceeds maximum limit");
         SharedStorage.setPremiumDiscount(_premiumDiscount);
         emit PremiumDiscountUpdated(_premiumDiscount);
+    }
+
+    function getPremiumDiscount() external view returns (uint256) {
+        return SharedStorage.getStorage().premiumDiscount;
     }
 
     function setWETHAddress(address _wethAddress) external {
@@ -49,6 +57,10 @@ contract ManagementFacet {
         LibDiamond.enforceIsContractOwner();
         SharedStorage.setPaused(_paused);
         emit MarketplacePaused();
+    }
+
+    function getMarketplacePaused() external returns (bool) {
+        return SharedStorage.getStorage().paused;
     }
 
     function withdrawETH() external {
