@@ -4,11 +4,6 @@ import {SharedStorage} from "../../libraries/SharedStorage.sol";
 import {LibDiamond} from "../../libraries/LibDiamond.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-interface IERC20 {
-    function transfer(address recipient, uint256 amount) external returns (bool);
-    function balanceOf(address account) external view returns (uint256);
-}
-
 contract ManagementFacet {
     using SafeERC20 for IERC20;
 

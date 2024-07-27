@@ -9,11 +9,6 @@ import {SharedStorage} from "../../libraries/SharedStorage.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 // interfaces
-interface IERC20 {
-    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
-    function balanceOf(address account) external view returns (uint256);
-    function allowance(address owner, address spender) external view returns (uint256);
-}
 
 interface IERC2981 {
     function royaltyInfo(uint256 tokenId, uint256 salePrice) external view returns (address receiver, uint256 royaltyAmount);
@@ -295,8 +290,8 @@ contract TransactFacet is ReentrancyGuard {
     }
 
     // Manages the transfer of ERC20 tokens between accounts, ensuring all balances and allowances are correct with custom error messages.
-    function handleERC20Payments(address from, IERC20 tokenAddress, uint256 amount, address to) internal {
-        tokenAddress.safeTransferFrom(from, to, amount);
+    function handleERC20Payments(address from, address tokenAddress, uint256 amount, address to) internal {
+        IERC20(tokenAddress).safeTransferFrom(from, to, amount);
     }
 
     // Checks if an address is a contract, which is useful for validating smart contract interactions.
