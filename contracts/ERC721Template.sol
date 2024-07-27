@@ -65,11 +65,11 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         uint256 _defaultRoyaltyPercentageIn10000
         // set max mint amount after deployment
     ) ERC721A(_name, _symbol) Ownable(msg.sender) {
-        setMaxSupply(_maxSupply);
-        setPublicPrice(_publicPrice);
+        maxSupply = _maxSupply;
+        publicPrice = _publicPrice;
         contractURI = _contractURI; // no need to emit event here, as it's set in the constructor
-        setBaseURI(_defaultBaseURI);
-        setNotRevealedURI(_notRevealedURI);
+        baseURI = _defaultBaseURI;
+        notRevealedURI =_notRevealedURI;
         publicMaxMintAmount = 10000;
         withdrawalRecipientAddress = _withdrawalRecipientAddress;
         comissionRecipientAddress = _comissionRecipientAddress;
@@ -79,8 +79,7 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         comissionPercentageIn10000 = _comissionPercentageIn10000;
         defaultRoyaltyRecipient = _defaultRoyaltyRecipient;
         defaultRoyaltyPercentageIn10000 = _defaultRoyaltyPercentageIn10000;
-        isRevealed = keccak256(abi.encodePacked(_notRevealedURI)) == keccak256(abi.encodePacked("")) || 
-            keccak256(abi.encodePacked(_notRevealedURI)) == keccak256(abi.encodePacked("null"));
+        isRevealed = bytes(_notRevealedURI).length == 0;
     }
 
     function _beforeTokenTransfers(
@@ -123,11 +122,11 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         return publicMaxMintAmount - balance;
     }
 
-    function getLaunchpadDetails() public view returns (uint256, uint256, uint256, uint256) {
+    function getLaunchpadDetails() external view returns (uint256, uint256, uint256, uint256) {
         return (maxSupply, publicPrice, totalSupply(), publicSaleStartTime);
     }
 
-    function getLaunchpadDetailsERC20() public view returns (address, uint256, uint256) {
+    function getLaunchpadDetailsERC20() external view returns (address, uint256, uint256) {
         uint256 requiredTokens;
 
         try this.getRequiredERC20TokensChainlink(publicPrice) returns (uint256 tokens) {
@@ -147,7 +146,7 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         require(balanceOf(msg.sender) + _mintAmount <= publicMaxMintAmount, "Invalid amount to be minted");
     }
 
-    function mint(uint256 _mintAmount) public payable {
+    function mint(uint256 _mintAmount) external payable {
         checkMintRequirements(_mintAmount);
         require(msg.value >= publicPrice * _mintAmount, "Cost is higher than the amount sent");
         _safeMint(msg.sender, _mintAmount);
@@ -182,7 +181,7 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         return totalERC20Cost;
     }
 
-    function mintWithERC20ChainlinkPrice(uint256 _mintAmount) public {
+    function mintWithERC20ChainlinkPrice(uint256 _mintAmount) external {
         checkMintRequirements(_mintAmount);
         // Let's make sure price feed contract address exists
         require(ERC20TokenAddress != address(0), "Payment token address not set");
@@ -196,7 +195,7 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         _safeMint(msg.sender, _mintAmount);
     }
 
-    function mintWithFixedERC20Price(uint256 _mintAmount) public {
+    function mintWithFixedERC20Price(uint256 _mintAmount) external {
         checkMintRequirements(_mintAmount);
         require(ERC20TokenAddress != address(0), "Payment token address not set");
         require(ERC20FixedPricePerToken > 0, "Price per token not set");
@@ -220,19 +219,19 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         }
     }
 
-    function setPublicPrice(uint256 _newPrice) public onlyOwner {
+    function setPublicPrice(uint256 _newPrice) external onlyOwner {
         publicPrice = _newPrice;
     }
 
-    function setBaseURI(string memory _baseURI) public onlyOwner {
+    function setBaseURI(string memory _baseURI) external onlyOwner {
         baseURI = _baseURI;
     }
 
-    function setNotRevealedURI(string memory _notRevealedURI) public onlyOwner {
+    function setNotRevealedURI(string memory _notRevealedURI) external onlyOwner {
         notRevealedURI = _notRevealedURI;
     }
 
-    function setMaxSupply(uint256 _newmaxSupply) public onlyOwner {
+    function setMaxSupply(uint256 _newmaxSupply) external onlyOwner {
         maxSupply = _newmaxSupply;
     }
 
@@ -258,12 +257,12 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         isRevealed = !isRevealed;
     }
 
-    function setDefaultRoyaltyInfo(address payable _defaultRoyaltyRecipient, uint256 _defaultRoyaltyPercentageIn10000) public onlyOwner {
+    function setDefaultRoyaltyInfo(address payable _defaultRoyaltyRecipient, uint256 _defaultRoyaltyPercentageIn10000) external onlyOwner {
         defaultRoyaltyRecipient = _defaultRoyaltyRecipient;
         defaultRoyaltyPercentageIn10000 = _defaultRoyaltyPercentageIn10000;
     }
 
-    function setTokenRoyaltyInfo(uint256 _tokenId, address payable _royaltyRecipient, uint256 _royaltyPercentage) public onlyOwner {
+    function setTokenRoyaltyInfo(uint256 _tokenId, address payable _royaltyRecipient, uint256 _royaltyPercentage) external onlyOwner {
         require(ownerOf(_tokenId) != address(0), "Token does not exist");
         tokenRoyaltyRecipient[_tokenId] = _royaltyRecipient;
         tokenRoyaltyPercentage[_tokenId] = _royaltyPercentage;

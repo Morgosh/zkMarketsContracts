@@ -148,7 +148,7 @@ contract ERC721Merkle is ERC721Template {
         _safeMint(msg.sender, amount);
     }
 
-    function whitelistMintWithERC20ChainlinkPrice(uint256 tierId, uint256 amount, bytes32[] calldata proof) public {
+    function whitelistMintWithERC20ChainlinkPrice(uint256 tierId, uint256 amount, bytes32[] calldata proof) external {
         Tier storage tier = tiers[tierId];
         checkWhitelistMintRequirements(amount, tier, proof);
         // Let's make sure price feed contract address exists
