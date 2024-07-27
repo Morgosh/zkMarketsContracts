@@ -28,7 +28,7 @@ contract ManagementFacet {
 
     function setPremiumDiscount(uint256 _premiumDiscount) external {
         LibDiamond.enforceIsContractOwner();
-        require(_premiumDiscount <= 5000, "Fee exceeds maximum limit");
+        require(_premiumDiscount <= 5000, "Discount exceeds maximum limit");
         SharedStorage.setPremiumDiscount(_premiumDiscount);
         emit PremiumDiscountUpdated(_premiumDiscount);
     }
