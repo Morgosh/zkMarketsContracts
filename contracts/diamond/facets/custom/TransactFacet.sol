@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {SharedStorage} from "../../libraries/SharedStorage.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 // interfaces
 interface IERC20 {
@@ -23,6 +24,8 @@ interface Ownable {
 }
 
 contract TransactFacet is ReentrancyGuard {
+    using SafeERC20 for IERC20;
+
     event OrderFulfilled(bytes32 orderHash, address indexed nftReceiver, address indexed nftSeller, address indexed nftAddress, uint256 tokenId, uint8 orderType, uint256 price, uint256 platformFee);
     event OrderCanceled(bytes32 orderHash, address indexed offerer, uint8 orderType);
     event OrderCanceledAll(address indexed offerer, uint256 canceledAt);
@@ -140,8 +143,6 @@ contract TransactFacet is ReentrancyGuard {
 
         require(order.parameters.offerer == msg.sender, "Only orderer can cancel order");
 
-        require(verifySignature(orderHash, order.signature, order.parameters.offerer), "Invalid signature or incorrect signer");
-
         ds.ordersClaimed[orderHash] = true;
 
         emit OrderCanceled(orderHash, order.parameters.offerer, uint8(order.parameters.orderType));
@@ -235,8 +236,6 @@ contract TransactFacet is ReentrancyGuard {
             platformCut = defaultPlatformCut; // platformcut equals to platformEarnings
             uint premiumDiscount = (defaultPlatformCut * ds.premiumDiscount) / 10000;
 
-            require(nftContract.ownerOf(order.offer.identifier) == order.offerer, "NFT owner is not the offerer");
-
             uint256 ethRemainder = order.consideration.amount - royaltyCut - defaultPlatformCut;
 
             if (defaultPlatformCut > 0 && isPremiumHolder(msg.sender)) {
@@ -267,8 +266,6 @@ contract TransactFacet is ReentrancyGuard {
             defaultPlatformCut = (order.offer.amount * platformFeePercentageIn10000) / 10000;
             platformCut = defaultPlatformCut; // platformcut equals to platformEarnings
             uint premiumDiscount = (defaultPlatformCut * ds.premiumDiscount) / 10000;
-
-            require(nftContract.ownerOf(order.consideration.identifier) == msg.sender, "NFT owner is not the taker");
             
             uint256 ethRemainder = order.offer.amount - royaltyCut - platformCut;
 
@@ -298,15 +295,8 @@ contract TransactFacet is ReentrancyGuard {
     }
 
     // Manages the transfer of ERC20 tokens between accounts, ensuring all balances and allowances are correct with custom error messages.
-    function handleERC20Payments(address from, address tokenAddress, uint256 amount, address to) internal {
-        IERC20 token = IERC20(tokenAddress);
-        uint256 balance = token.balanceOf(from);
-        uint256 allowance = token.allowance(from, address(this));
-
-        require(balance >= amount, "Insufficient balance to complete transaction");
-        require(allowance >= amount, "Insufficient allowance to complete transaction");
-
-        require(token.transferFrom(from, to, amount), "ERC20 Transfer failed");
+    function handleERC20Payments(address from, IERC20 tokenAddress, uint256 amount, address to) internal {
+        tokenAddress.safeTransferFrom(from, to, amount);
     }
 
     // Checks if an address is a contract, which is useful for validating smart contract interactions.

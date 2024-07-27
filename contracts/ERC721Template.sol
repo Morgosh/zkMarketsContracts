@@ -140,7 +140,6 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
     function checkMintRequirements(uint256 _mintAmount) internal view {
         require(totalSupply() + _mintAmount <= maxSupply, "Total supply exceeded");
         require(block.timestamp >= publicSaleStartTime, "Public sale not active");
-        require(_mintAmount > 0, "You have to mint at least one");
         require(getPublicMintEligibility() >= _mintAmount, "Invalid amount to be minted");
         require(balanceOf(msg.sender) + _mintAmount <= publicMaxMintAmount, "Invalid amount to be minted");
     }
@@ -309,8 +308,6 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
                         ? address(this).balance 
                         : remainingCommission;
 
-        // Ensure that the contract balance is sufficient before proceeding
-        require(address(this).balance >= amount, "Insufficient balance");
         // Ensure we don't exceed the fixed commission threshold
         require(totalComissionWithdrawn + amount <= fixedCommissionTreshold, "Total withdrawal by commission cannot exceed the threshold");
 

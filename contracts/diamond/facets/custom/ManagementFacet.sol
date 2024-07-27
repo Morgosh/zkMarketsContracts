@@ -2,6 +2,7 @@
 pragma solidity ^0.8.23;
 import {SharedStorage} from "../../libraries/SharedStorage.sol";
 import {LibDiamond} from "../../libraries/LibDiamond.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 interface IERC20 {
     function transfer(address recipient, uint256 amount) external returns (bool);
@@ -9,6 +10,8 @@ interface IERC20 {
 }
 
 contract ManagementFacet {
+    using SafeERC20 for IERC20;
+
     event PlatformFeeUpdated(uint256 newPlatformFee);
     event PremiumDiscountUpdated(uint256 newPremiumFee);
     event PremiumNFTAddressUpdated(address newPremiumNftAddress);
@@ -68,12 +71,11 @@ contract ManagementFacet {
         payable(LibDiamond.diamondStorage().contractOwner).call{value: address(this).balance}("");
     }
 
-    function withdrawERC20(address erc20Token) external {
+    function withdrawERC20(IERC20 erc20Token) external {
         LibDiamond.enforceIsContractOwner();
         address owner = LibDiamond.diamondStorage().contractOwner;
-        IERC20 erc20 = IERC20(erc20Token);
-        uint256 erc20Balance = erc20.balanceOf(address(this));
-        erc20.transfer(owner, erc20Balance);
+        uint256 erc20Balance = erc20Token.balanceOf(address(this));
+        erc20Token.safeTransfer(owner, erc20Balance);
     }
 
     // lets also make it a receiver
