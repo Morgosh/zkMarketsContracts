@@ -3,3 +3,5 @@ node_modules
 artifacts
 artifacts-zk
 cache-zk
+.DS_Store
+cache
