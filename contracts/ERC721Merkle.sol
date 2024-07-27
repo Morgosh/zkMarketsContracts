@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "./ERC721Template.sol";
 
 contract ERC721Merkle is ERC721Template {
+    using SafeERC20 for IERC20;
     struct Tier {
         string title;
         bytes32 merkleRoot;
@@ -158,8 +159,7 @@ contract ERC721Merkle is ERC721Template {
 
         tier.mints[msg.sender] += amount;
 
-        IERC20 paymentToken = IERC20(ERC20TokenAddress);        
-        require(paymentToken.transferFrom(msg.sender, address(this), requiredTokenAmount), "ERC20 payment failed");
+        IERC20(ERC20TokenAddress).safeTransferFrom(msg.sender, address(this), requiredTokenAmount);
 
         _safeMint(msg.sender, amount);
     }

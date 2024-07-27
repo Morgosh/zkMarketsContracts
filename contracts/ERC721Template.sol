@@ -5,10 +5,12 @@ import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "./ERC721A.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
 contract ERC721Template is IERC2981, Ownable, ERC721A  {
     using Strings for uint256;
+    using SafeERC20 for IERC20;
 
     string private baseURI;
     string public notRevealedURI;
@@ -186,8 +188,7 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         // Calculate the cost in ERC20 tokens
         uint256 requiredTokenAmount = getRequiredERC20TokensChainlink(publicPrice * _mintAmount);
 
-        IERC20 paymentToken = IERC20(ERC20TokenAddress);
-        require(paymentToken.transferFrom(msg.sender, address(this), requiredTokenAmount), "ERC20 payment failed");
+        IERC20(ERC20TokenAddress).safeTransferFrom(msg.sender, address(this), requiredTokenAmount);
 
         _safeMint(msg.sender, _mintAmount);
     }
@@ -200,7 +201,7 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         // Calculate the cost in ERC20 tokens
         uint256 requiredTokenAmount = ERC20FixedPricePerToken * _mintAmount;
 
-        require(IERC20(ERC20TokenAddress).transferFrom(msg.sender, address(this), requiredTokenAmount), "ERC20 payment failed");
+        IERC20(ERC20TokenAddress).safeTransferFrom(msg.sender, address(this), requiredTokenAmount);
 
         _safeMint(msg.sender, _mintAmount);
     }
@@ -341,23 +342,22 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         }
     }
 
-    function withdrawERC20(address erc20Token) external {
+    function withdrawERC20(IERC20 erc20Token) external {
         require(
             msg.sender == owner() || msg.sender == comissionRecipientAddress  || msg.sender == withdrawalRecipientAddress,
             "Only owner or commission recipient can withdraw"
         );
-        IERC20 erc20 = IERC20(erc20Token);
-        uint256 erc20Balance = erc20.balanceOf(address(this));
+        uint256 erc20Balance = erc20Token.balanceOf(address(this));
         uint256 comission = (erc20Balance * comissionPercentageIn10000) / 10000;
         uint256 withdrawalAddressAmount = erc20Balance - comission;
 
         //withdrawalRecipientAddress
         if(comission > 0) {
-            erc20.transfer(comissionRecipientAddress, comission);
+            erc20Token.safeTransfer(comissionRecipientAddress, comission);
         }
 
         if(withdrawalAddressAmount > 0) {
-            erc20.transfer(withdrawalRecipientAddress, withdrawalAddressAmount);
+            erc20Token.safeTransfer(withdrawalRecipientAddress, withdrawalAddressAmount);
         }
     }
 
