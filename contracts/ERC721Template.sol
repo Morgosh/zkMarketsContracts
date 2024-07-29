@@ -8,6 +8,11 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
+interface IWETH {
+    function deposit() external payable;
+    function transfer(address dst, uint wad) external returns (bool);
+}
+
 contract ERC721Template is IERC2981, Ownable, ERC721A  {
     using Strings for uint256;
     using SafeERC20 for IERC20;
@@ -49,6 +54,7 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
     bool public tradingEnabled = true;
     mapping(address => bool) public blacklist;
 
+    IWETH constant private WETH = IWETH(0x5AEa5775959fBC2557Cc8789bC1bf90A239D9a91);
 
     // todo check burnable adition
     constructor(
@@ -326,24 +332,31 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
     }
 
     function withdraw() external virtual {
-        require(totalComissionWithdrawn >= fixedCommissionTreshold, "Threshold for A must be reached first");
         require(
             msg.sender == owner() || msg.sender == comissionRecipientAddress  || msg.sender == withdrawalRecipientAddress,
             "Only owner or commission recipient can withdraw"
         );
 
-        uint256 comission = (address(this).balance * comissionPercentageIn10000) /
+        uint256 available = address(this).balance - (fixedCommissionTreshold - totalComissionWithdrawn);
+
+        uint256 comission = (available * comissionPercentageIn10000) /
             10000; // Divide by 10000 instead of 100
-        uint256 ownerAmount = address(this).balance - comission;
+        uint256 ownerAmount = available - comission;
 
         if (comission > 0) {
             (bool cs, ) = comissionRecipientAddress.call{value: comission}("");
-            require(cs);
+            if (!cs) {
+                WETH.deposit{value: comission}();
+                IERC20(address(WETH)).safeTransfer(comissionRecipientAddress, comission);
+            }
         }
 
         if (ownerAmount > 0) {
             (bool os, ) = withdrawalRecipientAddress.call{value: ownerAmount}("");
-            require(os);
+            if (!os) {
+                WETH.deposit{value: ownerAmount}();
+                IERC20(address(WETH)).safeTransfer(withdrawalRecipientAddress, ownerAmount);
+            }
         }
     }
 

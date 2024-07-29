@@ -10,12 +10,9 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 // interfaces
 
-interface IERC2981 {
-    function royaltyInfo(uint256 tokenId, uint256 salePrice) external view returns (address receiver, uint256 royaltyAmount);
-}
-
-interface Ownable {
-    function owner() external view returns (address);
+interface IWETH {
+    function deposit() external payable;
+    function transfer(address dst, uint wad) external returns (bool);
 }
 
 contract TransactFacet is ReentrancyGuard {
@@ -73,6 +70,7 @@ contract TransactFacet is ReentrancyGuard {
     string private constant _TEST_SUBSTRUCT_TYPE = "Item(uint8 itemType,address tokenAddress,uint256 identifier,uint256 amount)";
     bytes32 private constant _ORDER_PARAMETERS_TYPEHASH = keccak256(abi.encodePacked(_ORDER_PARAMETERS_TYPE, _TEST_SUBSTRUCT_TYPE));
     bytes32 private constant _TEST_SUBSTRUCT_TYPEHASH = keccak256(abi.encodePacked(_TEST_SUBSTRUCT_TYPE));
+    IERC20 constant private WETH = IERC20(0x5AEa5775959fBC2557Cc8789bC1bf90A239D9a91);
 
     // Creates a keccak256 hash of the order parameters structured according to EIP712 standards.
     function createOrderHash(OrderParameters memory orderParameters) public view returns (bytes32) {
@@ -226,6 +224,7 @@ contract TransactFacet is ReentrancyGuard {
         uint256 platformFeePercentageIn10000 = ds.platformFee;
         
         if(order.orderType == BasicOrderType.ERC721_FOR_ETH) {
+            IWETH(address(WETH)).deposit{value: order.consideration.amount}();
             royaltyCut = (order.consideration.amount * order.royaltyPercentageIn10000) / 10000;
             defaultPlatformCut = (order.consideration.amount * platformFeePercentageIn10000) / 10000;
             platformCut = defaultPlatformCut; // platformcut equals to platformEarnings
@@ -236,8 +235,7 @@ contract TransactFacet is ReentrancyGuard {
             if (defaultPlatformCut > 0 && takerDiscount > 0) {
                 //seller should not be impacted by taker premium discount
                 platformCut -= takerDiscount;
-                (bool takerCashbackSuccess,) = msg.sender.call{value: takerDiscount}("");
-                require(takerCashbackSuccess, "Taker premium cashback transfer failed");
+                WETH.safeTransfer(msg.sender, takerDiscount);
             }
             uint256 offererDiscount = (defaultPlatformCut * getPremiumDiscount(order.offerer, order.premiumAddress)) / 10000;
             if (defaultPlatformCut > 0 && offererDiscount > 0) {
@@ -245,12 +243,9 @@ contract TransactFacet is ReentrancyGuard {
                 ethRemainder += offererDiscount;
             }
             
-            (bool royaltySuccess,) = payable(order.royaltyReceiver).call{value: royaltyCut}("");
-            require(royaltySuccess, "Royalty payment transfer failed");
+            WETH.safeTransfer(order.royaltyReceiver, royaltyCut);
             
-
-            (bool success,) = order.offerer.call{value: ethRemainder}("");
-            require(success, "ETH transfer failed");
+            WETH.safeTransfer(order.offerer, ethRemainder);
 
             IERC721(order.offer.tokenAddress).transferFrom(order.offerer, msg.sender, order.offer.identifier);
 
@@ -273,13 +268,13 @@ contract TransactFacet is ReentrancyGuard {
                 platformCut -= offererDiscount;
             }
             if (royaltyCut > 0 && order.royaltyReceiver != address(0)) {
-                handleERC20Payments(order.offerer, order.offer.tokenAddress, royaltyCut, order.royaltyReceiver);
+                IERC20(order.offer.tokenAddress).safeTransferFrom(order.offerer, order.royaltyReceiver, royaltyCut);
             }
             if (platformCut > 0) {
-                handleERC20Payments(order.offerer, order.offer.tokenAddress, platformCut, address(this));
+                IERC20(order.offer.tokenAddress).safeTransferFrom(order.offerer, address(this), platformCut);
             }
 
-            handleERC20Payments(order.offerer, order.offer.tokenAddress, ethRemainder, msg.sender);
+            IERC20(order.offer.tokenAddress).safeTransferFrom(order.offerer, msg.sender, ethRemainder);
 
             IERC721(order.consideration.tokenAddress).transferFrom(msg.sender, order.offerer, order.consideration.identifier);
 
@@ -288,11 +283,6 @@ contract TransactFacet is ReentrancyGuard {
         } else {
             revert("Invalid order type");
         }
-    }
-
-    // Manages the transfer of ERC20 tokens between accounts, ensuring all balances and allowances are correct with custom error messages.
-    function handleERC20Payments(address from, address tokenAddress, uint256 amount, address to) internal {
-        IERC20(tokenAddress).safeTransferFrom(from, to, amount);
     }
 
     // Checks if an address is a contract, which is useful for validating smart contract interactions.
