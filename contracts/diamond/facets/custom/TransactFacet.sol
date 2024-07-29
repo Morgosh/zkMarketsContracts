@@ -8,13 +8,6 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {SharedStorage} from "../../libraries/SharedStorage.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-// interfaces
-
-interface IWETH {
-    function deposit() external payable;
-    function transfer(address dst, uint wad) external returns (bool);
-}
-
 contract TransactFacet is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -70,7 +63,6 @@ contract TransactFacet is ReentrancyGuard {
     string private constant _TEST_SUBSTRUCT_TYPE = "Item(uint8 itemType,address tokenAddress,uint256 identifier,uint256 amount)";
     bytes32 private constant _ORDER_PARAMETERS_TYPEHASH = keccak256(abi.encodePacked(_ORDER_PARAMETERS_TYPE, _TEST_SUBSTRUCT_TYPE));
     bytes32 private constant _TEST_SUBSTRUCT_TYPEHASH = keccak256(abi.encodePacked(_TEST_SUBSTRUCT_TYPE));
-    IERC20 constant private WETH = IERC20(0x5AEa5775959fBC2557Cc8789bC1bf90A239D9a91);
 
     // Creates a keccak256 hash of the order parameters structured according to EIP712 standards.
     function createOrderHash(OrderParameters memory orderParameters) public view returns (bytes32) {
@@ -233,20 +225,18 @@ contract TransactFacet is ReentrancyGuard {
         uint256 offererDiscount = (defaultPlatformCut * getPremiumDiscount(order.offerer, order.premiumAddress)) / 10000;
         
         if(order.orderType == BasicOrderType.ERC721_FOR_ETH) {
-            IWETH(address(WETH)).deposit{value: order.consideration.amount}();
             if (defaultPlatformCut > 0 && takerDiscount > 0) {
                 //seller should not be impacted by taker premium discount
                 platformCut -= takerDiscount;
-                WETH.safeTransfer(msg.sender, takerDiscount);
+                payable(msg.sender).call{value: takerDiscount}("");
             }
             if (defaultPlatformCut > 0 && offererDiscount > 0) {
                 platformCut -= offererDiscount;
                 ethRemainder += offererDiscount;
             }
             
-            WETH.safeTransfer(order.royaltyReceiver, royaltyCut);
-            
-            WETH.safeTransfer(order.offerer, ethRemainder);
+            payable(order.royaltyReceiver).call{value: royaltyCut}("");
+            payable(order.offerer).call{value: ethRemainder}("");
         } else if(order.orderType == BasicOrderType.ERC20_FOR_ERC721) {
             if (defaultPlatformCut > 0 && takerDiscount > 0) {
                 platformCut -= takerDiscount;
