@@ -118,10 +118,11 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
 
     function getPublicMintEligibility() public view returns (uint256) {
         uint256 balance = balanceOf(msg.sender);
-        if (balance >= publicMaxMintAmount) {
+        uint256 maxMint = publicMaxMintAmount;
+        if (balance >= maxMint) {
             return 0;
         }
-        return publicMaxMintAmount - balance;
+        return maxMint - balance;
     }
 
     function getLaunchpadDetails() external view returns (uint256, uint256, uint256, uint256) {
@@ -158,11 +159,13 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
     }
 
     function getRequiredERC20TokensChainlink(uint256 ethPrice) public view returns (uint256) {
-        require(ethPriceFeedAddress != address(0) && ERC20PriceFeedAddress != address(0), "Price feed addresses not set");
+        address ethPriceFeed = ethPriceFeedAddress;
+        address ERC20PriceFeed = ERC20PriceFeedAddress;
+        require(ethPriceFeed != address(0) && ERC20PriceFeed != address(0), "Price feed addresses not set");
 
         // Get the latest prices from Chainlink
-        uint256 ethPriceInUsd = getLatestPrice(ethPriceFeedAddress);
-        uint256 ERC20PriceInUsd = getLatestPrice(ERC20PriceFeedAddress);
+        uint256 ethPriceInUsd = getLatestPrice(ethPriceFeed);
+        uint256 ERC20PriceInUsd = getLatestPrice(ERC20PriceFeed);
 
         // Prices from Chainlink are usually returned with 8 decimals
         uint256 ethPriceInUsdScaled = ethPriceInUsd * 10**10; // Scale to 18 decimals
@@ -172,8 +175,9 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         uint256 totalERC20Cost = (ethPrice * ethPriceInUsdScaled) / ERC20PriceInUsdScaled;
 
         // Apply discount if set
-        if (ERC20DiscountIn10000 > 0) {
-            totalERC20Cost = (totalERC20Cost * (10000 - ERC20DiscountIn10000)) / 10000;
+        uint256 ERC20Discount = ERC20DiscountIn10000;
+        if (ERC20Discount > 0) {
+            totalERC20Cost = (totalERC20Cost * (10000 - ERC20Discount)) / 10000;
         }
 
         return totalERC20Cost;
@@ -182,25 +186,28 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
     function mintWithERC20ChainlinkPrice(uint256 _mintAmount) external {
         checkMintRequirements(_mintAmount);
         // Let's make sure price feed contract address exists
-        require(ERC20TokenAddress != address(0), "Payment token address not set");
+        address ERC20Token = ERC20TokenAddress;
+        require(ERC20Token != address(0), "Payment token address not set");
 
         // Calculate the cost in ERC20 tokens
         uint256 requiredTokenAmount = getRequiredERC20TokensChainlink(publicPrice * _mintAmount);
 
-        IERC20(ERC20TokenAddress).safeTransferFrom(msg.sender, address(this), requiredTokenAmount);
+        IERC20(ERC20Token).safeTransferFrom(msg.sender, address(this), requiredTokenAmount);
 
         _safeMint(msg.sender, _mintAmount);
     }
 
     function mintWithFixedERC20Price(uint256 _mintAmount) external {
         checkMintRequirements(_mintAmount);
-        require(ERC20TokenAddress != address(0), "Payment token address not set");
-        require(ERC20FixedPricePerToken > 0, "Price per token not set");
+        address ERC20Token = ERC20TokenAddress;
+        uint256 ERC20FixedPrice = ERC20FixedPricePerToken;
+        require(ERC20Token != address(0), "Payment token address not set");
+        require(ERC20FixedPrice > 0, "Price per token not set");
 
         // Calculate the cost in ERC20 tokens
-        uint256 requiredTokenAmount = ERC20FixedPricePerToken * _mintAmount;
+        uint256 requiredTokenAmount = ERC20FixedPrice * _mintAmount;
 
-        IERC20(ERC20TokenAddress).safeTransferFrom(msg.sender, address(this), requiredTokenAmount);
+        IERC20(ERC20Token).safeTransferFrom(msg.sender, address(this), requiredTokenAmount);
 
         _safeMint(msg.sender, _mintAmount);
     }
@@ -303,13 +310,14 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
             msg.sender == owner() || msg.sender == comissionRecipientAddress,
             "Only owner or commission recipient can withdraw"
         );
-        uint256 remainingCommission = fixedCommissionTreshold - totalComissionWithdrawn;
+        uint256 withdrawn = totalComissionWithdrawn;
+        uint256 remainingCommission = fixedCommissionTreshold - withdrawn;
         uint256 amount = remainingCommission > address(this).balance 
                         ? address(this).balance 
                         : remainingCommission;
 
         // Ensure we don't exceed the fixed commission threshold
-        require(totalComissionWithdrawn + amount <= fixedCommissionTreshold, "Total withdrawal by commission cannot exceed the threshold");
+        require(withdrawn + amount <= fixedCommissionTreshold, "Total withdrawal by commission cannot exceed the threshold");
 
         // Updating the total withdrawn by A before making the transfer
         totalComissionWithdrawn += amount;

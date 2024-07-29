@@ -226,7 +226,6 @@ contract TransactFacet is ReentrancyGuard {
         uint256 platformFeePercentageIn10000 = ds.platformFee;
         
         if(order.orderType == BasicOrderType.ERC721_FOR_ETH) {
-            IERC721 nftContract = IERC721(order.offer.tokenAddress);
             royaltyCut = (order.consideration.amount * order.royaltyPercentageIn10000) / 10000;
             defaultPlatformCut = (order.consideration.amount * platformFeePercentageIn10000) / 10000;
             platformCut = defaultPlatformCut; // platformcut equals to platformEarnings
@@ -258,7 +257,6 @@ contract TransactFacet is ReentrancyGuard {
             emit OrderFulfilled(orderHash, msg.sender, order.offerer, order.offer.tokenAddress, order.offer.identifier, uint8(order.orderType), order.consideration.amount, platformCut);
 
         } else if(order.orderType == BasicOrderType.ERC20_FOR_ERC721) {
-            IERC721 nftContract = IERC721(order.consideration.tokenAddress);
             royaltyCut = (order.offer.amount * order.royaltyPercentageIn10000) / 10000;
             defaultPlatformCut = (order.offer.amount * platformFeePercentageIn10000) / 10000;
             platformCut = defaultPlatformCut; // platformcut equals to platformEarnings

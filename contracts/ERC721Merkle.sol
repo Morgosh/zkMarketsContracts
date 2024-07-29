@@ -135,9 +135,10 @@ contract ERC721Merkle is ERC721Template {
     }
 
     function checkWhitelistMintRequirements(uint256 _mintAmount, Tier storage tier, bytes32[] calldata _proof) internal view {
-        require(tier.merkleRoot != bytes32(0), "Tier does not exist");
+        bytes32 merkleRoot = tier.merkleRoot;
+        require(merkleRoot != bytes32(0), "Tier does not exist");
         require(block.timestamp >= tier.saleStartTime, "Tier sale not started");
-        require(MerkleProof.verify(_proof, tier.merkleRoot, keccak256(abi.encodePacked(msg.sender))), "Not in presale list for this tier");
+        require(MerkleProof.verify(_proof, merkleRoot, keccak256(abi.encodePacked(msg.sender))), "Not in presale list for this tier");
         require(_mintAmount <= tier.maxMintAmount - tier.mints[msg.sender], "Exceeds tier max mint amount");
         require(totalSupply() + _mintAmount <= maxSupply, "Exceeds max supply");
     }

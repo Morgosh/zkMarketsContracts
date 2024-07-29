@@ -46,20 +46,19 @@ contract ManagementFacet {
         emit MarketplacePaused();
     }
 
-    function getMarketplacePaused() external returns (bool) {
+    function getMarketplacePaused() external view returns (bool) {
         return SharedStorage.getStorage().paused;
     }
 
     function withdrawETH() external {
         LibDiamond.enforceIsContractOwner();
-        payable(LibDiamond.diamondStorage().contractOwner).call{value: address(this).balance}("");
+        payable(msg.sender).call{value: address(this).balance}("");
     }
 
     function withdrawERC20(IERC20 erc20Token) external {
         LibDiamond.enforceIsContractOwner();
-        address owner = LibDiamond.diamondStorage().contractOwner;
         uint256 erc20Balance = erc20Token.balanceOf(address(this));
-        erc20Token.safeTransfer(owner, erc20Balance);
+        erc20Token.safeTransfer(msg.sender, erc20Balance);
     }
 
     // lets also make it a receiver
