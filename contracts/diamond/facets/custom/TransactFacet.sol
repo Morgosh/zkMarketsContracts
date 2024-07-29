@@ -228,15 +228,17 @@ contract TransactFacet is ReentrancyGuard {
             if (defaultPlatformCut > 0 && takerDiscount > 0) {
                 //seller should not be impacted by taker premium discount
                 platformCut -= takerDiscount;
-                payable(msg.sender).call{value: takerDiscount}("");
+                (bool success,) = payable(msg.sender).call{value: takerDiscount}("");
+                require(success);
             }
             if (defaultPlatformCut > 0 && offererDiscount > 0) {
                 platformCut -= offererDiscount;
                 ethRemainder += offererDiscount;
             }
             
-            payable(order.royaltyReceiver).call{value: royaltyCut}("");
-            payable(order.offerer).call{value: ethRemainder}("");
+            (bool successRoyalty,) = payable(order.royaltyReceiver).call{value: royaltyCut}("");
+            (bool successEthRemainder,) = payable(order.offerer).call{value: ethRemainder}("");
+            require(successRoyalty && successEthRemainder);
         } else if(order.orderType == BasicOrderType.ERC20_FOR_ERC721) {
             if (defaultPlatformCut > 0 && takerDiscount > 0) {
                 platformCut -= takerDiscount;
