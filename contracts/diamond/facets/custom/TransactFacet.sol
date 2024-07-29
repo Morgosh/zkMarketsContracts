@@ -216,28 +216,29 @@ contract TransactFacet is ReentrancyGuard {
 
     // Handles the distribution of payments between the parties involved in a transaction including royalties and platform fees.
     function handlePayments(OrderParameters memory order, bytes32 orderHash, address premiumAddress) internal {
-        uint256 defaultPlatformCut;
-        uint256 platformCut;
-        uint256 royaltyCut;
-
         SharedStorage.Storage storage ds = SharedStorage.getStorage();
         uint256 platformFeePercentageIn10000 = ds.platformFee;
+
+        uint256 amount = order.orderType == BasicOrderType.ERC721_FOR_ETH ? order.consideration.amount : order.offer.amount;
+        uint256 defaultPlatformCut;
+        uint256 platformCut = defaultPlatformCut = amount * platformFeePercentageIn10000 / 10000;
+        uint256 royaltyCut = amount * order.royaltyPercentageIn10000 / 10000;
+        uint256 ethRemainder = amount - royaltyCut - defaultPlatformCut;
+
+        uint256 nftIdentifier = order.orderType == BasicOrderType.ERC721_FOR_ETH ? order.offer.identifier : order.consideration.identifier;
+        address nftAddress = order.orderType == BasicOrderType.ERC721_FOR_ETH ? order.offer.tokenAddress : order.consideration.tokenAddress;
+        address nftSender = order.orderType == BasicOrderType.ERC721_FOR_ETH ? order.offerer : msg.sender;
+        address nftReceiver = order.orderType == BasicOrderType.ERC721_FOR_ETH ?  msg.sender : order.offerer;
+        uint256 takerDiscount = (defaultPlatformCut * getPremiumDiscount(msg.sender, premiumAddress)) / 10000;
+        uint256 offererDiscount = (defaultPlatformCut * getPremiumDiscount(order.offerer, order.premiumAddress)) / 10000;
         
         if(order.orderType == BasicOrderType.ERC721_FOR_ETH) {
             IWETH(address(WETH)).deposit{value: order.consideration.amount}();
-            royaltyCut = (order.consideration.amount * order.royaltyPercentageIn10000) / 10000;
-            defaultPlatformCut = (order.consideration.amount * platformFeePercentageIn10000) / 10000;
-            platformCut = defaultPlatformCut; // platformcut equals to platformEarnings
-
-            uint256 ethRemainder = order.consideration.amount - royaltyCut - defaultPlatformCut;
-
-            uint256 takerDiscount = (defaultPlatformCut * getPremiumDiscount(msg.sender, premiumAddress)) / 10000;
             if (defaultPlatformCut > 0 && takerDiscount > 0) {
                 //seller should not be impacted by taker premium discount
                 platformCut -= takerDiscount;
                 WETH.safeTransfer(msg.sender, takerDiscount);
             }
-            uint256 offererDiscount = (defaultPlatformCut * getPremiumDiscount(order.offerer, order.premiumAddress)) / 10000;
             if (defaultPlatformCut > 0 && offererDiscount > 0) {
                 platformCut -= offererDiscount;
                 ethRemainder += offererDiscount;
@@ -246,24 +247,11 @@ contract TransactFacet is ReentrancyGuard {
             WETH.safeTransfer(order.royaltyReceiver, royaltyCut);
             
             WETH.safeTransfer(order.offerer, ethRemainder);
-
-            IERC721(order.offer.tokenAddress).transferFrom(order.offerer, msg.sender, order.offer.identifier);
-
-            emit OrderFulfilled(orderHash, msg.sender, order.offerer, order.offer.tokenAddress, order.offer.identifier, uint8(order.orderType), order.consideration.amount, platformCut);
-
         } else if(order.orderType == BasicOrderType.ERC20_FOR_ERC721) {
-            royaltyCut = (order.offer.amount * order.royaltyPercentageIn10000) / 10000;
-            defaultPlatformCut = (order.offer.amount * platformFeePercentageIn10000) / 10000;
-            platformCut = defaultPlatformCut; // platformcut equals to platformEarnings
-            
-            uint256 ethRemainder = order.offer.amount - royaltyCut - platformCut;
-
-            uint256 takerDiscount = (defaultPlatformCut * getPremiumDiscount(msg.sender, premiumAddress)) / 10000;
             if (defaultPlatformCut > 0 && takerDiscount > 0) {
                 platformCut -= takerDiscount;
                 ethRemainder += takerDiscount;
             }
-            uint256 offererDiscount = (defaultPlatformCut * getPremiumDiscount(order.offerer, order.premiumAddress)) / 10000;
             if (defaultPlatformCut > 0 && offererDiscount > 0) {
                 platformCut -= offererDiscount;
             }
@@ -275,14 +263,13 @@ contract TransactFacet is ReentrancyGuard {
             }
 
             IERC20(order.offer.tokenAddress).safeTransferFrom(order.offerer, msg.sender, ethRemainder);
-
-            IERC721(order.consideration.tokenAddress).transferFrom(msg.sender, order.offerer, order.consideration.identifier);
-
-            emit OrderFulfilled(orderHash, order.offerer, msg.sender, order.consideration.tokenAddress, order.consideration.identifier, uint8(order.orderType), order.offer.amount, platformCut);
-
         } else {
             revert("Invalid order type");
         }
+
+        IERC721(nftAddress).transferFrom(nftSender, nftReceiver, nftIdentifier);
+
+        emit OrderFulfilled(orderHash, nftReceiver, nftSender, nftAddress, nftIdentifier, uint8(order.orderType), amount, platformCut);
     }
 
     // Checks if an address is a contract, which is useful for validating smart contract interactions.
