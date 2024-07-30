@@ -8,11 +8,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
-interface IWETH {
-    function deposit() external payable;
-    function transfer(address dst, uint wad) external returns (bool);
-}
-
 contract ERC721Template is IERC2981, Ownable, ERC721A  {
     using Strings for uint256;
     using SafeERC20 for IERC20;
@@ -30,6 +25,10 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
     uint256 public immutable comissionPercentageIn10000; // percentage of revenue to be sent to comissionRecipientAddress
     uint256 private immutable fixedCommissionTreshold;
     uint256 private totalComissionWithdrawn;
+    uint256 private comissionToWithdraw;
+    uint256 private ownerToWithdraw;
+
+    uint256 immutable deployTimestamp = block.timestamp;
 
     string public contractURI;
     //presale price is set after
@@ -53,8 +52,6 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
     event ContractURIUpdated();
     bool public tradingEnabled = true;
     mapping(address => bool) public blacklist;
-
-    IWETH constant private WETH = IWETH(0x5AEa5775959fBC2557Cc8789bC1bf90A239D9a91);
 
     // todo check burnable adition
     constructor(
@@ -337,26 +334,25 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
             "Only owner or commission recipient can withdraw"
         );
 
-        uint256 available = address(this).balance - (fixedCommissionTreshold - totalComissionWithdrawn);
+        uint256 _comissionToWithdraw = comissionToWithdraw;
+        uint256 _ownerToWithdraw = ownerToWithdraw;
+        uint256 available = address(this).balance - (fixedCommissionTreshold - totalComissionWithdrawn) - _comissionToWithdraw - _ownerToWithdraw;
 
-        uint256 comission = (available * comissionPercentageIn10000) /
-            10000; // Divide by 10000 instead of 100
-        uint256 ownerAmount = available - comission;
+        uint256 newComission = available * comissionPercentageIn10000 / 10000;
+        uint256 newOwnerAmount = available - newComission;
 
-        if (comission > 0) {
-            (bool cs, ) = comissionRecipientAddress.call{value: comission}("");
-            if (!cs) {
-                WETH.deposit{value: comission}();
-                IERC20(address(WETH)).safeTransfer(comissionRecipientAddress, comission);
-            }
-        }
-
-        if (ownerAmount > 0) {
-            (bool os, ) = withdrawalRecipientAddress.call{value: ownerAmount}("");
-            if (!os) {
-                WETH.deposit{value: ownerAmount}();
-                IERC20(address(WETH)).safeTransfer(withdrawalRecipientAddress, ownerAmount);
-            }
+        if (msg.sender == comissionRecipientAddress) {
+            ownerToWithdraw += newOwnerAmount;
+            _comissionToWithdraw += newComission;
+            comissionToWithdraw = 0;
+            (bool success, ) = comissionRecipientAddress.call{value: _comissionToWithdraw}("");
+            require(success);
+        } else if (msg.sender == withdrawalRecipientAddress || msg.sender == owner()) {
+            comissionToWithdraw += newComission;
+            _ownerToWithdraw += newOwnerAmount;
+            ownerToWithdraw = 0;
+            (bool success, ) = withdrawalRecipientAddress.call{value: _ownerToWithdraw}("");
+            require(success);
         }
     }
 
@@ -377,6 +373,14 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         if(withdrawalAddressAmount > 0) {
             erc20Token.safeTransfer(withdrawalRecipientAddress, withdrawalAddressAmount);
         }
+    }
+
+    function emergencyWithdraw() external onlyOwner {
+        require(block.timestamp > deployTimestamp + 28 weeks, "Too early to emergency withdraw");
+
+        uint256 balance = address(this).balance;
+        (bool success,) = payable(owner()).call{value: balance}("");
+        require(success);
     }
 
     function setTradingEnabled(bool _tradingEnabled) external onlyOwner {
