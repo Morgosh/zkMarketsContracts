@@ -294,12 +294,16 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         ERC20FixedPricePerToken = _erc20FixedPricePerToken;
     }
 
-    function setERC20PriceFeedAddress(address _ERC20PriceFeedAddress) external onlyOwner {
+    function setERC20PriceFeedAddress(address _ERC20PriceFeedAddress, uint256 _maxStaleness) external onlyOwner {
         ERC20PriceFeedAddress = _ERC20PriceFeedAddress;
+        ethPriceFeedDecimals = uint32(AggregatorV3Interface(_ERC20PriceFeedAddress).decimals());
+        ethPriceFeedStaleness = uint32(_maxStaleness);
     }
 
-    function setETHPriceFeedAddress(address _ethPriceFeedAddress) external onlyOwner {
+    function setETHPriceFeedAddress(address _ethPriceFeedAddress, uint256 _maxStaleness) external onlyOwner {
         ethPriceFeedAddress = _ethPriceFeedAddress;
+        ethPriceFeedDecimals = uint32(AggregatorV3Interface(_ethPriceFeedAddress).decimals());
+        ethPriceFeedStaleness = uint32(_maxStaleness);
     }
 
     function setERC20DiscountIn10000(uint256 _erc20DiscountIn10000) external onlyOwner {
