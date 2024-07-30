@@ -4,13 +4,13 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "./ERC721A.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
 contract ERC721Template is IERC2981, Ownable, ERC721A  {
     using Strings for uint256;
-    using SafeERC20 for IERC20;
+    using SafeERC20 for ERC20;
 
     string private baseURI;
     string public notRevealedURI;
@@ -43,7 +43,11 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
     uint256 public ERC20DiscountIn10000; // Discount percentage for ERC20 payments
     
     address public ERC20PriceFeedAddress;
+    uint32 private ERC20PriceFeedStaleness;
+    uint32 private ERC20PriceFeedDecimals;
     address public ethPriceFeedAddress;
+    uint32 private ethPriceFeedStaleness;
+    uint32 private ethPriceFeedDecimals;
 
     // Per-token royalty info
     mapping(uint256 => address payable) public tokenRoyaltyRecipient;
@@ -154,10 +158,11 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         _safeMint(msg.sender, _mintAmount);
     }
 
-    function getLatestPrice(address priceFeedAddress) internal view returns (uint256) {
+    function getLatestPrice(address priceFeedAddress, uint256 maxStaleness) internal view returns (uint256) {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(priceFeedAddress);
-        (, int256 price,,,) = priceFeed.latestRoundData();
+        (, int256 price,,uint256 updatedAt,) = priceFeed.latestRoundData();
         require(price > 0, "Invalid price from Chainlink");
+        require(updatedAt > block.timestamp - maxStaleness, "Invalid price from Chainlink");
         return uint256(price);
     }
 
@@ -167,15 +172,16 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         require(ethPriceFeed != address(0) && ERC20PriceFeed != address(0), "Price feed addresses not set");
 
         // Get the latest prices from Chainlink
-        uint256 ethPriceInUsd = getLatestPrice(ethPriceFeed);
-        uint256 ERC20PriceInUsd = getLatestPrice(ERC20PriceFeed);
+        uint256 ethPriceInUsd = getLatestPrice(ethPriceFeed, ethPriceFeedStaleness);
+        uint256 ERC20PriceInUsd = getLatestPrice(ERC20PriceFeed, ERC20PriceFeedStaleness);
 
         // Prices from Chainlink are usually returned with 8 decimals
-        uint256 ethPriceInUsdScaled = ethPriceInUsd * 10**10; // Scale to 18 decimals
-        uint256 ERC20PriceInUsdScaled = ERC20PriceInUsd * 10**10; // Scale to 18 decimals
+        uint256 ethPriceInUsdScaled = ethPriceInUsd * 10**(18 - ethPriceFeedDecimals); // Scale to 18 decimals
+        uint256 ERC20PriceInUsdScaled = ERC20PriceInUsd * 10**(18 - ERC20PriceFeedDecimals); // Scale to 18 decimals
 
         // Calculate the equivalent cost in ERC20 tokens
-        uint256 totalERC20Cost = (ethPrice * ethPriceInUsdScaled) / ERC20PriceInUsdScaled;
+        uint256 decimalsDiff = 10 ** (18 - ERC20(ERC20TokenAddress).decimals()); //most tokens don't go over 18 decimals
+        uint256 totalERC20Cost = (ethPrice * ethPriceInUsdScaled) / ERC20PriceInUsdScaled / decimalsDiff;
 
         // Apply discount if set
         uint256 ERC20Discount = ERC20DiscountIn10000;
@@ -195,7 +201,7 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         // Calculate the cost in ERC20 tokens
         uint256 requiredTokenAmount = getRequiredERC20TokensChainlink(publicPrice * _mintAmount);
 
-        IERC20(ERC20Token).safeTransferFrom(msg.sender, address(this), requiredTokenAmount);
+        ERC20(ERC20Token).safeTransferFrom(msg.sender, address(this), requiredTokenAmount);
 
         _safeMint(msg.sender, _mintAmount);
     }
@@ -210,7 +216,7 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         // Calculate the cost in ERC20 tokens
         uint256 requiredTokenAmount = ERC20FixedPrice * _mintAmount;
 
-        IERC20(ERC20Token).safeTransferFrom(msg.sender, address(this), requiredTokenAmount);
+        ERC20(ERC20Token).safeTransferFrom(msg.sender, address(this), requiredTokenAmount);
 
         _safeMint(msg.sender, _mintAmount);
     }
@@ -356,7 +362,7 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         }
     }
 
-    function withdrawERC20(IERC20 erc20Token) external {
+    function withdrawERC20(ERC20 erc20Token) external {
         require(
             msg.sender == owner() || msg.sender == commissionRecipientAddress  || msg.sender == withdrawalRecipientAddress,
             "Only owner or commission recipient can withdraw"
