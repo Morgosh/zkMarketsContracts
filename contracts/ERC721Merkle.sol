@@ -28,9 +28,9 @@ contract ERC721Merkle is ERC721Template {
         string memory _defaultBaseURI,
         string memory _notRevealedURI,
         address payable _withdrawalRecipientAddress,
-        address payable _comissionRecipientAddress,
+        address payable _commissionRecipientAddress,
         uint256 _fixedCommisionTreshold,
-        uint256 _comissionPercentageIn10000,
+        uint256 _commissionPercentageIn10000,
         address payable _defaultRoyaltyRecipient, // separate from withdrawal recipient to enhance security
         uint256 _defaultRoyaltyPercentageIn10000
     ) ERC721Template(
@@ -42,9 +42,9 @@ contract ERC721Merkle is ERC721Template {
         _defaultBaseURI,
         _notRevealedURI,
         _withdrawalRecipientAddress,
-        _comissionRecipientAddress,
+        _commissionRecipientAddress,
         _fixedCommisionTreshold,
-        _comissionPercentageIn10000,
+        _commissionPercentageIn10000,
         _defaultRoyaltyRecipient,
         _defaultRoyaltyPercentageIn10000
     ) {
