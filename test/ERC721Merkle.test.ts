@@ -2,6 +2,7 @@ import { expect } from "chai"
 import { Contract } from "zksync-ethers"
 import { Signer, ethers } from "ethers"
 import merkleABI from "../abis/ERC721Merkle.abi.json"
+import "@nomicfoundation/hardhat-chai-matchers"
 
 import { getLeafNodes, getRootHash, getProof } from "../merkle/merkleFunctions"
 import { MerkleTree } from "merkletreejs"
@@ -139,17 +140,12 @@ describe("ERC721Merkle Test", function () {
     console.log("balanceBefore1", balanceBefore, "contractBalanceBefore1", contractBalanceBefore)
   })
   it("Whitelist not active", async function () {
-    try {
-      const wallet1Contract = new Contract(adminContractAddress, merkleABI, richWallets[0])
-      const t1Proof = getProof(tier1Addresses[0], tier1MerkleTree)
-      const whitelistPrice = ethers.parseEther("0.01")
+    const wallet1Contract = new Contract(adminContractAddress, merkleABI, richWallets[0])
+    const t1Proof = getProof(tier1Addresses[0], tier1MerkleTree)
+    const whitelistPrice = ethers.parseEther("0.01")
 
-      await wallet1Contract.whitelistMint(1, 1, t1Proof, { value: whitelistPrice })
-      throw new Error("Should have failed")
-    }
-    catch (err: any) {
-      expect(err.message).to.include("Tier is not active")
-    }
+    await expect(wallet1Contract.whitelistMint(1, 1, t1Proof, { value: whitelistPrice })).to.be.revertedWith("Tier sale not started");
+    
     // Activate whitelist 1 and 2
     const activateWhitelistTx = await adminContract.enableTier(1)
     const activateWhitelistTx2 = await adminContract.enableTier(2)
@@ -162,13 +158,8 @@ describe("ERC721Merkle Test", function () {
     const k = 1
     const tierDetails = await adminContract.getTierDetails(1)
     const price = tierDetails[1] as bigint
-    try {
-      await wallet1Contract.whitelistMint(1, k, t1Proof, { value: price - BigInt(1) })
-      throw new Error("Should have failed")
-    }
-    catch (err: any) {
-      expect(err.message).to.include("Insufficient funds for mint")
-    }
+    
+    await expect(wallet1Contract.whitelistMint(1, k, t1Proof, { value: price - BigInt(1) })).to.be.revertedWith("Insufficient funds for mint");
   })
   it("Cannot mint more than max supply", async function () {
     const wallet1Contract = new Contract(adminContractAddress, merkleABI, richWallets[0])
@@ -177,13 +168,8 @@ describe("ERC721Merkle Test", function () {
     const k = maxSupply + BigInt(1)
     const tierDetails = await adminContract.getTierDetails(1)
     const price = tierDetails[1] as bigint
-    try {
-      await wallet1Contract.whitelistMint(1, k, t1Proof, { value: price * k })
-      throw new Error("Should have failed")
-    }
-    catch (err: any) {
-      expect(err.message).to.include("Exceeds tier max")
-    }
+
+    await expect(wallet1Contract.whitelistMint(1, k, t1Proof, { value: price * k })).to.be.revertedWith("Exceeds tier max mint amount");
   })
   it("Not prelisted", async function () {
     const wallet1Contract = new Contract(adminContractAddress, merkleABI, richWallets[5])
@@ -192,13 +178,7 @@ describe("ERC721Merkle Test", function () {
     const tierDetails = await adminContract.getTierDetails(1)
     const price = tierDetails[1] as bigint
 
-    try {
-      await wallet1Contract.whitelistMint(1, k, t1Proof, { value: price * k })
-      throw new Error("Should have failed")
-    }
-    catch (err: any) {
-      expect(err.message).to.include("Not in presale list for this tier")
-    }
+    await expect(wallet1Contract.whitelistMint(1, k, t1Proof, { value: price * k })).to.be.revertedWith("Not in presale list for this tier");
   })
   it("allows a pre-listed address to mint during whitelist", async function () {
     const wallet1Contract = new Contract(adminContractAddress, merkleABI, richWallets[0])
@@ -219,13 +199,8 @@ describe("ERC721Merkle Test", function () {
     const k = 1
     const tierDetails = await adminContract.getTierDetails(1)
     const price = tierDetails[1] as bigint
-    try {
-      await wallet1Contract.whitelistMint(1, k, t1Proof, { value: price })
-      throw new Error("Should have failed")
-    }
-    catch (err: any) {
-      expect(err.message).to.include("Exceeds tier max")
-    }
+
+    await expect(wallet1Contract.whitelistMint(1, k, t1Proof, { value: price })).to.be.revertedWith("Exceeds tier max mint amount");
   })
   it("But another can mint 2 in tier 2", async function () {
     const wallet2Contract = new Contract(adminContractAddress, merkleABI, richWallets[4])
