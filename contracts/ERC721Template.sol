@@ -21,11 +21,11 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
     bool public isRevealed;
 
     address payable public immutable withdrawalRecipientAddress; // address that will receive revenue
-    address payable public immutable comissionRecipientAddress;// address that will receive a part of revenue on withdrawal
-    uint256 public immutable comissionPercentageIn10000; // percentage of revenue to be sent to comissionRecipientAddress
+    address payable public immutable commissionRecipientAddress;// address that will receive a part of revenue on withdrawal
+    uint256 public immutable commissionPercentageIn10000; // percentage of revenue to be sent to commissionRecipientAddress
     uint256 private immutable fixedCommissionTreshold;
-    uint256 private totalComissionWithdrawn;
-    uint256 private comissionToWithdraw;
+    uint256 private totalCommissionWithdrawn;
+    uint256 private commissionToWithdraw;
     uint256 private ownerToWithdraw;
 
     uint256 immutable deployTimestamp = block.timestamp;
@@ -63,9 +63,9 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         string memory _defaultBaseURI,
         string memory _notRevealedURI,
         address payable _withdrawalRecipientAddress,
-        address payable _comissionRecipientAddress,
+        address payable _commissionRecipientAddress,
         uint256 _fixedCommisionTreshold,
-        uint256 _comissionPercentageIn10000,
+        uint256 _commissionPercentageIn10000,
         address payable _defaultRoyaltyRecipient, // separate from withdrawal recipient to enhance security
         uint256 _defaultRoyaltyPercentageIn10000
         // set max mint amount after deployment
@@ -77,11 +77,11 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         notRevealedURI =_notRevealedURI;
         publicMaxMintAmount = 10000;
         withdrawalRecipientAddress = _withdrawalRecipientAddress;
-        comissionRecipientAddress = _comissionRecipientAddress;
+        commissionRecipientAddress = _commissionRecipientAddress;
         fixedCommissionTreshold = _fixedCommisionTreshold;
         // Ensure commission percentage is between 0 and 10000 (0-100%)
-        require(_comissionPercentageIn10000 <= 10000, "Invalid commission percentage");
-        comissionPercentageIn10000 = _comissionPercentageIn10000;
+        require(_commissionPercentageIn10000 <= 10000, "Invalid commission percentage");
+        commissionPercentageIn10000 = _commissionPercentageIn10000;
         defaultRoyaltyRecipient = _defaultRoyaltyRecipient;
         defaultRoyaltyPercentageIn10000 = _defaultRoyaltyPercentageIn10000;
         isRevealed = bytes(_notRevealedURI).length == 0;
@@ -308,12 +308,12 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         return (royaltyRecipient, (_salePrice * royaltyPercentage) / 10000);
     }
 
-    function withdrawFixedComission() external {
+    function withdrawFixedCommission() external {
         require(
-            msg.sender == owner() || msg.sender == comissionRecipientAddress,
+            msg.sender == owner() || msg.sender == commissionRecipientAddress,
             "Only owner or commission recipient can withdraw"
         );
-        uint256 withdrawn = totalComissionWithdrawn;
+        uint256 withdrawn = totalCommissionWithdrawn;
         uint256 remainingCommission = fixedCommissionTreshold - withdrawn;
         uint256 amount = remainingCommission > address(this).balance 
                         ? address(this).balance 
@@ -323,32 +323,32 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         require(withdrawn + amount <= fixedCommissionTreshold, "Total withdrawal by commission cannot exceed the threshold");
 
         // Updating the total withdrawn by A before making the transfer
-        totalComissionWithdrawn += amount;
-        (bool success, ) = comissionRecipientAddress.call{value: amount}("");
+        totalCommissionWithdrawn += amount;
+        (bool success, ) = commissionRecipientAddress.call{value: amount}("");
         require(success, "Transfer failed");
     }
 
     function withdraw() external virtual {
         require(
-            msg.sender == owner() || msg.sender == comissionRecipientAddress  || msg.sender == withdrawalRecipientAddress,
+            msg.sender == owner() || msg.sender == commissionRecipientAddress  || msg.sender == withdrawalRecipientAddress,
             "Only owner or commission recipient can withdraw"
         );
 
-        uint256 _comissionToWithdraw = comissionToWithdraw;
+        uint256 _commissionToWithdraw = commissionToWithdraw;
         uint256 _ownerToWithdraw = ownerToWithdraw;
-        uint256 available = address(this).balance - (fixedCommissionTreshold - totalComissionWithdrawn) - _comissionToWithdraw - _ownerToWithdraw;
+        uint256 available = address(this).balance - (fixedCommissionTreshold - totalCommissionWithdrawn) - _commissionToWithdraw - _ownerToWithdraw;
 
-        uint256 newComission = available * comissionPercentageIn10000 / 10000;
-        uint256 newOwnerAmount = available - newComission;
+        uint256 newCommission = available * commissionPercentageIn10000 / 10000;
+        uint256 newOwnerAmount = available - newCommission;
 
-        if (msg.sender == comissionRecipientAddress) {
+        if (msg.sender == commissionRecipientAddress) {
             ownerToWithdraw += newOwnerAmount;
-            _comissionToWithdraw += newComission;
-            comissionToWithdraw = 0;
-            (bool success, ) = comissionRecipientAddress.call{value: _comissionToWithdraw}("");
+            _commissionToWithdraw += newCommission;
+            commissionToWithdraw = 0;
+            (bool success, ) = commissionRecipientAddress.call{value: _commissionToWithdraw}("");
             require(success);
         } else if (msg.sender == withdrawalRecipientAddress || msg.sender == owner()) {
-            comissionToWithdraw += newComission;
+            commissionToWithdraw += newCommission;
             _ownerToWithdraw += newOwnerAmount;
             ownerToWithdraw = 0;
             (bool success, ) = withdrawalRecipientAddress.call{value: _ownerToWithdraw}("");
@@ -358,16 +358,16 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
 
     function withdrawERC20(IERC20 erc20Token) external {
         require(
-            msg.sender == owner() || msg.sender == comissionRecipientAddress  || msg.sender == withdrawalRecipientAddress,
+            msg.sender == owner() || msg.sender == commissionRecipientAddress  || msg.sender == withdrawalRecipientAddress,
             "Only owner or commission recipient can withdraw"
         );
         uint256 erc20Balance = erc20Token.balanceOf(address(this));
-        uint256 comission = (erc20Balance * comissionPercentageIn10000) / 10000;
-        uint256 withdrawalAddressAmount = erc20Balance - comission;
+        uint256 commission = (erc20Balance * commissionPercentageIn10000) / 10000;
+        uint256 withdrawalAddressAmount = erc20Balance - commission;
 
         //withdrawalRecipientAddress
-        if(comission > 0) {
-            erc20Token.safeTransfer(comissionRecipientAddress, comission);
+        if(commission > 0) {
+            erc20Token.safeTransfer(commissionRecipientAddress, commission);
         }
 
         if(withdrawalAddressAmount > 0) {
