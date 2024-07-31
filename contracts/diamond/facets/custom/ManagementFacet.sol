@@ -9,7 +9,6 @@ contract ManagementFacet {
 
     event PlatformFeeUpdated(uint256 newPlatformFee);
     event PremiumDiscountUpdated(address premiumAddress, uint256 newPremiumDiscount);
-    event WETHAddressUpdated(address newWETHAddress);
     event MarketplacePaused();
 
     function setPlatformFee(uint256 _platformFee) external {
@@ -34,12 +33,6 @@ contract ManagementFacet {
         return SharedStorage.getStorage().premiumDiscounts[_premiumAddress];
     }
 
-    function setWETHAddress(address _wethAddress) external {
-        LibDiamond.enforceIsContractOwner();
-        SharedStorage.setWETHAddress(_wethAddress);
-        emit WETHAddressUpdated(_wethAddress);
-    }
-
     function setMarketplacePaused(bool _paused) external {
         LibDiamond.enforceIsContractOwner();
         SharedStorage.setPaused(_paused);
@@ -48,11 +41,6 @@ contract ManagementFacet {
 
     function getMarketplacePaused() external view returns (bool) {
         return SharedStorage.getStorage().paused;
-    }
-
-    function withdrawETH() external {
-        LibDiamond.enforceIsContractOwner();
-        payable(msg.sender).call{value: address(this).balance}("");
     }
 
     function withdrawERC20(IERC20 erc20Token) external {

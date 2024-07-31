@@ -273,12 +273,12 @@ contract TransactFacet is ReentrancyGuard {
 
     // Determines if a user holds a premium NFT, which might grant them special privileges or discounts.
     function getPremiumDiscount(address user, address premiumAddress) public view returns (uint256) {
+        if (premiumAddress == address(0) || IERC721(premiumAddress).balanceOf(user) == 0) {
+            return 0
+        }
         SharedStorage.Storage storage ds = SharedStorage.getStorage();
         uint256 discount = ds.premiumDiscounts[premiumAddress];
-        if (discount == 0 || IERC721(premiumAddress).balanceOf(user) == 0) {
-            return 0;
-        }
-        return discount;
+        return discount; //will be 0 if mapping is not set
     }
 
     // Verifies a signature against a hash and signer, supporting both EOA and contract accounts.
