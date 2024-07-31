@@ -581,6 +581,19 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "contract ERC20",
+        "name": "erc20Token",
+        "type": "address"
+      }
+    ],
+    "name": "emergencyWithdrawERC20",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "ethPriceFeedAddress",
     "outputs": [

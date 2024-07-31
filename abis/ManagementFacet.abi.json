@@ -80,7 +80,14 @@
         "internalType": "address",
         "name": "premiumAddress",
         "type": "address"
-      },
+      }
+    ],
+    "name": "PremiumAddressUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
       {
         "indexed": false,
         "internalType": "uint256",
@@ -89,19 +96,6 @@
       }
     ],
     "name": "PremiumDiscountUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "newWETHAddress",
-        "type": "address"
-      }
-    ],
-    "name": "WETHAddressUpdated",
     "type": "event"
   },
   {
@@ -131,19 +125,26 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_premiumAddress",
-        "type": "address"
-      }
-    ],
+    "inputs": [],
     "name": "getPremiumDiscount",
     "outputs": [
       {
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getPremiumNftAddress",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -178,11 +179,6 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "_premiumAddress",
-        "type": "address"
-      },
-      {
         "internalType": "uint256",
         "name": "_premiumDiscount",
         "type": "uint256"
@@ -197,11 +193,11 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_wethAddress",
+        "name": "_premiumAddress",
         "type": "address"
       }
     ],
-    "name": "setWETHAddress",
+    "name": "setPremiumNftAddress",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

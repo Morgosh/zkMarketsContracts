@@ -30,7 +30,7 @@ contract ManagementFacet {
         emit PremiumDiscountUpdated(_premiumDiscount);
     }
     
-    function setPremiumAddress(address _premiumAddress) external {
+    function setPremiumNftAddress(address _premiumAddress) external {
         LibDiamond.enforceIsContractOwner();
         SharedStorage.setPremiumAddress(_premiumAddress);
         emit PremiumAddressUpdated(_premiumAddress);
@@ -40,7 +40,7 @@ contract ManagementFacet {
         return SharedStorage.getStorage().premiumDiscount;
     }
     
-    function getPremiumAddress() external view returns (address) {
+    function getPremiumNftAddress() external view returns (address) {
         return SharedStorage.getStorage().premiumAddress;
     }
 
@@ -52,6 +52,11 @@ contract ManagementFacet {
 
     function getMarketplacePaused() external view returns (bool) {
         return SharedStorage.getStorage().paused;
+    }
+
+    function withdrawETH() external {
+        LibDiamond.enforceIsContractOwner();
+        payable(msg.sender).call{value: address(this).balance}("");
     }
 
     function withdrawERC20(IERC20 erc20Token) external {

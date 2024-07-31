@@ -219,8 +219,8 @@ contract TransactFacet is ReentrancyGuard {
         address nftAddress = order.orderType == BasicOrderType.ERC721_FOR_ETH ? order.offer.tokenAddress : order.consideration.tokenAddress;
         address nftSender = order.orderType == BasicOrderType.ERC721_FOR_ETH ? order.offerer : msg.sender;
         address nftReceiver = order.orderType == BasicOrderType.ERC721_FOR_ETH ?  msg.sender : order.offerer;
-        uint256 takerDiscount = defaultPlatformCut * getPremiumDiscount(msg.sender) / 10000;
-        uint256 offererDiscount = defaultPlatformCut * getPremiumDiscount(order.offerer) / 10000;
+        uint256 takerDiscount = defaultPlatformCut * getUserPremiumDiscount(msg.sender) / 10000;
+        uint256 offererDiscount = defaultPlatformCut * getUserPremiumDiscount(order.offerer) / 10000;
         
         if(order.orderType == BasicOrderType.ERC721_FOR_ETH) {
             if (defaultPlatformCut > 0 && takerDiscount > 0) {
@@ -270,10 +270,10 @@ contract TransactFacet is ReentrancyGuard {
     }
 
     // Determines if a user holds a premium NFT, which might grant them special privileges or discounts.
-    function getPremiumDiscount(address user) public view returns (uint256) {
+    function getUserPremiumDiscount(address user) public view returns (uint256) {
         SharedStorage.Storage storage ds = SharedStorage.getStorage();
         address premiumAddress = ds.premiumAddress;
-        if (IERC721(premiumAddress).balanceOf(user) == 0) {
+        if (premiumAddress == address(0) || IERC721(premiumAddress).balanceOf(user) == 0) {
             return 0;
         }
         return ds.premiumDiscount;

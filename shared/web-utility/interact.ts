@@ -417,7 +417,6 @@ export async function callContractMethod(
 ) {
   // lets make sure contract has valid address
   if (!ethers.isAddress(await contract.getAddress())) throw new Error("Contract address is not valid")
-
   if (!SAAddress) {
     const signer = contract.runner as any
     const txData: any = {
@@ -426,7 +425,7 @@ export async function callContractMethod(
       data: contract.interface.encodeFunctionData(method, params),
     }
     if (value !== BigInt(0) && value !== null) {
-      if (value) txData.value = value.toString() // use string instead of bigint
+      txData.value = value // use string instead of bigint
     }
     return await sendTransaction(signer, method, txData, paymasterOptions)
   }

@@ -41,11 +41,6 @@
             "type": "bytes"
           },
           {
-            "internalType": "address",
-            "name": "wethAddress",
-            "type": "address"
-          },
-          {
             "internalType": "uint256",
             "name": "platformFee",
             "type": "uint256"
@@ -803,46 +798,6 @@
     "type": "event"
   },
   {
-    "inputs": [
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "facetAddress",
-            "type": "address"
-          },
-          {
-            "internalType": "enum IDiamond.FacetCutAction",
-            "name": "action",
-            "type": "uint8"
-          },
-          {
-            "internalType": "bytes4[]",
-            "name": "functionSelectors",
-            "type": "bytes4[]"
-          }
-        ],
-        "internalType": "struct IDiamond.FacetCut[]",
-        "name": "_diamondCut",
-        "type": "tuple[]"
-      },
-      {
-        "internalType": "address",
-        "name": "_init",
-        "type": "address"
-      },
-      {
-        "internalType": "bytes",
-        "name": "_calldata",
-        "type": "bytes"
-      }
-    ],
-    "name": "diamondCut",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "anonymous": false,
     "inputs": [
       {
@@ -883,6 +838,46 @@
     ],
     "name": "DiamondCut",
     "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "facetAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "enum IDiamond.FacetCutAction",
+            "name": "action",
+            "type": "uint8"
+          },
+          {
+            "internalType": "bytes4[]",
+            "name": "functionSelectors",
+            "type": "bytes4[]"
+          }
+        ],
+        "internalType": "struct IDiamond.FacetCut[]",
+        "name": "_diamondCut",
+        "type": "tuple[]"
+      },
+      {
+        "internalType": "address",
+        "name": "_init",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes",
+        "name": "_calldata",
+        "type": "bytes"
+      }
+    ],
+    "name": "diamondCut",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
     "inputs": [
@@ -961,25 +956,6 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "bytes4",
-        "name": "interfaceId",
-        "type": "bytes4"
-      }
-    ],
-    "name": "supportsInterface",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "anonymous": false,
     "inputs": [
       {
@@ -1022,6 +998,25 @@
     "name": "transferOwnership",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes4",
+        "name": "interfaceId",
+        "type": "bytes4"
+      }
+    ],
+    "name": "supportsInterface",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1084,13 +1079,6 @@
     ],
     "name": "OwnershipTransferred",
     "type": "event"
-  },
-  {
-    "inputs": [],
-    "name": "init",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
   },
   {
     "inputs": [
@@ -1157,6 +1145,240 @@
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "init",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "target",
+        "type": "address"
+      }
+    ],
+    "name": "AddressEmptyCode",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "AddressInsufficientBalance",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "FailedInnerCall",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_user",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_contractOwner",
+        "type": "address"
+      }
+    ],
+    "name": "NotContractOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      }
+    ],
+    "name": "SafeERC20FailedOperation",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [],
+    "name": "MarketplacePaused",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newPlatformFee",
+        "type": "uint256"
+      }
+    ],
+    "name": "PlatformFeeUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "premiumAddress",
+        "type": "address"
+      }
+    ],
+    "name": "PremiumAddressUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newPremiumDiscount",
+        "type": "uint256"
+      }
+    ],
+    "name": "PremiumDiscountUpdated",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "getMarketplacePaused",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getPlatformFee",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getPremiumDiscount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getPremiumNftAddress",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bool",
+        "name": "_paused",
+        "type": "bool"
+      }
+    ],
+    "name": "setMarketplacePaused",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_platformFee",
+        "type": "uint256"
+      }
+    ],
+    "name": "setPlatformFee",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_premiumDiscount",
+        "type": "uint256"
+      }
+    ],
+    "name": "setPremiumDiscount",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_premiumAddress",
+        "type": "address"
+      }
+    ],
+    "name": "setPremiumNftAddress",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "contract IERC20",
+        "name": "erc20Token",
+        "type": "address"
+      }
+    ],
+    "name": "withdrawERC20",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "withdrawETH",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "stateMutability": "payable",
+    "type": "receive"
   },
   {
     "inputs": [
@@ -1421,11 +1643,6 @@
                 "internalType": "uint256",
                 "name": "createdTime",
                 "type": "uint256"
-              },
-              {
-                "internalType": "address",
-                "name": "premiumAddress",
-                "type": "address"
               }
             ],
             "internalType": "struct TransactFacet.OrderParameters",
@@ -1451,11 +1668,6 @@
         "internalType": "uint256",
         "name": "nftIdentifier",
         "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "premiumAddress",
-        "type": "address"
       }
     ],
     "name": "acceptCollectionOffer",
@@ -1557,11 +1769,6 @@
                 "internalType": "uint256",
                 "name": "createdTime",
                 "type": "uint256"
-              },
-              {
-                "internalType": "address",
-                "name": "premiumAddress",
-                "type": "address"
               }
             ],
             "internalType": "struct TransactFacet.OrderParameters",
@@ -1582,11 +1789,6 @@
         "internalType": "uint256",
         "name": "royaltyPercentageIn10000",
         "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "premiumAddress",
-        "type": "address"
       }
     ],
     "name": "acceptOrder",
@@ -1688,11 +1890,6 @@
                 "internalType": "uint256",
                 "name": "createdTime",
                 "type": "uint256"
-              },
-              {
-                "internalType": "address",
-                "name": "premiumAddress",
-                "type": "address"
               }
             ],
             "internalType": "struct TransactFacet.OrderParameters",
@@ -1713,11 +1910,6 @@
         "internalType": "uint256[]",
         "name": "royaltyPercentagesIn10000",
         "type": "uint256[]"
-      },
-      {
-        "internalType": "address",
-        "name": "premiumAddress",
-        "type": "address"
       }
     ],
     "name": "batchAcceptOrder",
@@ -1826,11 +2018,6 @@
                 "internalType": "uint256",
                 "name": "createdTime",
                 "type": "uint256"
-              },
-              {
-                "internalType": "address",
-                "name": "premiumAddress",
-                "type": "address"
               }
             ],
             "internalType": "struct TransactFacet.OrderParameters",
@@ -1945,11 +2132,6 @@
             "internalType": "uint256",
             "name": "createdTime",
             "type": "uint256"
-          },
-          {
-            "internalType": "address",
-            "name": "premiumAddress",
-            "type": "address"
           }
         ],
         "internalType": "struct TransactFacet.OrderParameters",
@@ -2015,14 +2197,9 @@
         "internalType": "address",
         "name": "user",
         "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "premiumAddress",
-        "type": "address"
       }
     ],
-    "name": "getPremiumDiscount",
+    "name": "getUserPremiumDiscount",
     "outputs": [
       {
         "internalType": "uint256",
@@ -2127,11 +2304,6 @@
                 "internalType": "uint256",
                 "name": "createdTime",
                 "type": "uint256"
-              },
-              {
-                "internalType": "address",
-                "name": "premiumAddress",
-                "type": "address"
               }
             ],
             "internalType": "struct TransactFacet.OrderParameters",
@@ -2193,236 +2365,5 @@
     ],
     "stateMutability": "view",
     "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "target",
-        "type": "address"
-      }
-    ],
-    "name": "AddressEmptyCode",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      }
-    ],
-    "name": "AddressInsufficientBalance",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "FailedInnerCall",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_user",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "_contractOwner",
-        "type": "address"
-      }
-    ],
-    "name": "NotContractOwner",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "token",
-        "type": "address"
-      }
-    ],
-    "name": "SafeERC20FailedOperation",
-    "type": "error"
-  },
-  {
-    "anonymous": false,
-    "inputs": [],
-    "name": "MarketplacePaused",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "newPlatformFee",
-        "type": "uint256"
-      }
-    ],
-    "name": "PlatformFeeUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "premiumAddress",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "newPremiumDiscount",
-        "type": "uint256"
-      }
-    ],
-    "name": "PremiumDiscountUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "newWETHAddress",
-        "type": "address"
-      }
-    ],
-    "name": "WETHAddressUpdated",
-    "type": "event"
-  },
-  {
-    "inputs": [],
-    "name": "getMarketplacePaused",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getPlatformFee",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_premiumAddress",
-        "type": "address"
-      }
-    ],
-    "name": "getPremiumDiscount",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bool",
-        "name": "_paused",
-        "type": "bool"
-      }
-    ],
-    "name": "setMarketplacePaused",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_platformFee",
-        "type": "uint256"
-      }
-    ],
-    "name": "setPlatformFee",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_premiumAddress",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_premiumDiscount",
-        "type": "uint256"
-      }
-    ],
-    "name": "setPremiumDiscount",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_wethAddress",
-        "type": "address"
-      }
-    ],
-    "name": "setWETHAddress",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "contract IERC20",
-        "name": "erc20Token",
-        "type": "address"
-      }
-    ],
-    "name": "withdrawERC20",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "withdrawETH",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "stateMutability": "payable",
-    "type": "receive"
   }
 ]

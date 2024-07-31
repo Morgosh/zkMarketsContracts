@@ -10,6 +10,7 @@ import diamondAbi from "../abis/Diamond.abi.json"
 import ERC20ABI from "../abis/ERC20Template.abi.json"
 import { getOrderEIP712Data } from "../shared/web-utility/interactGetters"
 import { customJsonStringify } from "../shared/web-utility/utility"
+import "@nomicfoundation/hardhat-chai-matchers"
 
 declare global {
   namespace Chai {
@@ -32,6 +33,7 @@ chai.Assertion.addMethod("lteBigInt", function (this: any, upper: bigint) {
 
 describe("DiamondTest", async function () {
   let marketplaceContract: Contract
+  let marketplaceAddress: string
   let diamondAddress: string
   let nftContract: any
 
@@ -42,10 +44,11 @@ describe("DiamondTest", async function () {
   before(async function () {
     provider = getProvider()
     marketplaceContract = await deployDiamond()
+    marketplaceAddress =  await marketplaceContract.getAddress();
     // lets redifine the contract with all the facets
-    marketplaceContract = new Contract(await marketplaceContract.getAddress(), diamondAbi, provider)
+    marketplaceContract = new Contract(marketplaceAddress, diamondAbi, provider)
 
-    diamondAddress = await marketplaceContract.getAddress()
+    diamondAddress = marketplaceAddress
     await hardhatEthers.getContractAt("DiamondCutFacet", diamondAddress)
     await hardhatEthers.getContractAt("DiamondLoupeFacet", diamondAddress)
     await hardhatEthers.getContractAt("OwnershipFacet", diamondAddress)
@@ -117,7 +120,7 @@ describe("DiamondTest", async function () {
       name: "zkMarkets",
       version: "1",
       chainId: network.chainId,
-      verifyingContract: await marketplaceContract.getAddress(),
+      verifyingContract: marketplaceAddress,
     }
     expect(onchainDomain[0]).to.eq(domain.name)
     expect(onchainDomain[1]).to.eq(domain.version)
@@ -147,13 +150,13 @@ describe("DiamondTest", async function () {
     }
 
     const onchainOrderHash = await marketplaceContract.createOrderHash(listingOrder1)
-    const feOrderData = await getOrderEIP712Data(provider, listingOrder1, await marketplaceContract.getAddress())
+    const feOrderData = await getOrderEIP712Data(provider, listingOrder1, marketplaceAddress)
 
     // fe hash should match onchain hash
     expect(feOrderData.hash).to.eq(onchainOrderHash)
 
     // ok lets create a listing with approval
-    const res = await createOffchainListingOrderWithApproval(wallet0, listingOrder1, await marketplaceContract.getAddress())
+    const res = await createOffchainListingOrderWithApproval(wallet0, listingOrder1, marketplaceAddress)
     hash1 = res.hash
     signature1 = res.signature
     const signatureVerified = await marketplaceContract.verifySignature(hash1, signature1, wallet0.address)
@@ -169,24 +172,18 @@ describe("DiamondTest", async function () {
     balanceOfBuyerBefore = await provider.getBalance(wallets[1].address)
     balanceOfSellerBefore = await provider.getBalance(wallets[0].address)
     expect(await nftContract.ownerOf(1)).to.eq(wallets[0].address)
-    const finishedTx = await acceptOrder(wallets[1], listingOrder1, signature1, await marketplaceContract.getAddress())
+    const finishedTx = await acceptOrder(wallets[1], listingOrder1, signature1, marketplaceAddress)
     expect(finishedTx!.status).to.eq(1)
     expect(await nftContract.ownerOf(1)).to.eq(wallets[1].address)
-    try {
-      const marketplaceContractWithOwner = new ethers.Contract(
-        await marketplaceContract.getAddress(),
+    const marketplaceContractWithOwner = new ethers.Contract(
+        marketplaceAddress,
         diamondAbi,
         wallets[0],
       )
-      await marketplaceContractWithOwner.validateOrder({
+    await expect(marketplaceContractWithOwner.validateOrder({
         parameters: listingOrder1,
         signature: signature1,
-      }, hash1)
-      throw new Error("Should not reach here")
-    }
-    catch (error: any) {
-      expect(error.message).to.include("Order already claimed or canceled")
-    }
+      }, hash1)).to.be.revertedWith("Order already claimed or canceled");
   })
 
   it("User 1 paid the correct amount", async () => {
@@ -199,7 +196,7 @@ describe("DiamondTest", async function () {
     // check that platform fee is on the contract 2%
     const platformFeeWei = listingOrder1.consideration.amount * BigInt(2) / BigInt(100)
     // check that balance on contract
-    const balanceOnContract = await provider.getBalance(await marketplaceContract.getAddress())
+    const balanceOnContract = await provider.getBalance(marketplaceAddress)
     expect(balanceOnContract).to.eq(platformFeeWei)
 
     // check that seller got the correct amount
@@ -217,16 +214,19 @@ describe("DiamondTest", async function () {
     await tx.wait()
     // set admin contract on marketplace
     const marketplaceContractWithOwner = new ethers.Contract(
-      await marketplaceContract.getAddress(),
+      marketplaceAddress,
       diamondAbi,
       wallets[0],
     )
     const tx2 = await marketplaceContractWithOwner.setPremiumNftAddress(await premiumContract.getAddress())
     await tx2.wait()
+    const txDiscount = await marketplaceContractWithOwner.setPremiumDiscount(BigInt(5000));
+    await txDiscount.wait()
     // getPremiumNftAddress
     expect(await marketplaceContract.getPremiumNftAddress()).to.eq(await premiumContract.getAddress())
     expect(await premiumContract.balanceOf(wallets[0].address)).to.eq(BigInt(2))
-    expect(await marketplaceContract.isPremiumHolder(wallets[0].address)).to.eq(true)
+    expect(await marketplaceContract.getPremiumDiscount()).to.eq(BigInt(5000));
+    expect(await marketplaceContract.getUserPremiumDiscount(wallets[0].address)).to.eq(await marketplaceContract.getPremiumDiscount())
     // generate random address
     const randomRoyaltyAddress = ethers.Wallet.createRandom().address
 
@@ -253,14 +253,14 @@ describe("DiamondTest", async function () {
       createdTime: getUnixTimeNow(),
     }
 
-    const res = await createOffchainListingOrderWithApproval(wallet0, listingOrder4, await marketplaceContract.getAddress())
+    const res = await createOffchainListingOrderWithApproval(wallet0, listingOrder4, marketplaceAddress)
     signature4 = res.signature
 
     // snapshot balance of user 1
     balanceOfSellerBefore = await provider.getBalance(wallets[0].address)
 
     // lets buy the nft
-    await acceptOrder(wallets[1], listingOrder4, signature4, await marketplaceContract.getAddress())
+    await acceptOrder(wallets[1], listingOrder4, signature4, marketplaceAddress)
 
     // // balance should be + 1 eth - 1% platform fee - 2% royalty
     const expectedSellerAmount = listingOrder4.consideration.amount
@@ -273,13 +273,12 @@ describe("DiamondTest", async function () {
     // ok lets sell another nft where both buyer and seller are premium holders
 
     // treansfer 1 premium first
-    const premiumContractWithOwner = new ethers.Contract(await premiumContract.getAddress(), diamondAbi, wallets[0])
-    const tx3 = await premiumContractWithOwner.transferFrom(wallets[0].address, wallets[1].address, 1)
+    const tx3 = await premiumContract.transferFrom(wallets[0].address, wallets[1].address, 1)
     await tx3.wait()
 
     // lets make both wallets is premium holder
-    expect(await marketplaceContract.isPremiumHolder(wallets[0].address)).to.eq(true)
-    expect(await marketplaceContract.isPremiumHolder(wallets[1].address)).to.eq(true)
+    expect(await marketplaceContract.getUserPremiumDiscount(wallets[0].address)).to.eq(await marketplaceContract.getPremiumDiscount())
+    expect(await marketplaceContract.getUserPremiumDiscount(wallets[1].address)).to.eq(await marketplaceContract.getPremiumDiscount())
 
     // now lets sell nft5
 
@@ -305,20 +304,20 @@ describe("DiamondTest", async function () {
       createdTime: getUnixTimeNow(),
     }
 
-    const res5 = await createOffchainListingOrderWithApproval(wallet0, listingOrder5, await marketplaceContract.getAddress())
+    const res5 = await createOffchainListingOrderWithApproval(wallet0, listingOrder5, marketplaceAddress)
     const signature5 = res5.signature
 
     // lets snapshot balance on contract
-    const balanceOnContractBefore = await provider.getBalance(await marketplaceContract.getAddress())
+    const balanceOnContractBefore = await provider.getBalance(marketplaceAddress)
     // check balance of seller
     const balanceOfSellerBefore2 = await provider.getBalance(wallets[0].address)
     // lets buy the nft
-    expect(await marketplaceContract.isPremiumHolder(wallets[1].address)).to.eq(true)
-    await acceptOrder(wallets[1], listingOrder5, signature5, await marketplaceContract.getAddress())
+    expect(await marketplaceContract.getUserPremiumDiscount(wallets[0].address)).to.eq(await marketplaceContract.getPremiumDiscount())
+    await acceptOrder(wallets[1], listingOrder5, signature5, marketplaceAddress)
 
     // balance on contract should be same
 
-    const balanceOnContractAfter = await provider.getBalance(await marketplaceContract.getAddress())
+    const balanceOnContractAfter = await provider.getBalance(marketplaceAddress)
     const balanceOfSellerAfter2 = await provider.getBalance(wallets[0].address)
     // expect balance of seller to be + 1 eth -1% (1% is always, 1% is saved due to premium) - 2% royalty
     expect(ethers.formatEther(balanceOfSellerAfter2 - balanceOfSellerBefore2)).to.eq("0.97")
@@ -326,26 +325,14 @@ describe("DiamondTest", async function () {
   })
 
   it("Invalid signature or incorrect signer", async () => {
-    try {
       // first lets copy the listing order
       const listingOrder2 = JSON.parse(customJsonStringify(listingOrder1))
       listingOrder2.startTime = getUnixTimeTomorrow()
-      await acceptOrder(wallets[1], listingOrder2, signature1, await marketplaceContract.getAddress())
-      throw new Error("Should not reach here")
-    }
-    catch (error: any) {
-      expect(error.message).to.include("Invalid signature or incorrect signer")
-    }
+      await expect(acceptOrder(wallets[1], listingOrder2, signature1, marketplaceAddress)).to.be.revertedWith("Invalid signature or incorrect signer");
   })
 
   it("Order already claimed or canceled - claimed", async () => {
-    try {
-      await acceptOrder(wallets[1], listingOrder1, signature1, await marketplaceContract.getAddress())
-      throw new Error("Should not reach here")
-    }
-    catch (error: any) {
-      expect(error.message).to.include("Order already claimed or canceled")
-    }
+    await expect(acceptOrder(wallets[1], listingOrder1, signature1, marketplaceAddress)).to.be.revertedWith("Order already claimed or canceled");
   })
 
   it("Order already claimed or canceled - canceled", async () => {
@@ -371,23 +358,17 @@ describe("DiamondTest", async function () {
       endTime: getUnixTimeTomorrow(),
       createdTime: getUnixTimeNow(),
     }
-    const res2 = await createOffchainListingOrderWithApproval(wallet0, listingOrder2, await marketplaceContract.getAddress())
+    const res2 = await createOffchainListingOrderWithApproval(wallet0, listingOrder2, marketplaceAddress)
     hash2 = res2.hash
     signature2 = res2.signature
     const signatureVerified2 = await marketplaceContract.verifySignature(hash2, signature2, wallet0.address)
     expect(signatureVerified2).to.eq(true)
 
-    const finishedTx = await cancelOrder(wallet0, listingOrder2, signature2, await marketplaceContract.getAddress())
+    const finishedTx = await cancelOrder(wallet0, listingOrder2, signature2, marketplaceAddress)
     expect(finishedTx!.status).to.eq(1)
 
     // lets try to accept the order
-    try {
-      await acceptOrder(wallets[1], listingOrder2, signature2, await marketplaceContract.getAddress())
-      throw new Error("Should not reach here")
-    }
-    catch (error: any) {
-      expect(error.message).to.include("Order already claimed or canceled")
-    }
+    await expect(acceptOrder(wallets[1], listingOrder2, signature2, marketplaceAddress)).to.be.revertedWith("Order already claimed or canceled");
   })
 
   it("Order is not started yet", async () => {
@@ -413,26 +394,20 @@ describe("DiamondTest", async function () {
       endTime: getUnixTimeTomorrow(),
       createdTime: getUnixTimeNow(),
     }
-    const res3 = await createOffchainListingOrderWithApproval(wallet0, listingOrder3, await marketplaceContract.getAddress())
+    const res3 = await createOffchainListingOrderWithApproval(wallet0, listingOrder3, marketplaceAddress)
     hash3 = res3.hash
     signature3 = res3.signature
     const signatureVerified3 = await marketplaceContract.verifySignature(hash3, signature3, wallet0.address)
     expect(signatureVerified3).to.eq(true)
 
     // lets try to accept the order
-    try {
-      await acceptOrder(wallets[1], listingOrder3, signature3, await marketplaceContract.getAddress())
-      throw new Error("Should not reach here")
-    }
-    catch (error: any) {
-      expect(error.message).to.include("Order is not started yet")
-    }
+    await expect(acceptOrder(wallets[1], listingOrder3, signature3, marketplaceAddress)).to.be.revertedWith("Order is not started yet");
   })
 
   it("Order is expired", async () => {
     listingOrder3.startTime = getUnixTimeNow()
     listingOrder3.endTime = getUnixTimeNow()
-    const res3 = await createOffchainListingOrderWithApproval(wallet0, listingOrder3, await marketplaceContract.getAddress())
+    const res3 = await createOffchainListingOrderWithApproval(wallet0, listingOrder3, marketplaceAddress)
     hash3 = res3.hash
     signature3 = res3.signature
     const signatureVerified4 = await marketplaceContract.verifySignature(hash3, signature3, wallet0.address)
@@ -441,35 +416,22 @@ describe("DiamondTest", async function () {
     // sleep for 1 second
     await new Promise(r => setTimeout(r, 1000))
     // lets try to accept the order
-    try {
-      await acceptOrder(wallets[1], listingOrder3, signature3, await marketplaceContract.getAddress())
-      throw new Error("Should not reach here")
-    }
-    catch (error: any) {
-      // if it doesn't include order is expired lets log the error
-      if (!error.message.includes("Order is expired")) console.error(error)
-      expect(error.message).to.include("Order is expired")
-    }
+    await expect(acceptOrder(wallets[1], listingOrder3, signature3, marketplaceAddress)).to.be.revertedWith("Order is expired");
   })
 
   it("NFT owner is not the offerer", async () => {
     // lets create listing order 2
     listingOrder3.offerer = wallets[2].address
     listingOrder3.endTime = getUnixTimeTomorrow()
-    const res3 = await createOffchainListingOrderWithApproval(wallets[2], listingOrder3, await marketplaceContract.getAddress())
+    const res3 = await createOffchainListingOrderWithApproval(wallets[2], listingOrder3, marketplaceAddress)
     hash3 = res3.hash
     signature3 = res3.signature
 
     const signatureVerified4 = await marketplaceContract.verifySignature(hash3, signature3, wallets[2].address)
     expect(signatureVerified4).to.eq(true)
     // lets try to accept the order
-    try {
-      await acceptOrder(wallets[1], listingOrder3, signature3, await marketplaceContract.getAddress())
-      throw new Error("Should not reach here")
-    }
-    catch (error: any) {
-      expect(error.message).to.include("NFT owner is not the offerer")
-    }
+    await expect(acceptOrder(wallets[1], listingOrder3, signature3, marketplaceAddress)).to.be.revertedWithCustomError(nftContract, "TransferFromIncorrectOwner");
+
     listingOrder3.offerer = wallet0.address
   })
 
@@ -478,20 +440,19 @@ describe("DiamondTest", async function () {
     listingOrder3.endTime = getUnixTimeTomorrow()
     listingOrder3.offerer = wallet0.address
     listingOrder3.consideration.amount = ethers.parseEther("0.69")
-    const res3 = await createOffchainListingOrderWithApproval(wallet0, listingOrder3, await marketplaceContract.getAddress())
+    const res3 = await createOffchainListingOrderWithApproval(wallet0, listingOrder3, marketplaceAddress)
     hash3 = res3.hash
     signature3 = res3.signature
     const signatureVerified = await marketplaceContract.verifySignature(hash3, signature3, wallet0.address)
     expect(signatureVerified).to.eq(true)
 
     // lets try to accept the order
-    try {
-      const marketplaceContractWithSigner = new ethers.Contract(
-        await marketplaceContract.getAddress(),
+    const marketplaceContractWithSigner = new ethers.Contract(
+        marketplaceAddress,
         diamondAbi,
         wallets[1],
       )
-      await callContractMethod(
+    await expect(callContractMethod(
         marketplaceContractWithSigner as any,
         "acceptOrder",
         [
@@ -503,12 +464,7 @@ describe("DiamondTest", async function () {
         ],
         // orderParameters.consideration.amount,
         listingOrder3.consideration.amount - BigInt(1),
-      )
-      throw new Error("Should not reach here")
-    }
-    catch (error: any) {
-      expect(error.message).to.include("Incorrect ETH value sent")
-    }
+      )).to.be.revertedWith("Incorrect ETH value sent");
   })
 
   let ERC20Contract: any
@@ -544,10 +500,10 @@ describe("DiamondTest", async function () {
       createdTime: getUnixTimeNow(),
     }
 
-    const res = await createOffchainOfferOrderWithApproval(wallets[0], listingOrder6, await marketplaceContract.getAddress())
+    const res = await createOffchainOfferOrderWithApproval(wallets[0], listingOrder6, marketplaceAddress)
     const signature = res.signature
 
-    await acceptOrder(wallets[1], listingOrder6, signature, await marketplaceContract.getAddress())
+    await acceptOrder(wallets[1], listingOrder6, signature, marketplaceAddress)
     expect(await nftContract.ownerOf(6)).to.eq(wallets[0].address)
     expect(await ERC20Contract.balanceOf(wallets[0].address)).to.eq(BigInt(0))
     expect(await ERC20Contract.balanceOf(wallets[1].address)).to.eq(BigInt(1))
@@ -586,23 +542,23 @@ describe("DiamondTest", async function () {
     // lets make allowance + order from user 1 to marketplace
 
     try {
-      await createOffchainOfferOrderWithApproval(wallets[0], listingOrder7, await marketplaceContract.getAddress())
+      await createOffchainOfferOrderWithApproval(wallets[0], listingOrder7, marketplaceAddress)
       throw new Error("Should not reach here")
     }
     catch (error: any) {
       // "Offerer must be the signer"
       expect(error.message).to.include("Offerer must be the signer")
     }
-    const res = await createOffchainOfferOrder(wallets[1], listingOrder7, await marketplaceContract.getAddress())
+    const res = await createOffchainOfferOrder(wallets[1], listingOrder7, marketplaceAddress)
     const signature = res.signature
     // check approval for erc20 now, it should be higher or equal to the amount
 
     try {
-      await acceptCollectionOfferOrder(wallets[0], listingOrder7, signature, "7", await marketplaceContract.getAddress())
+      await acceptCollectionOfferOrder(wallets[0], listingOrder7, signature, "7", marketplaceAddress)
       throw new Error("Should not reach here")
     }
     catch (error: any) {
-      expect(error.message).to.include("Insufficient balance to complete transaction")
+      expect(error.message).to.include("ERC20InsufficientAllowance")
     }
 
     // lets mint erc20
@@ -613,26 +569,25 @@ describe("DiamondTest", async function () {
 
     // lets try to edit the approval to 0 and see if it fails
     const erc20ContractWithUser1 = new ethers.Contract(await ERC20Contract.getAddress(), ERC20ABI, wallets[1])
-    const tx = await erc20ContractWithUser1.approve(await marketplaceContract.getAddress(), 0)
+    const tx = await erc20ContractWithUser1.approve(marketplaceAddress, 0)
     await tx.wait()
 
     // lets make sure owner of 7 is wallet0
     expect(await nftContract.ownerOf(7)).to.eq(wallets[0].address)
 
     try {
-      await acceptCollectionOfferOrder(wallets[0], listingOrder7, signature, "7", await marketplaceContract.getAddress())
+      await acceptCollectionOfferOrder(wallets[0], listingOrder7, signature, "7", marketplaceAddress)
       throw new Error("Should not reach here")
     }
     catch (error: any) {
-      expect(error.message).to.include("Insufficient allowance to complete transaction")
+      expect(error.message).to.include("ERC20InsufficientAllowance")
     }
 
-    await createOffchainOfferOrderWithApproval(wallets[1], listingOrder7, await marketplaceContract.getAddress())
-    expect(ethers.parseEther("1")).to.lteBigInt(await ERC20Contract.allowance(wallets[1].address, await marketplaceContract.getAddress()))
+    await createOffchainOfferOrderWithApproval(wallets[1], listingOrder7, marketplaceAddress)
+    expect(ethers.parseEther("1")).to.lteBigInt(await ERC20Contract.allowance(wallets[1].address, marketplaceAddress))
 
-    try {
-      const marketplaceContract2 = new ethers.Contract(await marketplaceContract.getAddress(), diamondAbi, wallets[0]) as any
-      await callContractMethod(
+    const marketplaceContract2 = new ethers.Contract(marketplaceAddress, diamondAbi, wallets[0]) as any
+    await expect(callContractMethod(
         marketplaceContract2,
         "acceptOrder",
         [
@@ -643,23 +598,18 @@ describe("DiamondTest", async function () {
           listingOrder7.royaltyPercentageIn10000,
         ],
         null,
-      )
-      throw new Error("Should not reach here")
-    }
-    catch (error: any) {
-      expect(error.message).to.include("Invalid order type")
-    }
+      )).to.be.revertedWith("Invalid order type");
 
     // this one should revert because acceptOrder is not allowed for ERC20_FOR_ERC721_ANY
 
-    await acceptCollectionOfferOrder(wallets[0], listingOrder7, signature, "7", await marketplaceContract.getAddress())
+    await acceptCollectionOfferOrder(wallets[0], listingOrder7, signature, "7", marketplaceAddress)
 
     // check new balance should be 1 eth
     expect(await ERC20Contract.balanceOf(wallets[1].address)).to.eq(ethers.parseEther("1.01")) // he saves 1% platform fee due to being premium holder
     // balance of seller should be 1 eth
     expect(await ERC20Contract.balanceOf(wallets[0].address)).to.eq(ethers.parseEther("0.97")) // loses 2 % royalty but saves 1% platform fee but still has to pay 1 % platform fee (2% is total)
     // balance on contract still 0 because both are premium holders
-    expect(await ERC20Contract.balanceOf(await marketplaceContract.getAddress())).to.eq(BigInt(0))
+    expect(await ERC20Contract.balanceOf(marketplaceAddress)).to.eq(BigInt(0))
     // and should be owner of 7
     expect(await nftContract.ownerOf(7)).to.eq(wallets[1].address)
   })
@@ -712,12 +662,12 @@ describe("DiamondTest", async function () {
       createdTime: getUnixTimeNow(),
     }
 
-    const res8 = await createOffchainListingOrderWithApproval(wallets[0], listingOrder8, await marketplaceContract.getAddress())
+    const res8 = await createOffchainListingOrderWithApproval(wallets[0], listingOrder8, marketplaceAddress)
     const signature8 = res8.signature
-    const res9 = await createOffchainListingOrderWithApproval(wallets[0], listingOrder9, await marketplaceContract.getAddress())
+    const res9 = await createOffchainListingOrderWithApproval(wallets[0], listingOrder9, marketplaceAddress)
     const signature9 = res9.signature
 
-    await batchAcceptOrder(wallets[1], [listingOrder8, listingOrder9], [signature8, signature9], [100, 100], await marketplaceContract.getAddress())
+    await batchAcceptOrder(wallets[1], [listingOrder8, listingOrder9], [signature8, signature9], [100, 100], marketplaceAddress)
 
     // check new balance should be 1 eth
     expect(await nftContract.ownerOf(8)).to.eq(wallets[1].address)
@@ -726,8 +676,8 @@ describe("DiamondTest", async function () {
 
   it("Withdrawal of ERC20 from marketplace", async () => {
     const balanceBefore = await ERC20Contract.balanceOf(wallets[0].address)
-    const balanceOnContractBefore = await ERC20Contract.balanceOf(await marketplaceContract.getAddress())
-    const marketplaceContractWithOwner = new ethers.Contract(await marketplaceContract.getAddress(), diamondAbi, wallets[0])
+    const balanceOnContractBefore = await ERC20Contract.balanceOf(marketplaceAddress)
+    const marketplaceContractWithOwner = new ethers.Contract(marketplaceAddress, diamondAbi, wallets[0])
     const tx = await marketplaceContractWithOwner.withdrawERC20(await ERC20Contract.getAddress())
     await tx.wait()
     const balanceAfter = await ERC20Contract.balanceOf(wallets[0].address)
@@ -736,32 +686,23 @@ describe("DiamondTest", async function () {
 
   // check that withdrawal does not work for non owner
   it("Withdrawal of ERC20 from marketplace - not owner", async () => {
-    try {
-      const marketplaceContractWithOwner = new ethers.Contract(await marketplaceContract.getAddress(), diamondAbi, wallets[1])
-      const tx = await marketplaceContractWithOwner.withdrawERC20(await ERC20Contract.getAddress())
-      await tx.wait()
-      throw new Error("Should not reach here")
-    }
-    catch (error: any) {
-      // expect(error.message).to.include("NotContractOwner")
-      // for now lets just check that its not "Should not reach here"
-      expect(error.message).to.not.include("Should not reach here")
-    }
+      const marketplaceContractWithOwner = new ethers.Contract(marketplaceAddress, diamondAbi, wallets[1])
+      await expect(marketplaceContractWithOwner.withdrawERC20(await ERC20Contract.getAddress())).to.be.revertedWithCustomError(marketplaceContractWithOwner, "NotContractOwner");
   })
 
   // check that eth withdrawal works
   it("Withdrawal of ETH from marketplace", async () => {
     // lets send on contract some eth from wallet 0
     const tx1 = await wallets[0].sendTransaction({
-      to: await marketplaceContract.getAddress(),
+      to: marketplaceAddress,
       value: ethers.parseEther("1"),
     })
     await tx1.wait()
     const balanceBefore = await provider.getBalance(wallets[0].address)
-    const balanceOnContractBefore = await provider.getBalance(await marketplaceContract.getAddress())
+    const balanceOnContractBefore = await provider.getBalance(marketplaceAddress)
     // expect balance to be more than 0 eth
     expect(1).to.lteBigInt(balanceOnContractBefore)
-    const marketplaceContractWithOwner = new ethers.Contract(await marketplaceContract.getAddress(), diamondAbi, wallets[0])
+    const marketplaceContractWithOwner = new ethers.Contract(marketplaceAddress, diamondAbi, wallets[0])
     const tx = await marketplaceContractWithOwner.withdrawETH()
     await tx.wait()
     const balanceAfter = await provider.getBalance(wallets[0].address)

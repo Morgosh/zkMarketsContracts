@@ -262,11 +262,6 @@
                 "internalType": "uint256",
                 "name": "createdTime",
                 "type": "uint256"
-              },
-              {
-                "internalType": "address",
-                "name": "premiumAddress",
-                "type": "address"
               }
             ],
             "internalType": "struct TransactFacet.OrderParameters",
@@ -292,11 +287,6 @@
         "internalType": "uint256",
         "name": "nftIdentifier",
         "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "premiumAddress",
-        "type": "address"
       }
     ],
     "name": "acceptCollectionOffer",
@@ -398,11 +388,6 @@
                 "internalType": "uint256",
                 "name": "createdTime",
                 "type": "uint256"
-              },
-              {
-                "internalType": "address",
-                "name": "premiumAddress",
-                "type": "address"
               }
             ],
             "internalType": "struct TransactFacet.OrderParameters",
@@ -423,11 +408,6 @@
         "internalType": "uint256",
         "name": "royaltyPercentageIn10000",
         "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "premiumAddress",
-        "type": "address"
       }
     ],
     "name": "acceptOrder",
@@ -529,11 +509,6 @@
                 "internalType": "uint256",
                 "name": "createdTime",
                 "type": "uint256"
-              },
-              {
-                "internalType": "address",
-                "name": "premiumAddress",
-                "type": "address"
               }
             ],
             "internalType": "struct TransactFacet.OrderParameters",
@@ -554,11 +529,6 @@
         "internalType": "uint256[]",
         "name": "royaltyPercentagesIn10000",
         "type": "uint256[]"
-      },
-      {
-        "internalType": "address",
-        "name": "premiumAddress",
-        "type": "address"
       }
     ],
     "name": "batchAcceptOrder",
@@ -667,11 +637,6 @@
                 "internalType": "uint256",
                 "name": "createdTime",
                 "type": "uint256"
-              },
-              {
-                "internalType": "address",
-                "name": "premiumAddress",
-                "type": "address"
               }
             ],
             "internalType": "struct TransactFacet.OrderParameters",
@@ -786,11 +751,6 @@
             "internalType": "uint256",
             "name": "createdTime",
             "type": "uint256"
-          },
-          {
-            "internalType": "address",
-            "name": "premiumAddress",
-            "type": "address"
           }
         ],
         "internalType": "struct TransactFacet.OrderParameters",
@@ -856,14 +816,9 @@
         "internalType": "address",
         "name": "user",
         "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "premiumAddress",
-        "type": "address"
       }
     ],
-    "name": "getPremiumDiscount",
+    "name": "getUserPremiumDiscount",
     "outputs": [
       {
         "internalType": "uint256",
@@ -968,11 +923,6 @@
                 "internalType": "uint256",
                 "name": "createdTime",
                 "type": "uint256"
-              },
-              {
-                "internalType": "address",
-                "name": "premiumAddress",
-                "type": "address"
               }
             ],
             "internalType": "struct TransactFacet.OrderParameters",
