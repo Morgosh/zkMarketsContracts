@@ -393,6 +393,13 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         require(success);
     }
 
+    function emergencyWithdrawERC20(ERC20 erc20Token) external onlyOwner {
+        require(block.timestamp > deployTimestamp + 28 weeks, "Too early to emergency withdraw");
+        
+        uint256 balance = erc20Token.balanceOf(address(this));
+        erc20Token.safeTransfer(owner(), balance);
+    }
+
     function setTradingEnabled(bool _tradingEnabled) external onlyOwner {
         tradingEnabled = _tradingEnabled;
     }
