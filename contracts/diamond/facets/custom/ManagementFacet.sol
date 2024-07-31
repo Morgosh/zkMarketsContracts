@@ -8,7 +8,8 @@ contract ManagementFacet {
     using SafeERC20 for IERC20;
 
     event PlatformFeeUpdated(uint256 newPlatformFee);
-    event PremiumDiscountUpdated(address premiumAddress, uint256 newPremiumDiscount);
+    event PremiumDiscountUpdated(uint256 newPremiumDiscount);
+    event PremiumAddressUpdated(address premiumAddress);
     event MarketplacePaused();
 
     function setPlatformFee(uint256 _platformFee) external {
@@ -22,15 +23,25 @@ contract ManagementFacet {
         return SharedStorage.getStorage().platformFee;
     }
 
-    function setPremiumDiscount(address _premiumAddress, uint256 _premiumDiscount) external {
+    function setPremiumDiscount(uint256 _premiumDiscount) external {
         LibDiamond.enforceIsContractOwner();
         require(_premiumDiscount <= 5000, "Discount exceeds maximum limit");
-        SharedStorage.setPremiumDiscount(_premiumAddress, _premiumDiscount);
-        emit PremiumDiscountUpdated(_premiumAddress, _premiumDiscount);
+        SharedStorage.setPremiumDiscount(_premiumDiscount);
+        emit PremiumDiscountUpdated(_premiumDiscount);
+    }
+    
+    function setPremiumAddress(address _premiumAddress) external {
+        LibDiamond.enforceIsContractOwner();
+        SharedStorage.setPremiumAddress(_premiumAddress);
+        emit PremiumAddressUpdated(_premiumAddress);
     }
 
-    function getPremiumDiscount(address _premiumAddress) external view returns (uint256) {
-        return SharedStorage.getStorage().premiumDiscounts[_premiumAddress];
+    function getPremiumDiscount() external view returns (uint256) {
+        return SharedStorage.getStorage().premiumDiscount;
+    }
+    
+    function getPremiumAddress() external view returns (address) {
+        return SharedStorage.getStorage().premiumAddress;
     }
 
     function setMarketplacePaused(bool _paused) external {

@@ -26,7 +26,6 @@ struct DiamondArgs {
     address init;
     bytes initCalldata;
     // custom
-    address wethAddress;
     uint256 platformFee;
 }
 
@@ -37,7 +36,6 @@ contract Diamond {
         LibDiamond.diamondCut(_diamondCut, _args.init, _args.initCalldata);
 
         // Code can be added here to perform actions and set state variables.
-        SharedStorage.setWETHAddress(_args.wethAddress);
         SharedStorage.setPlatformFee(_args.platformFee);
         SharedStorage.setChainId(block.chainid);
         //setName(
