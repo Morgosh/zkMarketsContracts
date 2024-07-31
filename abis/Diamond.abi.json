@@ -46,18 +46,8 @@
             "type": "address"
           },
           {
-            "internalType": "address",
-            "name": "premiumNftAddress",
-            "type": "address"
-          },
-          {
             "internalType": "uint256",
             "name": "platformFee",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "premiumDiscount",
             "type": "uint256"
           }
         ],
@@ -815,21 +805,84 @@
   {
     "inputs": [
       {
-        "internalType": "bytes4",
-        "name": "interfaceId",
-        "type": "bytes4"
-      }
-    ],
-    "name": "supportsInterface",
-    "outputs": [
+        "components": [
+          {
+            "internalType": "address",
+            "name": "facetAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "enum IDiamond.FacetCutAction",
+            "name": "action",
+            "type": "uint8"
+          },
+          {
+            "internalType": "bytes4[]",
+            "name": "functionSelectors",
+            "type": "bytes4[]"
+          }
+        ],
+        "internalType": "struct IDiamond.FacetCut[]",
+        "name": "_diamondCut",
+        "type": "tuple[]"
+      },
       {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
+        "internalType": "address",
+        "name": "_init",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes",
+        "name": "_calldata",
+        "type": "bytes"
       }
     ],
-    "stateMutability": "view",
+    "name": "diamondCut",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "facetAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "enum IDiamond.FacetCutAction",
+            "name": "action",
+            "type": "uint8"
+          },
+          {
+            "internalType": "bytes4[]",
+            "name": "functionSelectors",
+            "type": "bytes4[]"
+          }
+        ],
+        "indexed": false,
+        "internalType": "struct IDiamond.FacetCut[]",
+        "name": "_diamondCut",
+        "type": "tuple[]"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "_init",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "_calldata",
+        "type": "bytes"
+      }
+    ],
+    "name": "DiamondCut",
+    "type": "event"
   },
   {
     "inputs": [
@@ -908,85 +961,22 @@
     "type": "function"
   },
   {
-    "anonymous": false,
     "inputs": [
       {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "facetAddress",
-            "type": "address"
-          },
-          {
-            "internalType": "enum IDiamond.FacetCutAction",
-            "name": "action",
-            "type": "uint8"
-          },
-          {
-            "internalType": "bytes4[]",
-            "name": "functionSelectors",
-            "type": "bytes4[]"
-          }
-        ],
-        "indexed": false,
-        "internalType": "struct IDiamond.FacetCut[]",
-        "name": "_diamondCut",
-        "type": "tuple[]"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "_init",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "bytes",
-        "name": "_calldata",
-        "type": "bytes"
+        "internalType": "bytes4",
+        "name": "interfaceId",
+        "type": "bytes4"
       }
     ],
-    "name": "DiamondCut",
-    "type": "event"
-  },
-  {
-    "inputs": [
+    "name": "supportsInterface",
+    "outputs": [
       {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "facetAddress",
-            "type": "address"
-          },
-          {
-            "internalType": "enum IDiamond.FacetCutAction",
-            "name": "action",
-            "type": "uint8"
-          },
-          {
-            "internalType": "bytes4[]",
-            "name": "functionSelectors",
-            "type": "bytes4[]"
-          }
-        ],
-        "internalType": "struct IDiamond.FacetCut[]",
-        "name": "_diamondCut",
-        "type": "tuple[]"
-      },
-      {
-        "internalType": "address",
-        "name": "_init",
-        "type": "address"
-      },
-      {
-        "internalType": "bytes",
-        "name": "_calldata",
-        "type": "bytes"
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
       }
     ],
-    "name": "diamondCut",
-    "outputs": [],
-    "stateMutability": "nonpayable",
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -1096,6 +1086,13 @@
     "type": "event"
   },
   {
+    "inputs": [],
+    "name": "init",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -1162,35 +1159,15 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "init",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "inputs": [
       {
         "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "spender",
+        "name": "target",
         "type": "address"
       }
     ],
-    "name": "allowance",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
+    "name": "AddressEmptyCode",
+    "type": "error"
   },
   {
     "inputs": [
@@ -1200,87 +1177,8 @@
         "type": "address"
       }
     ],
-    "name": "balanceOf",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "sender",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "recipient",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "transferFrom",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "salePrice",
-        "type": "uint256"
-      }
-    ],
-    "name": "royaltyInfo",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "receiver",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "royaltyAmount",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "owner",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
+    "name": "AddressInsufficientBalance",
+    "type": "error"
   },
   {
     "inputs": [],
@@ -1311,7 +1209,23 @@
   },
   {
     "inputs": [],
+    "name": "FailedInnerCall",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "ReentrancyGuardReentrantCall",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      }
+    ],
+    "name": "SafeERC20FailedOperation",
     "type": "error"
   },
   {
@@ -1507,6 +1421,11 @@
                 "internalType": "uint256",
                 "name": "createdTime",
                 "type": "uint256"
+              },
+              {
+                "internalType": "address",
+                "name": "premiumAddress",
+                "type": "address"
               }
             ],
             "internalType": "struct TransactFacet.OrderParameters",
@@ -1532,6 +1451,11 @@
         "internalType": "uint256",
         "name": "nftIdentifier",
         "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "premiumAddress",
+        "type": "address"
       }
     ],
     "name": "acceptCollectionOffer",
@@ -1633,6 +1557,11 @@
                 "internalType": "uint256",
                 "name": "createdTime",
                 "type": "uint256"
+              },
+              {
+                "internalType": "address",
+                "name": "premiumAddress",
+                "type": "address"
               }
             ],
             "internalType": "struct TransactFacet.OrderParameters",
@@ -1653,6 +1582,11 @@
         "internalType": "uint256",
         "name": "royaltyPercentageIn10000",
         "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "premiumAddress",
+        "type": "address"
       }
     ],
     "name": "acceptOrder",
@@ -1754,6 +1688,11 @@
                 "internalType": "uint256",
                 "name": "createdTime",
                 "type": "uint256"
+              },
+              {
+                "internalType": "address",
+                "name": "premiumAddress",
+                "type": "address"
               }
             ],
             "internalType": "struct TransactFacet.OrderParameters",
@@ -1774,6 +1713,11 @@
         "internalType": "uint256[]",
         "name": "royaltyPercentagesIn10000",
         "type": "uint256[]"
+      },
+      {
+        "internalType": "address",
+        "name": "premiumAddress",
+        "type": "address"
       }
     ],
     "name": "batchAcceptOrder",
@@ -1882,6 +1826,11 @@
                 "internalType": "uint256",
                 "name": "createdTime",
                 "type": "uint256"
+              },
+              {
+                "internalType": "address",
+                "name": "premiumAddress",
+                "type": "address"
               }
             ],
             "internalType": "struct TransactFacet.OrderParameters",
@@ -1996,6 +1945,11 @@
             "internalType": "uint256",
             "name": "createdTime",
             "type": "uint256"
+          },
+          {
+            "internalType": "address",
+            "name": "premiumAddress",
+            "type": "address"
           }
         ],
         "internalType": "struct TransactFacet.OrderParameters",
@@ -2061,14 +2015,19 @@
         "internalType": "address",
         "name": "user",
         "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "premiumAddress",
+        "type": "address"
       }
     ],
-    "name": "isPremiumHolder",
+    "name": "getPremiumDiscount",
     "outputs": [
       {
-        "internalType": "bool",
+        "internalType": "uint256",
         "name": "",
-        "type": "bool"
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -2168,6 +2127,11 @@
                 "internalType": "uint256",
                 "name": "createdTime",
                 "type": "uint256"
+              },
+              {
+                "internalType": "address",
+                "name": "premiumAddress",
+                "type": "address"
               }
             ],
             "internalType": "struct TransactFacet.OrderParameters",
@@ -2234,44 +2198,28 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "account",
+        "name": "target",
         "type": "address"
       }
     ],
-    "name": "balanceOf",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
+    "name": "AddressEmptyCode",
+    "type": "error"
   },
   {
     "inputs": [
       {
         "internalType": "address",
-        "name": "recipient",
+        "name": "account",
         "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
       }
     ],
-    "name": "transfer",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    "name": "AddressInsufficientBalance",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "FailedInnerCall",
+    "type": "error"
   },
   {
     "inputs": [
@@ -2287,6 +2235,17 @@
       }
     ],
     "name": "NotContractOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      }
+    ],
+    "name": "SafeERC20FailedOperation",
     "type": "error"
   },
   {
@@ -2313,25 +2272,18 @@
     "inputs": [
       {
         "indexed": false,
+        "internalType": "address",
+        "name": "premiumAddress",
+        "type": "address"
+      },
+      {
+        "indexed": false,
         "internalType": "uint256",
-        "name": "newPremiumFee",
+        "name": "newPremiumDiscount",
         "type": "uint256"
       }
     ],
     "name": "PremiumDiscountUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "newPremiumNftAddress",
-        "type": "address"
-      }
-    ],
-    "name": "PremiumNFTAddressUpdated",
     "type": "event"
   },
   {
@@ -2349,12 +2301,44 @@
   },
   {
     "inputs": [],
-    "name": "getPremiumNftAddress",
+    "name": "getMarketplacePaused",
     "outputs": [
       {
-        "internalType": "address",
+        "internalType": "bool",
         "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getPlatformFee",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_premiumAddress",
         "type": "address"
+      }
+    ],
+    "name": "getPremiumDiscount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -2389,25 +2373,17 @@
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "_premiumAddress",
+        "type": "address"
+      },
+      {
         "internalType": "uint256",
         "name": "_premiumDiscount",
         "type": "uint256"
       }
     ],
     "name": "setPremiumDiscount",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_premiumNftAddress",
-        "type": "address"
-      }
-    ],
-    "name": "setPremiumNftAddress",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -2428,7 +2404,7 @@
   {
     "inputs": [
       {
-        "internalType": "address",
+        "internalType": "contract IERC20",
         "name": "erc20Token",
         "type": "address"
       }

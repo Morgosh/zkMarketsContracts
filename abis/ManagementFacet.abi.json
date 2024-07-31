@@ -3,6 +3,33 @@
     "inputs": [
       {
         "internalType": "address",
+        "name": "target",
+        "type": "address"
+      }
+    ],
+    "name": "AddressEmptyCode",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "AddressInsufficientBalance",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "FailedInnerCall",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
         "name": "_user",
         "type": "address"
       },
@@ -13,6 +40,17 @@
       }
     ],
     "name": "NotContractOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      }
+    ],
+    "name": "SafeERC20FailedOperation",
     "type": "error"
   },
   {
@@ -39,25 +77,18 @@
     "inputs": [
       {
         "indexed": false,
+        "internalType": "address",
+        "name": "premiumAddress",
+        "type": "address"
+      },
+      {
+        "indexed": false,
         "internalType": "uint256",
-        "name": "newPremiumFee",
+        "name": "newPremiumDiscount",
         "type": "uint256"
       }
     ],
     "name": "PremiumDiscountUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "newPremiumNftAddress",
-        "type": "address"
-      }
-    ],
-    "name": "PremiumNFTAddressUpdated",
     "type": "event"
   },
   {
@@ -75,12 +106,44 @@
   },
   {
     "inputs": [],
-    "name": "getPremiumNftAddress",
+    "name": "getMarketplacePaused",
     "outputs": [
       {
-        "internalType": "address",
+        "internalType": "bool",
         "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getPlatformFee",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_premiumAddress",
         "type": "address"
+      }
+    ],
+    "name": "getPremiumDiscount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -115,25 +178,17 @@
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "_premiumAddress",
+        "type": "address"
+      },
+      {
         "internalType": "uint256",
         "name": "_premiumDiscount",
         "type": "uint256"
       }
     ],
     "name": "setPremiumDiscount",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_premiumNftAddress",
-        "type": "address"
-      }
-    ],
-    "name": "setPremiumNftAddress",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -154,7 +209,7 @@
   {
     "inputs": [
       {
-        "internalType": "address",
+        "internalType": "contract IERC20",
         "name": "erc20Token",
         "type": "address"
       }

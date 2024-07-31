@@ -43,7 +43,7 @@
       },
       {
         "internalType": "address payable",
-        "name": "_comissionRecipientAddress",
+        "name": "_commissionRecipientAddress",
         "type": "address"
       },
       {
@@ -53,7 +53,7 @@
       },
       {
         "internalType": "uint256",
-        "name": "_comissionPercentageIn10000",
+        "name": "_commissionPercentageIn10000",
         "type": "uint256"
       },
       {
@@ -71,6 +71,28 @@
     "type": "constructor"
   },
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "target",
+        "type": "address"
+      }
+    ],
+    "name": "AddressEmptyCode",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "AddressInsufficientBalance",
+    "type": "error"
+  },
+  {
     "inputs": [],
     "name": "ApprovalCallerNotOwnerNorApproved",
     "type": "error"
@@ -83,6 +105,11 @@
   {
     "inputs": [],
     "name": "BalanceQueryForZeroAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "FailedInnerCall",
     "type": "error"
   },
   {
@@ -135,6 +162,17 @@
   {
     "inputs": [],
     "name": "OwnershipNotInitializedForExtraData",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      }
+    ],
+    "name": "SafeERC20FailedOperation",
     "type": "error"
   },
   {
@@ -472,7 +510,7 @@
   },
   {
     "inputs": [],
-    "name": "comissionPercentageIn10000",
+    "name": "commissionPercentageIn10000",
     "outputs": [
       {
         "internalType": "uint256",
@@ -485,7 +523,7 @@
   },
   {
     "inputs": [],
-    "name": "comissionRecipientAddress",
+    "name": "commissionRecipientAddress",
     "outputs": [
       {
         "internalType": "address payable",
@@ -544,6 +582,13 @@
       }
     ],
     "name": "disableTier",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "emergencyWithdraw",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -842,6 +887,29 @@
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "tierId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes32[]",
+        "name": "proof",
+        "type": "bytes32[]"
+      }
+    ],
+    "name": "mintWithFixedERC20Price",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
         "name": "_mintAmount",
         "type": "uint256"
       }
@@ -1070,7 +1138,7 @@
     "inputs": [
       {
         "internalType": "string",
-        "name": "_baseURI",
+        "name": "_newBaseURI",
         "type": "string"
       }
     ],
@@ -1129,6 +1197,11 @@
         "internalType": "address",
         "name": "_ERC20PriceFeedAddress",
         "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_maxStaleness",
+        "type": "uint256"
       }
     ],
     "name": "setERC20PriceFeedAddress",
@@ -1155,6 +1228,11 @@
         "internalType": "address",
         "name": "_ethPriceFeedAddress",
         "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_maxStaleness",
+        "type": "uint256"
       }
     ],
     "name": "setETHPriceFeedAddress",
@@ -1264,6 +1342,11 @@
       },
       {
         "internalType": "uint256",
+        "name": "erc20Price",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
         "name": "maxMintAmount",
         "type": "uint256"
       },
@@ -1324,6 +1407,11 @@
       {
         "internalType": "uint256",
         "name": "price",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "erc20Price",
         "type": "uint256"
       }
     ],
@@ -1464,13 +1552,18 @@
       },
       {
         "internalType": "uint256",
-        "name": "maxMintAmount",
+        "name": "erc20Price",
         "type": "uint256"
       },
       {
-        "internalType": "uint256",
+        "internalType": "uint128",
+        "name": "maxMintAmount",
+        "type": "uint128"
+      },
+      {
+        "internalType": "uint128",
         "name": "saleStartTime",
-        "type": "uint256"
+        "type": "uint128"
       }
     ],
     "stateMutability": "view",
@@ -1665,7 +1758,7 @@
   {
     "inputs": [
       {
-        "internalType": "address",
+        "internalType": "contract ERC20",
         "name": "erc20Token",
         "type": "address"
       }
@@ -1677,7 +1770,7 @@
   },
   {
     "inputs": [],
-    "name": "withdrawFixedComission",
+    "name": "withdrawFixedCommission",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
