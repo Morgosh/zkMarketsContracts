@@ -1,0 +1,950 @@
+[
+  {
+    "inputs": [],
+    "name": "ECDSAInvalidSignature",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "length",
+        "type": "uint256"
+      }
+    ],
+    "name": "ECDSAInvalidSignatureLength",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "s",
+        "type": "bytes32"
+      }
+    ],
+    "name": "ECDSAInvalidSignatureS",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "ReentrancyGuardReentrantCall",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "orderHash",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "offerer",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "orderType",
+        "type": "uint8"
+      }
+    ],
+    "name": "OrderCanceled",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "offerer",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "canceledAt",
+        "type": "uint256"
+      }
+    ],
+    "name": "OrderCanceledAll",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "orderHash",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "nftReceiver",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "nftSeller",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "nftAddress",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint8",
+        "name": "orderType",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "price",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "platformFee",
+        "type": "uint256"
+      }
+    ],
+    "name": "OrderFulfilled",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "components": [
+              {
+                "internalType": "address payable",
+                "name": "offerer",
+                "type": "address"
+              },
+              {
+                "internalType": "enum TransactFacet.BasicOrderType",
+                "name": "orderType",
+                "type": "uint8"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "enum TransactFacet.ItemType",
+                    "name": "itemType",
+                    "type": "uint8"
+                  },
+                  {
+                    "internalType": "address",
+                    "name": "tokenAddress",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "identifier",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                  }
+                ],
+                "internalType": "struct TransactFacet.Item",
+                "name": "offer",
+                "type": "tuple"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "enum TransactFacet.ItemType",
+                    "name": "itemType",
+                    "type": "uint8"
+                  },
+                  {
+                    "internalType": "address",
+                    "name": "tokenAddress",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "identifier",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                  }
+                ],
+                "internalType": "struct TransactFacet.Item",
+                "name": "consideration",
+                "type": "tuple"
+              },
+              {
+                "internalType": "address payable",
+                "name": "royaltyReceiver",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "royaltyPercentageIn10000",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "startTime",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "endTime",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "createdTime",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct TransactFacet.OrderParameters",
+            "name": "parameters",
+            "type": "tuple"
+          },
+          {
+            "internalType": "bytes",
+            "name": "signature",
+            "type": "bytes"
+          }
+        ],
+        "internalType": "struct TransactFacet.Order",
+        "name": "order",
+        "type": "tuple"
+      },
+      {
+        "internalType": "uint256",
+        "name": "royaltyPercentageIn10000",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "nftIdentifier",
+        "type": "uint256"
+      }
+    ],
+    "name": "acceptCollectionOffer",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "components": [
+              {
+                "internalType": "address payable",
+                "name": "offerer",
+                "type": "address"
+              },
+              {
+                "internalType": "enum TransactFacet.BasicOrderType",
+                "name": "orderType",
+                "type": "uint8"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "enum TransactFacet.ItemType",
+                    "name": "itemType",
+                    "type": "uint8"
+                  },
+                  {
+                    "internalType": "address",
+                    "name": "tokenAddress",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "identifier",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                  }
+                ],
+                "internalType": "struct TransactFacet.Item",
+                "name": "offer",
+                "type": "tuple"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "enum TransactFacet.ItemType",
+                    "name": "itemType",
+                    "type": "uint8"
+                  },
+                  {
+                    "internalType": "address",
+                    "name": "tokenAddress",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "identifier",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                  }
+                ],
+                "internalType": "struct TransactFacet.Item",
+                "name": "consideration",
+                "type": "tuple"
+              },
+              {
+                "internalType": "address payable",
+                "name": "royaltyReceiver",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "royaltyPercentageIn10000",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "startTime",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "endTime",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "createdTime",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct TransactFacet.OrderParameters",
+            "name": "parameters",
+            "type": "tuple"
+          },
+          {
+            "internalType": "bytes",
+            "name": "signature",
+            "type": "bytes"
+          }
+        ],
+        "internalType": "struct TransactFacet.Order",
+        "name": "order",
+        "type": "tuple"
+      },
+      {
+        "internalType": "uint256",
+        "name": "royaltyPercentageIn10000",
+        "type": "uint256"
+      }
+    ],
+    "name": "acceptOrder",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "components": [
+              {
+                "internalType": "address payable",
+                "name": "offerer",
+                "type": "address"
+              },
+              {
+                "internalType": "enum TransactFacet.BasicOrderType",
+                "name": "orderType",
+                "type": "uint8"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "enum TransactFacet.ItemType",
+                    "name": "itemType",
+                    "type": "uint8"
+                  },
+                  {
+                    "internalType": "address",
+                    "name": "tokenAddress",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "identifier",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                  }
+                ],
+                "internalType": "struct TransactFacet.Item",
+                "name": "offer",
+                "type": "tuple"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "enum TransactFacet.ItemType",
+                    "name": "itemType",
+                    "type": "uint8"
+                  },
+                  {
+                    "internalType": "address",
+                    "name": "tokenAddress",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "identifier",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                  }
+                ],
+                "internalType": "struct TransactFacet.Item",
+                "name": "consideration",
+                "type": "tuple"
+              },
+              {
+                "internalType": "address payable",
+                "name": "royaltyReceiver",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "royaltyPercentageIn10000",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "startTime",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "endTime",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "createdTime",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct TransactFacet.OrderParameters",
+            "name": "parameters",
+            "type": "tuple"
+          },
+          {
+            "internalType": "bytes",
+            "name": "signature",
+            "type": "bytes"
+          }
+        ],
+        "internalType": "struct TransactFacet.Order[]",
+        "name": "orders",
+        "type": "tuple[]"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "royaltyPercentagesIn10000",
+        "type": "uint256[]"
+      }
+    ],
+    "name": "batchAcceptOrder",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "cancelAllOrders",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "components": [
+              {
+                "internalType": "address payable",
+                "name": "offerer",
+                "type": "address"
+              },
+              {
+                "internalType": "enum TransactFacet.BasicOrderType",
+                "name": "orderType",
+                "type": "uint8"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "enum TransactFacet.ItemType",
+                    "name": "itemType",
+                    "type": "uint8"
+                  },
+                  {
+                    "internalType": "address",
+                    "name": "tokenAddress",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "identifier",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                  }
+                ],
+                "internalType": "struct TransactFacet.Item",
+                "name": "offer",
+                "type": "tuple"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "enum TransactFacet.ItemType",
+                    "name": "itemType",
+                    "type": "uint8"
+                  },
+                  {
+                    "internalType": "address",
+                    "name": "tokenAddress",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "identifier",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                  }
+                ],
+                "internalType": "struct TransactFacet.Item",
+                "name": "consideration",
+                "type": "tuple"
+              },
+              {
+                "internalType": "address payable",
+                "name": "royaltyReceiver",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "royaltyPercentageIn10000",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "startTime",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "endTime",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "createdTime",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct TransactFacet.OrderParameters",
+            "name": "parameters",
+            "type": "tuple"
+          },
+          {
+            "internalType": "bytes",
+            "name": "signature",
+            "type": "bytes"
+          }
+        ],
+        "internalType": "struct TransactFacet.Order",
+        "name": "order",
+        "type": "tuple"
+      }
+    ],
+    "name": "cancelOrder",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "address payable",
+            "name": "offerer",
+            "type": "address"
+          },
+          {
+            "internalType": "enum TransactFacet.BasicOrderType",
+            "name": "orderType",
+            "type": "uint8"
+          },
+          {
+            "components": [
+              {
+                "internalType": "enum TransactFacet.ItemType",
+                "name": "itemType",
+                "type": "uint8"
+              },
+              {
+                "internalType": "address",
+                "name": "tokenAddress",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "identifier",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct TransactFacet.Item",
+            "name": "offer",
+            "type": "tuple"
+          },
+          {
+            "components": [
+              {
+                "internalType": "enum TransactFacet.ItemType",
+                "name": "itemType",
+                "type": "uint8"
+              },
+              {
+                "internalType": "address",
+                "name": "tokenAddress",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "identifier",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct TransactFacet.Item",
+            "name": "consideration",
+            "type": "tuple"
+          },
+          {
+            "internalType": "address payable",
+            "name": "royaltyReceiver",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "royaltyPercentageIn10000",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "startTime",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "endTime",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "createdTime",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct TransactFacet.OrderParameters",
+        "name": "orderParameters",
+        "type": "tuple"
+      }
+    ],
+    "name": "createOrderHash",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "domain",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "version",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "chainId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "verifyingContract",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getDomainSeparator",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      }
+    ],
+    "name": "isPremiumHolder",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "components": [
+              {
+                "internalType": "address payable",
+                "name": "offerer",
+                "type": "address"
+              },
+              {
+                "internalType": "enum TransactFacet.BasicOrderType",
+                "name": "orderType",
+                "type": "uint8"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "enum TransactFacet.ItemType",
+                    "name": "itemType",
+                    "type": "uint8"
+                  },
+                  {
+                    "internalType": "address",
+                    "name": "tokenAddress",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "identifier",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                  }
+                ],
+                "internalType": "struct TransactFacet.Item",
+                "name": "offer",
+                "type": "tuple"
+              },
+              {
+                "components": [
+                  {
+                    "internalType": "enum TransactFacet.ItemType",
+                    "name": "itemType",
+                    "type": "uint8"
+                  },
+                  {
+                    "internalType": "address",
+                    "name": "tokenAddress",
+                    "type": "address"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "identifier",
+                    "type": "uint256"
+                  },
+                  {
+                    "internalType": "uint256",
+                    "name": "amount",
+                    "type": "uint256"
+                  }
+                ],
+                "internalType": "struct TransactFacet.Item",
+                "name": "consideration",
+                "type": "tuple"
+              },
+              {
+                "internalType": "address payable",
+                "name": "royaltyReceiver",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "royaltyPercentageIn10000",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "startTime",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "endTime",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "createdTime",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct TransactFacet.OrderParameters",
+            "name": "parameters",
+            "type": "tuple"
+          },
+          {
+            "internalType": "bytes",
+            "name": "signature",
+            "type": "bytes"
+          }
+        ],
+        "internalType": "struct TransactFacet.Order",
+        "name": "order",
+        "type": "tuple"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "orderHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "validateOrder",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "fullHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes",
+        "name": "_signature",
+        "type": "bytes"
+      },
+      {
+        "internalType": "address",
+        "name": "signer",
+        "type": "address"
+      }
+    ],
+    "name": "verifySignature",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

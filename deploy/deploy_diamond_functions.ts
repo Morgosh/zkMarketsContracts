@@ -62,7 +62,7 @@ async function deployDiamond(options: any = {}, transactFacetOptions: any = null
   ]
 
   // The `facetCuts` variable is the FacetCut[] that contains the functions to add during diamond deployment
-  const facetCuts = []
+  const facetCuts: any = []
   for (const facetObj of facets) {
     // const Facet = await ethers.getContractFactory(facetObj.name, {
     //   libraries: facetObj.libraries,

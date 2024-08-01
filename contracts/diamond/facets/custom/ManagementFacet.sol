@@ -32,7 +32,7 @@ contract ManagementFacet {
     
     function setPremiumNftAddress(address _premiumAddress) external {
         LibDiamond.enforceIsContractOwner();
-        SharedStorage.setPremiumAddress(_premiumAddress);
+        SharedStorage.setPremiumNftAddress(_premiumAddress);
         emit PremiumAddressUpdated(_premiumAddress);
     }
 
@@ -41,7 +41,7 @@ contract ManagementFacet {
     }
     
     function getPremiumNftAddress() external view returns (address) {
-        return SharedStorage.getStorage().premiumAddress;
+        return SharedStorage.getStorage().premiumNftAddress;
     }
 
     function setMarketplacePaused(bool _paused) external {
