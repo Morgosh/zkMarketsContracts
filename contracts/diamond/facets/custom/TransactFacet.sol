@@ -65,6 +65,7 @@ contract TransactFacet is ReentrancyGuard {
     /**
      * @notice Creates a keccak256 hash of the order parameters structured according to EIP712 standards.
      * @param orderParameters Struct containing the order parameters
+     * @return Hash of the order parameters
      */
     function createOrderHash(OrderParameters memory orderParameters) public view returns (bytes32) {
         return keccak256(abi.encodePacked(
@@ -99,6 +100,7 @@ contract TransactFacet is ReentrancyGuard {
 
     /**
      * @notice Calculates the EIP712 domain separator based on the contract's details.
+     * @return Hash of the domainSeparator
      */
     function getDomainSeparator() public view returns (bytes32) {
         //first set getStorage();
@@ -133,6 +135,7 @@ contract TransactFacet is ReentrancyGuard {
     /**
      * @notice Determines the discount for a user, depending if he holds a premium NFT.
      * @param user Address of the user to check
+     * @return Discount BPS for the user
      */
     function getUserPremiumDiscount(address user) public view returns (uint256) {
         SharedStorage.Storage storage ds = SharedStorage.getStorage();
@@ -147,6 +150,7 @@ contract TransactFacet is ReentrancyGuard {
      * @notice Validates an order's signatures, timestamps, and state to ensure it can be executed.
      * @param order Struct containing order parameters and the signature
      * @param orderHash Hash of the order parameters
+     * @return Boolean if the order is valid or not
      */
     function validateOrder(Order memory order, bytes32 orderHash) public view returns (bool) {
         require(verifySignature(orderHash, order.signature, order.parameters.offerer), "Invalid signature or incorrect signer");
@@ -244,6 +248,7 @@ contract TransactFacet is ReentrancyGuard {
      * @param order Struct containing order parameters and the signature
      * @param orderHash Hash of the order parameters
      * @param royaltyPercentageIn10000 Royalty in BPS limited to MAX_ROYALTY_PERCENTAGE
+     * @return Boolean if the order is valid or not
      */
     function validateOrderAndClaim(Order memory order, bytes32 orderHash, uint256 royaltyPercentageIn10000) internal returns (bool) {
         validateOrder(order, orderHash);
@@ -319,6 +324,7 @@ contract TransactFacet is ReentrancyGuard {
     /**
      * @notice Checks if an address is a contract, which is useful for validating smart contract interactions.
      * @param account address to check
+     * @return Boolean if the account is a contract or not
      */
     function isContract(address account) internal view returns (bool) {
         uint256 size;
@@ -331,6 +337,7 @@ contract TransactFacet is ReentrancyGuard {
      * @param fullHash Hash to check
      * @param _signature Signature to check the hash against
      * @param signer Address to check the signature against
+     * @return Boolean if signature if valid or not
      */
     function verifySignature(bytes32 fullHash, bytes memory _signature, address signer) public view returns (bool) {
         if (isContract(signer)) {
