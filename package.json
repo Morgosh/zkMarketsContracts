@@ -10,7 +10,13 @@
     "clean": "hardhat clean",
     "test": "cross-env NODE_ENV=test hardhat test --network hardhat",
     "testGas": "cross-env REPORT_GAS=true NODE_ENV=test hardhat test --network hardhat",
-    "testzk": "cross-env NODE_ENV=test hardhat test --network zkHardhat"
+    "testzk": "cross-env NODE_ENV=test hardhat test --network zkHardhat",
+    "deploy-zkmarkets-test": "hardhat deploy-zksync --script deploy_diamond.ts --network zksync-era-testnet",
+    "deploy-zkmarkets-main": "hardhat deploy-zksync --script deploy_diamond.ts --network zksync-era",
+    "upgrade-diamond-test": "yarn hardhat deploy-zksync --script update_diamond.ts --network zksync-era-testnet",
+    "upgrade-diamond-main": "yarn hardhat deploy-zksync --script update_diamond.ts --network zksync-era",
+    "upgrade-diamond-fully-test": "yarn hardhat deploy-zksync --script update_diamond_fully.ts --network zksync-era-testnet",
+    "upgrade-diamond-fully-main": "yarn hardhat deploy-zksync --script update_diamond_fully.ts --network zksync-era"
   },
   "devDependencies": {
     "@chainlink/contracts": "^1.1.1",

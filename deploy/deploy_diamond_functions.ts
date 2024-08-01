@@ -119,11 +119,11 @@ async function updateFacet(diamondAddress: string, newFacetContractName: string,
   // const diamond = await ethers.getContractAt('Diamond', diamondAddress, contractOwner)
   const diamondContract = new ethers.Contract(diamondAddress, ["function owner() view returns (address)"], wallet)
   const owner = await diamondContract.owner()
+  console.log("Owner of diamond:", owner)
   // owners must be the same
   if (owner.toLowerCase() !== wallet.address.toLowerCase()) {
     throw Error(`Wallet address ${wallet.address} is not the owner of diamond ${diamondAddress}`)
   }
-  console.log("Owner of diamond:", owner)
 
   // Deploy the updated facet
   const facetContract = await deployContract(newFacetContractName, [], chosenOptions)
@@ -139,7 +139,6 @@ async function updateFacet(diamondAddress: string, newFacetContractName: string,
   // Execute the diamond cut
   const diamondCut = await ethers.getContractAt("IDiamondCut", diamondAddress, wallet) // Assuming `diamond.address` is available
 
-  console.log("works up to here")
   let functionCall = "0x" // Indicates no function call is necessary
   const tx = await diamondCut.diamondCut(cut, ethers.ZeroAddress, functionCall) // Use AddressZero if no init function
   console.log("Diamond cut tx: ", tx.hash)
@@ -151,21 +150,21 @@ async function updateFacet(diamondAddress: string, newFacetContractName: string,
   console.log("Facet updated successfully")
 }
 
-// Example function to update a single facet
-async function updateFacetFully(diamondAddress: string, facetContractName: string, oldFacetAddress: string, oldFacetABI: any, chosenOptions: any = {}) {
+// Example function to update a facet, if the selectors change 
+async function updateFacetFully(diamondAddress: string, facetContractName: string, oldFacetABI: any, chosenOptions: any = {}) {
   const wallet = await getDefaultWallet()
   // lets fetch ownerOf the diamond
   // const diamond = await ethers.getContractAt('Diamond', diamondAddress, contractOwner)
   const diamondContract = new ethers.Contract(diamondAddress, ["function owner() view returns (address)"], wallet)
   const owner = await diamondContract.owner()
+  console.log("Owner of diamond:", owner)
   // owners must be the same
   if (owner.toLowerCase() !== wallet.address.toLowerCase()) {
     throw Error(`Wallet address ${wallet.address} is not the owner of diamond ${diamondAddress}`)
   }
-  console.log("Owner of diamond:", owner)
 
-  // lets initialize old facet
-  const oldFacet = new ethers.Contract(oldFacetAddress, oldFacetABI, wallet)
+  // lets initialize old facet, we can probably use a dummy address
+  const oldFacet = new ethers.Contract(ethers.ZeroAddress, oldFacetABI, wallet)
   // Deploy the updated facet
   const facetContract = await deployContract(facetContractName, [], chosenOptions)
   console.log(`${facetContractName} deployed: ${await facetContract.getAddress()}`)
@@ -187,7 +186,6 @@ async function updateFacetFully(diamondAddress: string, facetContractName: strin
   // Execute the diamond cut
   const diamondCut = await ethers.getContractAt("IDiamondCut", diamondAddress, wallet) // Assuming `diamond.address` is available
 
-  console.log("works up to here")
   let functionCall = "0x" // Indicates no function call is necessary
   const tx = await diamondCut.diamondCut(cut, ethers.ZeroAddress, functionCall) // Use AddressZero if no init function
   console.log("Diamond cut tx: ", tx.hash)

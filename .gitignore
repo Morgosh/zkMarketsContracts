@@ -6,3 +6,4 @@ cache-zk
 .DS_Store
 cache
 .vscode
+deployments-zk

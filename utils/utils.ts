@@ -140,6 +140,8 @@ export async function getDefaultWallet() {
       const wallet = new Wallet(privateKey, getzkProvider())
       if (signers && signers.length > 0 && signers[0].address === wallet.address) {
         return wallet
+      } else {
+        console.log(`⚠️  The PRIVATE_KEY provided in the .env file doesn't match the first signer's address. Using the first rich wallet instead.`)
       }
     }
     return new Wallet(ZKSYNC_LOCAL_RICH_WALLETS[0].privateKey, getzkProvider())

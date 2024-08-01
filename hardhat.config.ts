@@ -7,8 +7,8 @@ import "hardhat-gas-reporter";
 
 // const network: string = process.argv.includes("--network") ? process.argv[process.argv.indexOf("--network") + 1] : "zksync-era-testnet"
 // initializeDotenv(getMainnetOrTestnet(network), null!)
-const deployerKey = process.env.PRIVATE_KEY ?? generatePrivateKeyWithSalt("test")
 dotenv.config({ path: ".env" })
+const deployerKey = process.env.PRIVATE_KEY ?? generatePrivateKeyWithSalt("test")
 
 const config: HardhatUserConfig = {
   defaultNetwork: "zksync-era-testnet",

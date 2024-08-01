@@ -1,6 +1,7 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types"
 import { updateFacet } from "./deploy_diamond_functions"
-const address: string = process.argv.includes("--address") ? process.argv[process.argv.indexOf("--address") + 1] : ""
+
+const address = process.env.MARKETPLACE_ADDRESS
 
 const updateFacetName = "TransactFacet"
 export default async function (hre: HardhatRuntimeEnvironment) {
