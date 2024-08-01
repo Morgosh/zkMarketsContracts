@@ -15,17 +15,10 @@ contract TransactFacet is ReentrancyGuard {
     event OrderCanceled(bytes32 orderHash, address indexed offerer, uint8 orderType);
     event OrderCanceledAll(address indexed offerer, uint256 canceledAt);
 
-    modifier whenNotPaused() {
-        require(!SharedStorage.getStorage().paused, "Contract is paused");
-        _;
-    }
-
     struct Order {
         OrderParameters parameters;
         bytes signature;
     }
-
-    uint256 private constant MAX_ROYALTY_PERCENTAGE = 1000;
 
     struct OrderParameters {
         address payable offerer;
@@ -58,12 +51,21 @@ contract TransactFacet is ReentrancyGuard {
         uint256 amount;
     }
 
+    uint256 private constant MAX_ROYALTY_PERCENTAGE = 1000;
     string private constant _ORDER_PARAMETERS_TYPE = "OrderParameters(address offerer,uint8 orderType,Item offer,Item consideration,address royaltyReceiver,uint256 royaltyPercentageIn10000,uint256 startTime,uint256 endTime,uint256 createdTime)";
     string private constant _TEST_SUBSTRUCT_TYPE = "Item(uint8 itemType,address tokenAddress,uint256 identifier,uint256 amount)";
     bytes32 private constant _ORDER_PARAMETERS_TYPEHASH = keccak256(abi.encodePacked(_ORDER_PARAMETERS_TYPE, _TEST_SUBSTRUCT_TYPE));
     bytes32 private constant _TEST_SUBSTRUCT_TYPEHASH = keccak256(abi.encodePacked(_TEST_SUBSTRUCT_TYPE));
 
-    // Creates a keccak256 hash of the order parameters structured according to EIP712 standards.
+    modifier whenNotPaused() {
+        require(!SharedStorage.getStorage().paused, "Contract is paused");
+        _;
+    }
+
+    /**
+     * @notice Creates a keccak256 hash of the order parameters structured according to EIP712 standards.
+     * @param orderParameters Struct containing the order parameters
+     */
     function createOrderHash(OrderParameters memory orderParameters) public view returns (bytes32) {
         return keccak256(abi.encodePacked(
             "\x19\x01", 
@@ -95,7 +97,9 @@ contract TransactFacet is ReentrancyGuard {
         ));
     }
 
-    // Calculates the EIP712 domain separator based on the contract's details.
+    /**
+     * @notice Calculates the EIP712 domain separator based on the contract's details.
+     */
     function getDomainSeparator() public view returns (bytes32) {
         //first set getStorage();
         SharedStorage.Storage storage ds = SharedStorage.getStorage();
@@ -111,7 +115,13 @@ contract TransactFacet is ReentrancyGuard {
         );
     }
 
-    // Returns the EIP712 domain details of the contract.
+    /**
+     * @notice Returns the EIP712 domain details of the contract.
+     * @return name The contract name as a string
+     * @return version The contract version as a string
+     * @return chainId The chain the contract is deployed on
+     * @return verifyingContract Tddress of the contract
+     */
     function domain() external view returns (string memory name, string memory version, uint256 chainId, address verifyingContract) {
         SharedStorage.Storage storage ds = SharedStorage.getStorage();
         name = ds.name;
@@ -120,27 +130,24 @@ contract TransactFacet is ReentrancyGuard {
         verifyingContract = address(this);
     }
 
-    // Allows an order creator to cancel their offchain order
-    function cancelOrder(Order calldata order) external whenNotPaused {
-        bytes32 orderHash = createOrderHash(order.parameters);
+    /**
+     * @notice Determines the discount for a user, depending if he holds a premium NFT.
+     * @param user Address of the user to check
+     */
+    function getUserPremiumDiscount(address user) public view returns (uint256) {
         SharedStorage.Storage storage ds = SharedStorage.getStorage();
-        require(!ds.ordersClaimed[orderHash], "Order already claimed");
-
-        require(order.parameters.offerer == msg.sender, "Only orderer can cancel order");
-
-        ds.ordersClaimed[orderHash] = true;
-
-        emit OrderCanceled(orderHash, order.parameters.offerer, uint8(order.parameters.orderType));
+        address premiumAddress = ds.premiumNftAddress;
+        if (premiumAddress == address(0) || IERC721(premiumAddress).balanceOf(user) == 0) {
+            return 0;
+        }
+        return ds.premiumDiscount;
     }
 
-    // Cancels all orders created before the current block timestamp
-    function cancelAllOrders() external whenNotPaused {
-        SharedStorage.Storage storage ds = SharedStorage.getStorage();
-        ds.ordersCanceledAt[msg.sender] = block.timestamp;
-        emit OrderCanceledAll(msg.sender, block.timestamp);
-    }
-
-    // Validates an order's signatures, timestamps, and state to ensure it can be executed.
+    /**
+     * @notice Validates an order's signatures, timestamps, and state to ensure it can be executed.
+     * @param order Struct containing order parameters and the signature
+     * @param orderHash Hash of the order parameters
+     */
     function validateOrder(Order memory order, bytes32 orderHash) public view returns (bool) {
         require(verifySignature(orderHash, order.signature, order.parameters.offerer), "Invalid signature or incorrect signer");
         SharedStorage.Storage storage ds = SharedStorage.getStorage();
@@ -151,18 +158,36 @@ contract TransactFacet is ReentrancyGuard {
         return true;
     }
 
-    // Validates an order and claims it to prevent double-spending or reentrancy attacks.
-    function validateOrderAndClaim(Order memory order, bytes32 orderHash, uint256 royaltyPercentageIn10000) internal returns (bool) {
-        validateOrder(order, orderHash);
+    /**
+     * @notice Allows an order creator to cancel their offchain order
+     * @param orderParameters Struct containing the order parameters
+     */
+    function cancelOrder(OrderParameters calldata orderParameters) external whenNotPaused {
+        bytes32 orderHash = createOrderHash(orderParameters);
         SharedStorage.Storage storage ds = SharedStorage.getStorage();
+        require(!ds.ordersClaimed[orderHash], "Order already claimed");
+
+        require(orderParameters.offerer == msg.sender, "Only orderer can cancel order");
+
         ds.ordersClaimed[orderHash] = true;
-        // lets make max royalty percentage 10%
-        order.parameters.royaltyPercentageIn10000 = royaltyPercentageIn10000 > MAX_ROYALTY_PERCENTAGE ? MAX_ROYALTY_PERCENTAGE : royaltyPercentageIn10000;
-        return true;
+
+        emit OrderCanceled(orderHash, orderParameters.offerer, uint8(orderParameters.orderType));
     }
 
-    
-    // Accepts an order for processing and handles the necessary payments according to the order parameters.
+    /**
+     * @notice Cancels all orders created before the current block timestamp
+     */
+    function cancelAllOrders() external whenNotPaused {
+        SharedStorage.Storage storage ds = SharedStorage.getStorage();
+        ds.ordersCanceledAt[msg.sender] = block.timestamp;
+        emit OrderCanceledAll(msg.sender, block.timestamp);
+    }
+
+    /**
+     * @notice Accepts an order for processing and handles the necessary payments according to the order parameters.
+     * @param order Struct containing order parameters and the signature
+     * @param royaltyPercentageIn10000 Royalty in BPS
+     */
     function acceptOrder(Order memory order, uint256 royaltyPercentageIn10000) external payable whenNotPaused nonReentrant {
         if(order.parameters.orderType == BasicOrderType.ERC721_FOR_ETH) {
             require(msg.value == order.parameters.consideration.amount, "Incorrect ETH value sent");
@@ -172,6 +197,11 @@ contract TransactFacet is ReentrancyGuard {
         handlePayments(order.parameters, orderHash);
     }
 
+     /**
+     * @notice Accepts multiple orders for processing and handles the necessary payments according to the orders parameters.
+     * @param orders Array of structs containing order parameters and the signature
+     * @param royaltyPercentagesIn10000 Array of royalty in BPS
+     */
     function batchAcceptOrder(Order[] memory orders, uint256[] memory royaltyPercentagesIn10000) external payable whenNotPaused nonReentrant {
         require(orders.length == royaltyPercentagesIn10000.length, "Orders and royalty percentages length mismatch");
 
@@ -191,7 +221,12 @@ contract TransactFacet is ReentrancyGuard {
         }
     }
 
-    // Similar to acceptOrder, but specifically designed to handle collection offers where the exact NFT may not initially be specified.
+    /**
+     * @notice Similar to acceptOrder, but specifically designed to handle collection offers where the exact NFT may not initially be specified.
+     * @param order Struct containing order parameters and the signature
+     * @param royaltyPercentageIn10000 Royalty in BPS
+     * @param nftIdentifier Id of the NFT to accept for the order
+     */
     function acceptCollectionOffer(Order memory order, uint256 royaltyPercentageIn10000, uint256 nftIdentifier) external whenNotPaused nonReentrant {
         bytes32 orderHash = createOrderHash(order.parameters);
         validateOrderAndClaim(order, orderHash, royaltyPercentageIn10000);
@@ -204,7 +239,26 @@ contract TransactFacet is ReentrancyGuard {
         handlePayments(order.parameters, orderHash);
     }
 
-    // Handles the distribution of payments between the parties involved in a transaction including royalties and platform fees.
+    /**
+     * @notice Validates an order and claims it to prevent double-spending or reentrancy attacks.
+     * @param order Struct containing order parameters and the signature
+     * @param orderHash Hash of the order parameters
+     * @param royaltyPercentageIn10000 Royalty in BPS limited to MAX_ROYALTY_PERCENTAGE
+     */
+    function validateOrderAndClaim(Order memory order, bytes32 orderHash, uint256 royaltyPercentageIn10000) internal returns (bool) {
+        validateOrder(order, orderHash);
+        SharedStorage.Storage storage ds = SharedStorage.getStorage();
+        ds.ordersClaimed[orderHash] = true;
+        // lets make max royalty percentage 10%
+        order.parameters.royaltyPercentageIn10000 = royaltyPercentageIn10000 > MAX_ROYALTY_PERCENTAGE ? MAX_ROYALTY_PERCENTAGE : royaltyPercentageIn10000;
+        return true;
+    }
+
+    /**
+     * @notice Handles the distribution of payments between the parties involved in a transaction including royalties and platform fees.
+     * @param order Struct containing order parameters and the signature
+     * @param orderHash Hash of the order parameters
+     */
     function handlePayments(OrderParameters memory order, bytes32 orderHash) internal {
         SharedStorage.Storage storage ds = SharedStorage.getStorage();
         uint256 platformFeePercentageIn10000 = ds.platformFee;
@@ -262,24 +316,22 @@ contract TransactFacet is ReentrancyGuard {
         emit OrderFulfilled(orderHash, nftReceiver, nftSender, nftAddress, nftIdentifier, uint8(order.orderType), amount, platformCut);
     }
 
-    // Checks if an address is a contract, which is useful for validating smart contract interactions.
+    /**
+     * @notice Checks if an address is a contract, which is useful for validating smart contract interactions.
+     * @param account address to check
+     */
     function isContract(address account) internal view returns (bool) {
         uint256 size;
         assembly { size := extcodesize(account) }
         return size > 0;
     }
 
-    // Determines if a user holds a premium NFT, which might grant them special privileges or discounts.
-    function getUserPremiumDiscount(address user) public view returns (uint256) {
-        SharedStorage.Storage storage ds = SharedStorage.getStorage();
-        address premiumAddress = ds.premiumNftAddress;
-        if (premiumAddress == address(0) || IERC721(premiumAddress).balanceOf(user) == 0) {
-            return 0;
-        }
-        return ds.premiumDiscount;
-    }
-
-    // Verifies a signature against a hash and signer, supporting both EOA and contract accounts.
+    /**
+     * @notice Verifies a signature against a hash and signer, supporting both EOA and contract accounts.
+     * @param fullHash Hash to check
+     * @param _signature Signature to check the hash against
+     * @param signer Address to check the signature against
+     */
     function verifySignature(bytes32 fullHash, bytes memory _signature, address signer) public view returns (bool) {
         if (isContract(signer)) {
             bytes4 magicValue = IERC1271(signer).isValidSignature(fullHash, _signature);

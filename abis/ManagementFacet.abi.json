@@ -99,6 +99,12 @@
     "type": "event"
   },
   {
+    "anonymous": false,
+    "inputs": [],
+    "name": "WethAddressUpdated",
+    "type": "event"
+  },
+  {
     "inputs": [],
     "name": "getMarketplacePaused",
     "outputs": [
@@ -140,6 +146,19 @@
   {
     "inputs": [],
     "name": "getPremiumNftAddress",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getWethAddress",
     "outputs": [
       {
         "internalType": "address",
@@ -198,6 +217,19 @@
       }
     ],
     "name": "setPremiumNftAddress",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_weth",
+        "type": "address"
+      }
+    ],
+    "name": "setWethAddress",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

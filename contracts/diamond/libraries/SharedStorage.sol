@@ -7,7 +7,6 @@ library SharedStorage {
         address wethAddress;
         address premiumNftAddress;
         uint256 platformFee;
-        //address platformFeeRecipient; now is withdrawable by owner
         uint256 premiumDiscount;
         string name;
         string version;
@@ -38,10 +37,6 @@ library SharedStorage {
     function setPlatformFee(uint256 _platformFee) internal {
         getStorage().platformFee = _platformFee;
     }
-
-    // function setPlatformFeeRecipient(address _platformFeeRecipient) internal {
-    //     getStorage().platformFeeRecipient = _platformFeeRecipient;
-    // }
 
     function setPremiumDiscount(uint256 _premiumDiscount) internal {
         getStorage().premiumDiscount = _premiumDiscount;

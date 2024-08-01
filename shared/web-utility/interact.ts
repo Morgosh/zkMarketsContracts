@@ -142,12 +142,7 @@ export async function cancelOrder(
   return await callContractMethod(
     marketplaceContract,
     "cancelOrder",
-    [
-      {
-        parameters: orderParameters,
-        signature,
-      },
-    ],
+    [orderParameters],
     null,
     smartAccountAddress,
     paymasterOptions,
