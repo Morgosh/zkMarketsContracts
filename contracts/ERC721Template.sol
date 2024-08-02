@@ -8,6 +8,11 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
+struct Royalty {
+    address recipient;
+    uint64 percentageInBPS;
+}
+
 contract ERC721Template is IERC2981, Ownable, ERC721A  {
     using Strings for uint256;
     using SafeERC20 for ERC20;
@@ -57,7 +62,6 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
     bool public tradingEnabled = true;
     mapping(address => bool) public blacklist;
 
-    // todo check burnable adition
     constructor(
         string memory _name,
         string memory _symbol,
@@ -300,10 +304,10 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
 
     /**
      * @notice Set the Max supply possible
-     * @param _newmaxSupply Max supply amount
+     * @param _newMaxSupply Max supply amount
      */
-    function setMaxSupply(uint256 _newmaxSupply) external onlyOwner {
-        maxSupply = _newmaxSupply;
+    function setMaxSupply(uint256 _newMaxSupply) external onlyOwner {
+        maxSupply = _newMaxSupply;
     }
 
     /**
@@ -457,9 +461,6 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
                         ? address(this).balance 
                         : remainingCommission;
 
-        // Ensure we don't exceed the fixed commission threshold
-        require(withdrawn + amount <= fixedCommissionTreshold, "Total withdrawal by commission cannot exceed the threshold");
-
         // Updating the total withdrawn by A before making the transfer
         totalCommissionWithdrawn += amount;
         (bool success, ) = commissionRecipientAddress.call{value: amount}("");
@@ -477,6 +478,7 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
 
         uint256 _commissionToWithdraw = commissionToWithdraw;
         uint256 _ownerToWithdraw = ownerToWithdraw;
+        //This is ok if fixedCommissionTreshold makes it underflow, we don't allow eth withdraws until fixedCommissionTreshold can be paid fully
         uint256 available = address(this).balance - (fixedCommissionTreshold - totalCommissionWithdrawn) - _commissionToWithdraw - _ownerToWithdraw;
 
         uint256 newCommission = available * commissionPercentageIn10000 / 10000;
@@ -563,7 +565,6 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         require(totalSupply() + _mintAmount <= maxSupply, "Total supply exceeded");
         require(block.timestamp >= publicSaleStartTime, "Public sale not active");
         require(getPublicMintEligibility() >= _mintAmount, "Invalid amount to be minted");
-        require(balanceOf(msg.sender) + _mintAmount <= publicMaxMintAmount, "Invalid amount to be minted");
     }
 
     /**
