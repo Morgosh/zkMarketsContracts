@@ -8,11 +8,6 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
-struct Royalty {
-    address recipient;
-    uint64 percentageInBPS;
-}
-
 contract ERC721Template is IERC2981, Ownable, ERC721A  {
     using Strings for uint256;
     using SafeERC20 for ERC20;
