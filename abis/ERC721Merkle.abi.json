@@ -48,7 +48,7 @@
       },
       {
         "internalType": "uint256",
-        "name": "_fixedCommisionTreshold",
+        "name": "_fixedCommisionThreshold",
         "type": "uint256"
       },
       {
@@ -1270,7 +1270,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_newmaxSupply",
+        "name": "_newMaxSupply",
         "type": "uint256"
       }
     ],

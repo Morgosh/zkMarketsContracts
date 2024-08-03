@@ -23,7 +23,7 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
     address payable public immutable withdrawalRecipientAddress; // address that will receive revenue
     address payable public immutable commissionRecipientAddress;// address that will receive a part of revenue on withdrawal
     uint256 public immutable commissionPercentageIn10000; // percentage of revenue to be sent to commissionRecipientAddress
-    uint256 private immutable fixedCommissionTreshold;
+    uint256 private immutable fixedCommissionThreshold;
     uint256 private totalCommissionWithdrawn;
     uint256 private commissionToWithdraw;
     uint256 private ownerToWithdraw;
@@ -67,7 +67,7 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         string memory _notRevealedURI,
         address payable _withdrawalRecipientAddress,
         address payable _commissionRecipientAddress,
-        uint256 _fixedCommisionTreshold,
+        uint256 _fixedCommisionThreshold,
         uint256 _commissionPercentageIn10000,
         address payable _defaultRoyaltyRecipient, // separate from withdrawal recipient to enhance security
         uint256 _defaultRoyaltyPercentageIn10000
@@ -81,7 +81,7 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
         publicMaxMintAmount = 10000;
         withdrawalRecipientAddress = _withdrawalRecipientAddress;
         commissionRecipientAddress = _commissionRecipientAddress;
-        fixedCommissionTreshold = _fixedCommisionTreshold;
+        fixedCommissionThreshold = _fixedCommisionThreshold;
         // Ensure commission percentage is between 0 and 10000 (0-100%)
         require(_commissionPercentageIn10000 <= 10000, "Invalid commission percentage");
         commissionPercentageIn10000 = _commissionPercentageIn10000;
@@ -451,7 +451,7 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
             "Only owner or commission recipient can withdraw"
         );
         uint256 withdrawn = totalCommissionWithdrawn;
-        uint256 remainingCommission = fixedCommissionTreshold - withdrawn;
+        uint256 remainingCommission = fixedCommissionThreshold - withdrawn;
         uint256 amount = remainingCommission > address(this).balance 
                         ? address(this).balance 
                         : remainingCommission;
@@ -473,8 +473,8 @@ contract ERC721Template is IERC2981, Ownable, ERC721A  {
 
         uint256 _commissionToWithdraw = commissionToWithdraw;
         uint256 _ownerToWithdraw = ownerToWithdraw;
-        //This is ok if fixedCommissionTreshold makes it underflow, we don't allow eth withdraws until fixedCommissionTreshold can be paid fully
-        uint256 available = address(this).balance - (fixedCommissionTreshold - totalCommissionWithdrawn) - _commissionToWithdraw - _ownerToWithdraw;
+        //This is ok if fixedCommissionThreshold makes it underflow, we don't allow eth withdraws until fixedCommissionThreshold can be paid fully
+        uint256 available = address(this).balance - (fixedCommissionThreshold - totalCommissionWithdrawn) - _commissionToWithdraw - _ownerToWithdraw;
 
         uint256 newCommission = available * commissionPercentageIn10000 / 10000;
         uint256 newOwnerAmount = available - newCommission;

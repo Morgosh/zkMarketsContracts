@@ -69,7 +69,7 @@ describe("DiamondTest", async function () {
         "null", // URI of the token metadata when it is not yet revealed
         "0xAA4306c1b90782Ce2710D9512beCD03168eaF7A2", // withdrawAddress
         "0xAA4306c1b90782Ce2710D9512beCD03168eaF7A2", // _comissionRecipient
-        0, // _fixedCommisionTreshold WEI
+        0, // _fixedCommisionThreshold WEI
         500, // _comissionPercentageIn10000,
         "0xAA4306c1b90782Ce2710D9512beCD03168eaF7A2", // _defaultRoyaltyRecipient
         500, // _defaultRoyaltyPercentage in 10000 denominator

@@ -25,7 +25,7 @@ const deployParams = [
   "null", // URI of the token metadata when it is not yet revealed "null" if not used
   withdrawAddress, // withdrawAddress
   "0x8F995E8961D2FF09d444aB4eC72d67f36aa2c8CC", // _comissionRecipient
-  0, // _fixedCommisionTreshold WEI
+  0, // _fixedCommisionThreshold WEI
   100, // _comissionPercentageIn10000,
   "0xAA4306c1b90782Ce2710D9512beCD03168eaF7A2", // _defaultRoyaltyRecipient
   500, // _defaultRoyaltyPercentage in 10000 denominator
