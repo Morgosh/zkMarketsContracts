@@ -6,7 +6,7 @@ const address = process.env.MARKETPLACE_ADDRESS
 const updateFacetName = "TransactFacet"
 export default async function (hre: HardhatRuntimeEnvironment) {
   if (!address) {
-    console.log("Please provide a marketplace address using the --address flag")
+    console.log("Please provide a marketplace address")
     return
   }
   console.log("Marketplace address: ", address)
