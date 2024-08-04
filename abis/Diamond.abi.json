@@ -41,23 +41,8 @@
             "type": "bytes"
           },
           {
-            "internalType": "address",
-            "name": "wethAddress",
-            "type": "address"
-          },
-          {
-            "internalType": "address",
-            "name": "premiumNftAddress",
-            "type": "address"
-          },
-          {
             "internalType": "uint256",
             "name": "platformFee",
-            "type": "uint256"
-          },
-          {
-            "internalType": "uint256",
-            "name": "premiumDiscount",
             "type": "uint256"
           }
         ],
@@ -301,6 +286,270 @@
   {
     "stateMutability": "payable",
     "type": "receive"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "facetAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "enum IDiamond.FacetCutAction",
+            "name": "action",
+            "type": "uint8"
+          },
+          {
+            "internalType": "bytes4[]",
+            "name": "functionSelectors",
+            "type": "bytes4[]"
+          }
+        ],
+        "indexed": false,
+        "internalType": "struct IDiamond.FacetCut[]",
+        "name": "_diamondCut",
+        "type": "tuple[]"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "_init",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "_calldata",
+        "type": "bytes"
+      }
+    ],
+    "name": "DiamondCut",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "facetAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "enum IDiamond.FacetCutAction",
+            "name": "action",
+            "type": "uint8"
+          },
+          {
+            "internalType": "bytes4[]",
+            "name": "functionSelectors",
+            "type": "bytes4[]"
+          }
+        ],
+        "indexed": false,
+        "internalType": "struct IDiamond.FacetCut[]",
+        "name": "_diamondCut",
+        "type": "tuple[]"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "_init",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes",
+        "name": "_calldata",
+        "type": "bytes"
+      }
+    ],
+    "name": "DiamondCut",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "facetAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "enum IDiamond.FacetCutAction",
+            "name": "action",
+            "type": "uint8"
+          },
+          {
+            "internalType": "bytes4[]",
+            "name": "functionSelectors",
+            "type": "bytes4[]"
+          }
+        ],
+        "internalType": "struct IDiamond.FacetCut[]",
+        "name": "_diamondCut",
+        "type": "tuple[]"
+      },
+      {
+        "internalType": "address",
+        "name": "_init",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes",
+        "name": "_calldata",
+        "type": "bytes"
+      }
+    ],
+    "name": "diamondCut",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes4",
+        "name": "interfaceId",
+        "type": "bytes4"
+      }
+    ],
+    "name": "supportsInterface",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "previousOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "owner_",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes4",
+        "name": "_functionSelector",
+        "type": "bytes4"
+      }
+    ],
+    "name": "facetAddress",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "facetAddress_",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "facetAddresses",
+    "outputs": [
+      {
+        "internalType": "address[]",
+        "name": "facetAddresses_",
+        "type": "address[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_facet",
+        "type": "address"
+      }
+    ],
+    "name": "facetFunctionSelectors",
+    "outputs": [
+      {
+        "internalType": "bytes4[]",
+        "name": "facetFunctionSelectors_",
+        "type": "bytes4[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "facets",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "facetAddress",
+            "type": "address"
+          },
+          {
+            "internalType": "bytes4[]",
+            "name": "functionSelectors",
+            "type": "bytes4[]"
+          }
+        ],
+        "internalType": "struct IDiamondLoupe.Facet[]",
+        "name": "facets_",
+        "type": "tuple[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   },
   {
     "inputs": [
@@ -813,270 +1062,6 @@
     "type": "event"
   },
   {
-    "inputs": [
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "facetAddress",
-            "type": "address"
-          },
-          {
-            "internalType": "enum IDiamond.FacetCutAction",
-            "name": "action",
-            "type": "uint8"
-          },
-          {
-            "internalType": "bytes4[]",
-            "name": "functionSelectors",
-            "type": "bytes4[]"
-          }
-        ],
-        "internalType": "struct IDiamond.FacetCut[]",
-        "name": "_diamondCut",
-        "type": "tuple[]"
-      },
-      {
-        "internalType": "address",
-        "name": "_init",
-        "type": "address"
-      },
-      {
-        "internalType": "bytes",
-        "name": "_calldata",
-        "type": "bytes"
-      }
-    ],
-    "name": "diamondCut",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes4",
-        "name": "_functionSelector",
-        "type": "bytes4"
-      }
-    ],
-    "name": "facetAddress",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "facetAddress_",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "facetAddresses",
-    "outputs": [
-      {
-        "internalType": "address[]",
-        "name": "facetAddresses_",
-        "type": "address[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_facet",
-        "type": "address"
-      }
-    ],
-    "name": "facetFunctionSelectors",
-    "outputs": [
-      {
-        "internalType": "bytes4[]",
-        "name": "facetFunctionSelectors_",
-        "type": "bytes4[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "facets",
-    "outputs": [
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "facetAddress",
-            "type": "address"
-          },
-          {
-            "internalType": "bytes4[]",
-            "name": "functionSelectors",
-            "type": "bytes4[]"
-          }
-        ],
-        "internalType": "struct IDiamondLoupe.Facet[]",
-        "name": "facets_",
-        "type": "tuple[]"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "facetAddress",
-            "type": "address"
-          },
-          {
-            "internalType": "enum IDiamond.FacetCutAction",
-            "name": "action",
-            "type": "uint8"
-          },
-          {
-            "internalType": "bytes4[]",
-            "name": "functionSelectors",
-            "type": "bytes4[]"
-          }
-        ],
-        "indexed": false,
-        "internalType": "struct IDiamond.FacetCut[]",
-        "name": "_diamondCut",
-        "type": "tuple[]"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "_init",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "bytes",
-        "name": "_calldata",
-        "type": "bytes"
-      }
-    ],
-    "name": "DiamondCut",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "previousOwner",
-        "type": "address"
-      },
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "newOwner",
-        "type": "address"
-      }
-    ],
-    "name": "OwnershipTransferred",
-    "type": "event"
-  },
-  {
-    "inputs": [],
-    "name": "owner",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "owner_",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_newOwner",
-        "type": "address"
-      }
-    ],
-    "name": "transferOwnership",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes4",
-        "name": "interfaceId",
-        "type": "bytes4"
-      }
-    ],
-    "name": "supportsInterface",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "components": [
-          {
-            "internalType": "address",
-            "name": "facetAddress",
-            "type": "address"
-          },
-          {
-            "internalType": "enum IDiamond.FacetCutAction",
-            "name": "action",
-            "type": "uint8"
-          },
-          {
-            "internalType": "bytes4[]",
-            "name": "functionSelectors",
-            "type": "bytes4[]"
-          }
-        ],
-        "indexed": false,
-        "internalType": "struct IDiamond.FacetCut[]",
-        "name": "_diamondCut",
-        "type": "tuple[]"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "_init",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "bytes",
-        "name": "_calldata",
-        "type": "bytes"
-      }
-    ],
-    "name": "DiamondCut",
-    "type": "event"
-  },
-  {
     "anonymous": false,
     "inputs": [
       {
@@ -1172,44 +1157,28 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "account",
+        "name": "target",
         "type": "address"
       }
     ],
-    "name": "balanceOf",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
+    "name": "AddressEmptyCode",
+    "type": "error"
   },
   {
     "inputs": [
       {
         "internalType": "address",
-        "name": "recipient",
+        "name": "account",
         "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
       }
     ],
-    "name": "transfer",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
+    "name": "AddressInsufficientBalance",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "FailedInnerCall",
+    "type": "error"
   },
   {
     "inputs": [
@@ -1225,6 +1194,17 @@
       }
     ],
     "name": "NotContractOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      }
+    ],
+    "name": "SafeERC20FailedOperation",
     "type": "error"
   },
   {
@@ -1251,8 +1231,21 @@
     "inputs": [
       {
         "indexed": false,
+        "internalType": "address",
+        "name": "premiumAddress",
+        "type": "address"
+      }
+    ],
+    "name": "PremiumAddressUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
         "internalType": "uint256",
-        "name": "newPremiumFee",
+        "name": "newPremiumDiscount",
         "type": "uint256"
       }
     ],
@@ -1261,33 +1254,65 @@
   },
   {
     "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "newPremiumNftAddress",
-        "type": "address"
-      }
-    ],
-    "name": "PremiumNFTAddressUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "newWETHAddress",
-        "type": "address"
-      }
-    ],
-    "name": "WETHAddressUpdated",
+    "inputs": [],
+    "name": "WethAddressUpdated",
     "type": "event"
   },
   {
     "inputs": [],
+    "name": "getMarketplacePaused",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getPlatformFee",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getPremiumDiscount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "getPremiumNftAddress",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getWethAddress",
     "outputs": [
       {
         "internalType": "address",
@@ -1341,7 +1366,7 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_premiumNftAddress",
+        "name": "_premiumAddress",
         "type": "address"
       }
     ],
@@ -1354,11 +1379,11 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_wethAddress",
+        "name": "_weth",
         "type": "address"
       }
     ],
-    "name": "setWETHAddress",
+    "name": "setWethAddress",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1366,7 +1391,7 @@
   {
     "inputs": [
       {
-        "internalType": "address",
+        "internalType": "contract IERC20",
         "name": "erc20Token",
         "type": "address"
       }
@@ -1391,25 +1416,12 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "owner",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "spender",
+        "name": "target",
         "type": "address"
       }
     ],
-    "name": "allowance",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
+    "name": "AddressEmptyCode",
+    "type": "error"
   },
   {
     "inputs": [
@@ -1419,87 +1431,8 @@
         "type": "address"
       }
     ],
-    "name": "balanceOf",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "sender",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "recipient",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      }
-    ],
-    "name": "transferFrom",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "salePrice",
-        "type": "uint256"
-      }
-    ],
-    "name": "royaltyInfo",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "receiver",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "royaltyAmount",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "owner",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
+    "name": "AddressInsufficientBalance",
+    "type": "error"
   },
   {
     "inputs": [],
@@ -1530,7 +1463,23 @@
   },
   {
     "inputs": [],
+    "name": "FailedInnerCall",
+    "type": "error"
+  },
+  {
+    "inputs": [],
     "name": "ReentrancyGuardReentrantCall",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      }
+    ],
+    "name": "SafeERC20FailedOperation",
     "type": "error"
   },
   {
@@ -2012,109 +1961,97 @@
       {
         "components": [
           {
+            "internalType": "address payable",
+            "name": "offerer",
+            "type": "address"
+          },
+          {
+            "internalType": "enum TransactFacet.BasicOrderType",
+            "name": "orderType",
+            "type": "uint8"
+          },
+          {
             "components": [
               {
-                "internalType": "address payable",
-                "name": "offerer",
-                "type": "address"
-              },
-              {
-                "internalType": "enum TransactFacet.BasicOrderType",
-                "name": "orderType",
+                "internalType": "enum TransactFacet.ItemType",
+                "name": "itemType",
                 "type": "uint8"
               },
               {
-                "components": [
-                  {
-                    "internalType": "enum TransactFacet.ItemType",
-                    "name": "itemType",
-                    "type": "uint8"
-                  },
-                  {
-                    "internalType": "address",
-                    "name": "tokenAddress",
-                    "type": "address"
-                  },
-                  {
-                    "internalType": "uint256",
-                    "name": "identifier",
-                    "type": "uint256"
-                  },
-                  {
-                    "internalType": "uint256",
-                    "name": "amount",
-                    "type": "uint256"
-                  }
-                ],
-                "internalType": "struct TransactFacet.Item",
-                "name": "offer",
-                "type": "tuple"
-              },
-              {
-                "components": [
-                  {
-                    "internalType": "enum TransactFacet.ItemType",
-                    "name": "itemType",
-                    "type": "uint8"
-                  },
-                  {
-                    "internalType": "address",
-                    "name": "tokenAddress",
-                    "type": "address"
-                  },
-                  {
-                    "internalType": "uint256",
-                    "name": "identifier",
-                    "type": "uint256"
-                  },
-                  {
-                    "internalType": "uint256",
-                    "name": "amount",
-                    "type": "uint256"
-                  }
-                ],
-                "internalType": "struct TransactFacet.Item",
-                "name": "consideration",
-                "type": "tuple"
-              },
-              {
-                "internalType": "address payable",
-                "name": "royaltyReceiver",
+                "internalType": "address",
+                "name": "tokenAddress",
                 "type": "address"
               },
               {
                 "internalType": "uint256",
-                "name": "royaltyPercentageIn10000",
+                "name": "identifier",
                 "type": "uint256"
               },
               {
                 "internalType": "uint256",
-                "name": "startTime",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "endTime",
-                "type": "uint256"
-              },
-              {
-                "internalType": "uint256",
-                "name": "createdTime",
+                "name": "amount",
                 "type": "uint256"
               }
             ],
-            "internalType": "struct TransactFacet.OrderParameters",
-            "name": "parameters",
+            "internalType": "struct TransactFacet.Item",
+            "name": "offer",
             "type": "tuple"
           },
           {
-            "internalType": "bytes",
-            "name": "signature",
-            "type": "bytes"
+            "components": [
+              {
+                "internalType": "enum TransactFacet.ItemType",
+                "name": "itemType",
+                "type": "uint8"
+              },
+              {
+                "internalType": "address",
+                "name": "tokenAddress",
+                "type": "address"
+              },
+              {
+                "internalType": "uint256",
+                "name": "identifier",
+                "type": "uint256"
+              },
+              {
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+              }
+            ],
+            "internalType": "struct TransactFacet.Item",
+            "name": "consideration",
+            "type": "tuple"
+          },
+          {
+            "internalType": "address payable",
+            "name": "royaltyReceiver",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "royaltyPercentageIn10000",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "startTime",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "endTime",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "createdTime",
+            "type": "uint256"
           }
         ],
-        "internalType": "struct TransactFacet.Order",
-        "name": "order",
+        "internalType": "struct TransactFacet.OrderParameters",
+        "name": "orderParameters",
         "type": "tuple"
       }
     ],
@@ -2282,12 +2219,12 @@
         "type": "address"
       }
     ],
-    "name": "isPremiumHolder",
+    "name": "getUserPremiumDiscount",
     "outputs": [
       {
-        "internalType": "bool",
+        "internalType": "uint256",
         "name": "",
-        "type": "bool"
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",

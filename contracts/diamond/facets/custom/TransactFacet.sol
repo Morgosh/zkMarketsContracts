@@ -6,38 +6,19 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {SharedStorage} from "../../libraries/SharedStorage.sol";
-
-// interfaces
-interface IERC20 {
-    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
-    function balanceOf(address account) external view returns (uint256);
-    function allowance(address owner, address spender) external view returns (uint256);
-}
-
-interface IERC2981 {
-    function royaltyInfo(uint256 tokenId, uint256 salePrice) external view returns (address receiver, uint256 royaltyAmount);
-}
-
-interface Ownable {
-    function owner() external view returns (address);
-}
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract TransactFacet is ReentrancyGuard {
+    using SafeERC20 for IERC20;
+
     event OrderFulfilled(bytes32 orderHash, address indexed nftReceiver, address indexed nftSeller, address indexed nftAddress, uint256 tokenId, uint8 orderType, uint256 price, uint256 platformFee);
     event OrderCanceled(bytes32 orderHash, address indexed offerer, uint8 orderType);
     event OrderCanceledAll(address indexed offerer, uint256 canceledAt);
-
-    modifier whenNotPaused() {
-        require(!SharedStorage.getStorage().paused, "Contract is paused");
-        _;
-    }
 
     struct Order {
         OrderParameters parameters;
         bytes signature;
     }
-
-    uint256 private constant MAX_ROYALTY_PERCENTAGE = 1000;
 
     struct OrderParameters {
         address payable offerer;
@@ -70,12 +51,22 @@ contract TransactFacet is ReentrancyGuard {
         uint256 amount;
     }
 
+    uint256 private constant MAX_ROYALTY_PERCENTAGE = 1000;
     string private constant _ORDER_PARAMETERS_TYPE = "OrderParameters(address offerer,uint8 orderType,Item offer,Item consideration,address royaltyReceiver,uint256 royaltyPercentageIn10000,uint256 startTime,uint256 endTime,uint256 createdTime)";
     string private constant _TEST_SUBSTRUCT_TYPE = "Item(uint8 itemType,address tokenAddress,uint256 identifier,uint256 amount)";
     bytes32 private constant _ORDER_PARAMETERS_TYPEHASH = keccak256(abi.encodePacked(_ORDER_PARAMETERS_TYPE, _TEST_SUBSTRUCT_TYPE));
     bytes32 private constant _TEST_SUBSTRUCT_TYPEHASH = keccak256(abi.encodePacked(_TEST_SUBSTRUCT_TYPE));
 
-    // Creates a keccak256 hash of the order parameters structured according to EIP712 standards.
+    modifier whenNotPaused() {
+        require(!SharedStorage.getStorage().paused, "Contract is paused");
+        _;
+    }
+
+    /**
+     * @notice Creates a keccak256 hash of the order parameters structured according to EIP712 standards.
+     * @param orderParameters Struct containing the order parameters
+     * @return Hash of the order parameters
+     */
     function createOrderHash(OrderParameters memory orderParameters) public view returns (bytes32) {
         return keccak256(abi.encodePacked(
             "\x19\x01", 
@@ -107,7 +98,10 @@ contract TransactFacet is ReentrancyGuard {
         ));
     }
 
-    // Calculates the EIP712 domain separator based on the contract's details.
+    /**
+     * @notice Calculates the EIP712 domain separator based on the contract's details.
+     * @return Hash of the domainSeparator
+     */
     function getDomainSeparator() public view returns (bytes32) {
         //first set getStorage();
         SharedStorage.Storage storage ds = SharedStorage.getStorage();
@@ -123,7 +117,13 @@ contract TransactFacet is ReentrancyGuard {
         );
     }
 
-    // Returns the EIP712 domain details of the contract.
+    /**
+     * @notice Returns the EIP712 domain details of the contract.
+     * @return name The contract name as a string
+     * @return version The contract version as a string
+     * @return chainId The chain the contract is deployed on
+     * @return verifyingContract Tddress of the contract
+     */
     function domain() external view returns (string memory name, string memory version, uint256 chainId, address verifyingContract) {
         SharedStorage.Storage storage ds = SharedStorage.getStorage();
         name = ds.name;
@@ -132,29 +132,26 @@ contract TransactFacet is ReentrancyGuard {
         verifyingContract = address(this);
     }
 
-    // Allows an order creator to cancel their offchain order
-    function cancelOrder(Order calldata order) external whenNotPaused {
-        bytes32 orderHash = createOrderHash(order.parameters);
+    /**
+     * @notice Determines the discount for a user, depending if he holds a premium NFT.
+     * @param user Address of the user to check
+     * @return Discount BPS for the user
+     */
+    function getUserPremiumDiscount(address user) public view returns (uint256) {
         SharedStorage.Storage storage ds = SharedStorage.getStorage();
-        require(!ds.ordersClaimed[orderHash], "Order already claimed");
-
-        require(order.parameters.offerer == msg.sender, "Only orderer can cancel order");
-
-        require(verifySignature(orderHash, order.signature, order.parameters.offerer), "Invalid signature or incorrect signer");
-
-        ds.ordersClaimed[orderHash] = true;
-
-        emit OrderCanceled(orderHash, order.parameters.offerer, uint8(order.parameters.orderType));
+        address premiumAddress = ds.premiumNftAddress;
+        if (premiumAddress == address(0) || IERC721(premiumAddress).balanceOf(user) == 0) {
+            return 0;
+        }
+        return ds.premiumDiscount;
     }
 
-    // Cancels all orders created before the current block timestamp
-    function cancelAllOrders() external whenNotPaused {
-        SharedStorage.Storage storage ds = SharedStorage.getStorage();
-        ds.ordersCanceledAt[msg.sender] = block.timestamp;
-        emit OrderCanceledAll(msg.sender, block.timestamp);
-    }
-
-    // Validates an order's signatures, timestamps, and state to ensure it can be executed.
+    /**
+     * @notice Validates an order's signatures, timestamps, and state to ensure it can be executed.
+     * @param order Struct containing order parameters and the signature
+     * @param orderHash Hash of the order parameters
+     * @return Boolean if the order is valid or not
+     */
     function validateOrder(Order memory order, bytes32 orderHash) public view returns (bool) {
         require(verifySignature(orderHash, order.signature, order.parameters.offerer), "Invalid signature or incorrect signer");
         SharedStorage.Storage storage ds = SharedStorage.getStorage();
@@ -165,18 +162,36 @@ contract TransactFacet is ReentrancyGuard {
         return true;
     }
 
-    // Validates an order and claims it to prevent double-spending or reentrancy attacks.
-    function validateOrderAndClaim(Order memory order, bytes32 orderHash, uint256 royaltyPercentageIn10000) internal returns (bool) {
-        validateOrder(order, orderHash);
+    /**
+     * @notice Allows an order creator to cancel their offchain order
+     * @param orderParameters Struct containing the order parameters
+     */
+    function cancelOrder(OrderParameters calldata orderParameters) external whenNotPaused {
+        bytes32 orderHash = createOrderHash(orderParameters);
         SharedStorage.Storage storage ds = SharedStorage.getStorage();
+        require(!ds.ordersClaimed[orderHash], "Order already claimed");
+
+        require(orderParameters.offerer == msg.sender, "Only orderer can cancel order");
+
         ds.ordersClaimed[orderHash] = true;
-        // lets make max royalty percentage 10%
-        order.parameters.royaltyPercentageIn10000 = royaltyPercentageIn10000 > MAX_ROYALTY_PERCENTAGE ? MAX_ROYALTY_PERCENTAGE : royaltyPercentageIn10000;
-        return true;
+
+        emit OrderCanceled(orderHash, orderParameters.offerer, uint8(orderParameters.orderType));
     }
 
-    
-    // Accepts an order for processing and handles the necessary payments according to the order parameters.
+    /**
+     * @notice Cancels all orders created before the current block timestamp
+     */
+    function cancelAllOrders() external whenNotPaused {
+        SharedStorage.Storage storage ds = SharedStorage.getStorage();
+        ds.ordersCanceledAt[msg.sender] = block.timestamp;
+        emit OrderCanceledAll(msg.sender, block.timestamp);
+    }
+
+    /**
+     * @notice Accepts an order for processing and handles the necessary payments according to the order parameters.
+     * @param order Struct containing order parameters and the signature
+     * @param royaltyPercentageIn10000 Royalty in BPS
+     */
     function acceptOrder(Order memory order, uint256 royaltyPercentageIn10000) external payable whenNotPaused nonReentrant {
         if(order.parameters.orderType == BasicOrderType.ERC721_FOR_ETH) {
             require(msg.value == order.parameters.consideration.amount, "Incorrect ETH value sent");
@@ -186,6 +201,11 @@ contract TransactFacet is ReentrancyGuard {
         handlePayments(order.parameters, orderHash);
     }
 
+     /**
+     * @notice Accepts multiple orders for processing and handles the necessary payments according to the orders parameters.
+     * @param orders Array of structs containing order parameters and the signature
+     * @param royaltyPercentagesIn10000 Array of royalty in BPS
+     */
     function batchAcceptOrder(Order[] memory orders, uint256[] memory royaltyPercentagesIn10000) external payable whenNotPaused nonReentrant {
         require(orders.length == royaltyPercentagesIn10000.length, "Orders and royalty percentages length mismatch");
 
@@ -205,7 +225,12 @@ contract TransactFacet is ReentrancyGuard {
         }
     }
 
-    // Similar to acceptOrder, but specifically designed to handle collection offers where the exact NFT may not initially be specified.
+    /**
+     * @notice Similar to acceptOrder, but specifically designed to handle collection offers where the exact NFT may not initially be specified.
+     * @param order Struct containing order parameters and the signature
+     * @param royaltyPercentageIn10000 Royalty in BPS
+     * @param nftIdentifier Id of the NFT to accept for the order
+     */
     function acceptCollectionOffer(Order memory order, uint256 royaltyPercentageIn10000, uint256 nftIdentifier) external whenNotPaused nonReentrant {
         bytes32 orderHash = createOrderHash(order.parameters);
         validateOrderAndClaim(order, orderHash, royaltyPercentageIn10000);
@@ -218,115 +243,102 @@ contract TransactFacet is ReentrancyGuard {
         handlePayments(order.parameters, orderHash);
     }
 
-    // Handles the distribution of payments between the parties involved in a transaction including royalties and platform fees.
-    function handlePayments(OrderParameters memory order, bytes32 orderHash) internal {
-        uint256 defaultPlatformCut;
-        uint256 platformCut;
-        uint256 royaltyCut;
+    /**
+     * @notice Validates an order and claims it to prevent double-spending or reentrancy attacks.
+     * @param order Struct containing order parameters and the signature
+     * @param orderHash Hash of the order parameters
+     * @param royaltyPercentageIn10000 Royalty in BPS limited to MAX_ROYALTY_PERCENTAGE
+     * @return Boolean if the order is valid or not
+     */
+    function validateOrderAndClaim(Order memory order, bytes32 orderHash, uint256 royaltyPercentageIn10000) internal returns (bool) {
+        validateOrder(order, orderHash);
+        SharedStorage.Storage storage ds = SharedStorage.getStorage();
+        ds.ordersClaimed[orderHash] = true;
+        // lets make max royalty percentage 10%
+        order.parameters.royaltyPercentageIn10000 = royaltyPercentageIn10000 > MAX_ROYALTY_PERCENTAGE ? MAX_ROYALTY_PERCENTAGE : royaltyPercentageIn10000;
+        return true;
+    }
 
+    /**
+     * @notice Handles the distribution of payments between the parties involved in a transaction including royalties and platform fees.
+     * @param order Struct containing order parameters and the signature
+     * @param orderHash Hash of the order parameters
+     */
+    function handlePayments(OrderParameters memory order, bytes32 orderHash) internal {
         SharedStorage.Storage storage ds = SharedStorage.getStorage();
         uint256 platformFeePercentageIn10000 = ds.platformFee;
+
+        uint256 amount = order.orderType == BasicOrderType.ERC721_FOR_ETH ? order.consideration.amount : order.offer.amount;
+        uint256 defaultPlatformCut;
+        uint256 platformCut = defaultPlatformCut = amount * platformFeePercentageIn10000 / 10000;
+        uint256 royaltyCut = amount * order.royaltyPercentageIn10000 / 10000;
+        uint256 ethRemainder = amount - royaltyCut - defaultPlatformCut;
+
+        uint256 nftIdentifier = order.orderType == BasicOrderType.ERC721_FOR_ETH ? order.offer.identifier : order.consideration.identifier;
+        address nftAddress = order.orderType == BasicOrderType.ERC721_FOR_ETH ? order.offer.tokenAddress : order.consideration.tokenAddress;
+        address nftSender = order.orderType == BasicOrderType.ERC721_FOR_ETH ? order.offerer : msg.sender;
+        address nftReceiver = order.orderType == BasicOrderType.ERC721_FOR_ETH ?  msg.sender : order.offerer;
+        uint256 takerDiscount = defaultPlatformCut * getUserPremiumDiscount(msg.sender) / 10000;
+        uint256 offererDiscount = defaultPlatformCut * getUserPremiumDiscount(order.offerer) / 10000;
         
-
         if(order.orderType == BasicOrderType.ERC721_FOR_ETH) {
-            IERC721 nftContract = IERC721(order.offer.tokenAddress);
-            royaltyCut = (order.consideration.amount * order.royaltyPercentageIn10000) / 10000;
-            defaultPlatformCut = (order.consideration.amount * platformFeePercentageIn10000) / 10000;
-            platformCut = defaultPlatformCut; // platformcut equals to platformEarnings
-            uint premiumDiscount = (defaultPlatformCut * ds.premiumDiscount) / 10000;
-
-            require(nftContract.ownerOf(order.offer.identifier) == order.offerer, "NFT owner is not the offerer");
-
-            uint256 ethRemainder = order.consideration.amount - royaltyCut - defaultPlatformCut;
-
-            if (defaultPlatformCut > 0 && isPremiumHolder(msg.sender)) {
+            if (defaultPlatformCut > 0 && takerDiscount > 0) {
                 //seller should not be impacted by taker premium discount
-                platformCut -= premiumDiscount;
-                (bool takerCashbackSuccess,) = msg.sender.call{value: premiumDiscount}("");
-                require(takerCashbackSuccess, "Taker premium cashback transfer failed");
+                platformCut -= takerDiscount;
+                (bool success,) = payable(msg.sender).call{value: takerDiscount}("");
+                require(success);
             }
-            if (defaultPlatformCut > 0 && isPremiumHolder(order.offerer)) {
-                platformCut -= premiumDiscount;
-                ethRemainder += premiumDiscount;
+            if (defaultPlatformCut > 0 && offererDiscount > 0) {
+                platformCut -= offererDiscount;
+                ethRemainder += offererDiscount;
             }
             
-            (bool royaltySuccess,) = payable(order.royaltyReceiver).call{value: royaltyCut}("");
-            require(royaltySuccess, "Royalty payment transfer failed");
-            
-
-            (bool success,) = order.offerer.call{value: ethRemainder}("");
-            require(success, "ETH transfer failed");
-
-            IERC721(order.offer.tokenAddress).transferFrom(order.offerer, msg.sender, order.offer.identifier);
-
-            emit OrderFulfilled(orderHash, msg.sender, order.offerer, order.offer.tokenAddress, order.offer.identifier, uint8(order.orderType), order.consideration.amount, platformCut);
-
+            (bool successRoyalty,) = payable(order.royaltyReceiver).call{value: royaltyCut}("");
+            (bool successEthRemainder,) = payable(order.offerer).call{value: ethRemainder}("");
+            require(successRoyalty && successEthRemainder);
         } else if(order.orderType == BasicOrderType.ERC20_FOR_ERC721) {
-            IERC721 nftContract = IERC721(order.consideration.tokenAddress);
-            royaltyCut = (order.offer.amount * order.royaltyPercentageIn10000) / 10000;
-            defaultPlatformCut = (order.offer.amount * platformFeePercentageIn10000) / 10000;
-            platformCut = defaultPlatformCut; // platformcut equals to platformEarnings
-            uint premiumDiscount = (defaultPlatformCut * ds.premiumDiscount) / 10000;
-
-            require(nftContract.ownerOf(order.consideration.identifier) == msg.sender, "NFT owner is not the taker");
-            
-            uint256 ethRemainder = order.offer.amount - royaltyCut - platformCut;
-
-            if (defaultPlatformCut > 0 && isPremiumHolder(msg.sender)) {
-                platformCut -= premiumDiscount;
-                ethRemainder += premiumDiscount;
+            if (defaultPlatformCut > 0 && takerDiscount > 0) {
+                platformCut -= takerDiscount;
+                ethRemainder += takerDiscount;
             }
-            if (defaultPlatformCut > 0 && isPremiumHolder(order.offerer)) {
-                platformCut -= premiumDiscount;
+            if (defaultPlatformCut > 0 && offererDiscount > 0) {
+                platformCut -= offererDiscount;
             }
             if (royaltyCut > 0 && order.royaltyReceiver != address(0)) {
-                handleERC20Payments(order.offerer, order.offer.tokenAddress, royaltyCut, order.royaltyReceiver);
+                IERC20(order.offer.tokenAddress).safeTransferFrom(order.offerer, order.royaltyReceiver, royaltyCut);
             }
             if (platformCut > 0) {
-                handleERC20Payments(order.offerer, order.offer.tokenAddress, platformCut, address(this));
+                IERC20(order.offer.tokenAddress).safeTransferFrom(order.offerer, address(this), platformCut);
             }
 
-            handleERC20Payments(order.offerer, order.offer.tokenAddress, ethRemainder, msg.sender);
-
-            IERC721(order.consideration.tokenAddress).transferFrom(msg.sender, order.offerer, order.consideration.identifier);
-
-            emit OrderFulfilled(orderHash, order.offerer, msg.sender, order.consideration.tokenAddress, order.consideration.identifier, uint8(order.orderType), order.offer.amount, platformCut);
-
+            IERC20(order.offer.tokenAddress).safeTransferFrom(order.offerer, msg.sender, ethRemainder);
         } else {
             revert("Invalid order type");
         }
+
+        IERC721(nftAddress).transferFrom(nftSender, nftReceiver, nftIdentifier);
+
+        emit OrderFulfilled(orderHash, nftReceiver, nftSender, nftAddress, nftIdentifier, uint8(order.orderType), amount, platformCut);
     }
 
-    // Manages the transfer of ERC20 tokens between accounts, ensuring all balances and allowances are correct with custom error messages.
-    function handleERC20Payments(address from, address tokenAddress, uint256 amount, address to) internal {
-        IERC20 token = IERC20(tokenAddress);
-        uint256 balance = token.balanceOf(from);
-        uint256 allowance = token.allowance(from, address(this));
-
-        require(balance >= amount, "Insufficient balance to complete transaction");
-        require(allowance >= amount, "Insufficient allowance to complete transaction");
-
-        require(token.transferFrom(from, to, amount), "ERC20 Transfer failed");
-    }
-
-    // Checks if an address is a contract, which is useful for validating smart contract interactions.
+    /**
+     * @notice Checks if an address is a contract, which is useful for validating smart contract interactions.
+     * @param account address to check
+     * @return Boolean if the account is a contract or not
+     */
     function isContract(address account) internal view returns (bool) {
         uint256 size;
         assembly { size := extcodesize(account) }
         return size > 0;
     }
 
-    // Determines if a user holds a premium NFT, which might grant them special privileges or discounts.
-    function isPremiumHolder(address user) public view returns (bool) {
-        SharedStorage.Storage storage ds = SharedStorage.getStorage();
-        if (ds.premiumNftAddress == address(0)) {
-            return false;
-        }
-        IERC721 premiumNft = IERC721(ds.premiumNftAddress);
-        return premiumNft.balanceOf(user) > 0;
-    }
-
-    // Verifies a signature against a hash and signer, supporting both EOA and contract accounts.
+    /**
+     * @notice Verifies a signature against a hash and signer, supporting both EOA and contract accounts.
+     * @param fullHash Hash to check
+     * @param _signature Signature to check the hash against
+     * @param signer Address to check the signature against
+     * @return Boolean if signature if valid or not
+     */
     function verifySignature(bytes32 fullHash, bytes memory _signature, address signer) public view returns (bool) {
         if (isContract(signer)) {
             bytes4 magicValue = IERC1271(signer).isValidSignature(fullHash, _signature);

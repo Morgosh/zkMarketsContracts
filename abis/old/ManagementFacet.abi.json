@@ -3,33 +3,6 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "target",
-        "type": "address"
-      }
-    ],
-    "name": "AddressEmptyCode",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "account",
-        "type": "address"
-      }
-    ],
-    "name": "AddressInsufficientBalance",
-    "type": "error"
-  },
-  {
-    "inputs": [],
-    "name": "FailedInnerCall",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
         "name": "_user",
         "type": "address"
       },
@@ -40,17 +13,6 @@
       }
     ],
     "name": "NotContractOwner",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "token",
-        "type": "address"
-      }
-    ],
-    "name": "SafeERC20FailedOperation",
     "type": "error"
   },
   {
@@ -77,21 +39,8 @@
     "inputs": [
       {
         "indexed": false,
-        "internalType": "address",
-        "name": "premiumAddress",
-        "type": "address"
-      }
-    ],
-    "name": "PremiumAddressUpdated",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": false,
         "internalType": "uint256",
-        "name": "newPremiumDiscount",
+        "name": "newPremiumFee",
         "type": "uint256"
       }
     ],
@@ -100,65 +49,33 @@
   },
   {
     "anonymous": false,
-    "inputs": [],
-    "name": "WethAddressUpdated",
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "newPremiumNftAddress",
+        "type": "address"
+      }
+    ],
+    "name": "PremiumNFTAddressUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "newWETHAddress",
+        "type": "address"
+      }
+    ],
+    "name": "WETHAddressUpdated",
     "type": "event"
   },
   {
     "inputs": [],
-    "name": "getMarketplacePaused",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getPlatformFee",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getPremiumDiscount",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
     "name": "getPremiumNftAddress",
-    "outputs": [
-      {
-        "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "getWethAddress",
     "outputs": [
       {
         "internalType": "address",
@@ -212,7 +129,7 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_premiumAddress",
+        "name": "_premiumNftAddress",
         "type": "address"
       }
     ],
@@ -225,11 +142,11 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_weth",
+        "name": "_wethAddress",
         "type": "address"
       }
     ],
-    "name": "setWethAddress",
+    "name": "setWETHAddress",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -237,7 +154,7 @@
   {
     "inputs": [
       {
-        "internalType": "contract IERC20",
+        "internalType": "address",
         "name": "erc20Token",
         "type": "address"
       }

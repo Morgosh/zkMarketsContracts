@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-library SharedStorage {
+// !!! IMPORTANT !!!
+// this version is recommended for new deployments however it is not compatible with previous deployments
+
+library SharedStorageNew {
     struct Storage {
         uint256 chainId;
-        address wethAddress;
-        address premiumNftAddress;
         uint256 platformFee;
-        uint256 premiumDiscount;
         string name;
         string version;
         bool paused;
         mapping (bytes32 => bool) ordersClaimed; // Tracks if a listing has been claimed
         mapping (address => uint256) ordersCanceledAt; // below the date all orders are canceled
+        address premiumAddress;
+        uint64 premiumDiscount;
     }
 
     function getStorage() internal pure returns (Storage storage ds) {
@@ -26,20 +28,16 @@ library SharedStorage {
         getStorage().chainId = _chainId;
     }
 
-    function setWETHAddress(address _wethAddress) internal {
-        getStorage().wethAddress = _wethAddress;
-    }
-
-    function setPremiumNftAddress(address _premiumNftAddress) internal {
-        getStorage().premiumNftAddress = _premiumNftAddress;
-    }
-
     function setPlatformFee(uint256 _platformFee) internal {
         getStorage().platformFee = _platformFee;
     }
 
     function setPremiumDiscount(uint256 _premiumDiscount) internal {
-        getStorage().premiumDiscount = _premiumDiscount;
+        getStorage().premiumDiscount = uint64(_premiumDiscount);
+    }
+    
+    function setPremiumAddress(address _premiumAddress) internal {
+        getStorage().premiumAddress = _premiumAddress;
     }
 
     function setName(string memory _name) internal {

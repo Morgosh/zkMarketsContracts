@@ -40,7 +40,7 @@ describe("deploying", function () {
       "null", // URI of the token metadata when it is not yet revealed
       withdrawAddress, // withdrawAddress
       await richWallets[2].getAddress(), // _comissionRecipient
-      0, // _fixedCommisionTreshold WEI
+      0, // _fixedCommisionThreshold WEI
       500, // _comissionPercentageIn10000,
       await richWallets[3].getAddress(), // _defaultRoyaltyRecipient
       500, // _defaultRoyaltyPercentage in 10000 denominator

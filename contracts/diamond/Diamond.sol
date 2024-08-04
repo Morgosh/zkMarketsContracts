@@ -26,10 +26,7 @@ struct DiamondArgs {
     address init;
     bytes initCalldata;
     // custom
-    address wethAddress;
-    address premiumNftAddress;
     uint256 platformFee;
-    uint256 premiumDiscount;
 }
 
 contract Diamond {    
@@ -39,10 +36,7 @@ contract Diamond {
         LibDiamond.diamondCut(_diamondCut, _args.init, _args.initCalldata);
 
         // Code can be added here to perform actions and set state variables.
-        SharedStorage.setWETHAddress(_args.wethAddress);
-        SharedStorage.setPremiumNftAddress(_args.premiumNftAddress);
         SharedStorage.setPlatformFee(_args.platformFee);
-        SharedStorage.setPremiumDiscount(_args.premiumDiscount);
         SharedStorage.setChainId(block.chainid);
         //setName(
         SharedStorage.setName("zkMarkets");

@@ -3,11 +3,12 @@ import "@nomicfoundation/hardhat-ethers"
 import "@matterlabs/hardhat-zksync"
 import { generatePrivateKeyWithSalt } from "./functions"
 import * as dotenv from "dotenv"
+import "hardhat-gas-reporter";
 
 // const network: string = process.argv.includes("--network") ? process.argv[process.argv.indexOf("--network") + 1] : "zksync-era-testnet"
 // initializeDotenv(getMainnetOrTestnet(network), null!)
-const deployerKey = process.env.PRIVATE_KEY ?? generatePrivateKeyWithSalt("test")
 dotenv.config({ path: ".env" })
+const deployerKey = process.env.PRIVATE_KEY ?? generatePrivateKeyWithSalt("test")
 
 const config: HardhatUserConfig = {
   defaultNetwork: "zksync-era-testnet",
@@ -55,7 +56,7 @@ const config: HardhatUserConfig = {
     },
   },
   solidity: {
-    version: "0.8.23",
+    version: "0.8.24",
     settings: {
       optimizer: {
         enabled: true,
@@ -64,6 +65,11 @@ const config: HardhatUserConfig = {
       viaIR: true,
     },
   },
+  gasReporter: {
+    currency: 'USD',
+    L1: "ethereum",
+    enabled: (process.env.REPORT_GAS) ? true : false
+  }
 }
 
 export default config
