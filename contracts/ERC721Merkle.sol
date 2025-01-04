@@ -82,12 +82,14 @@ contract ERC721Merkle is ERC721Template {
      */
     function getTierDetails(uint256 tierId) external view returns (bytes32 merkleRoot, uint256 price, uint256 maxMintAmount, uint256 saleStartTime, string memory title, uint256 ERC20Price) {
         Tier storage tier = tiers[tierId];
-        uint256 requiredTokens = 0;
+        uint256 requiredERC20Tokens = 0;
         if (ethPriceFeedAddress != address(0) && ERC20PriceFeedAddress != address(0)) {
-            requiredTokens = getRequiredERC20TokensChainlink(publicPrice);
+            requiredERC20Tokens = getRequiredERC20TokensChainlink(publicPrice);
+        } else {
+            requiredERC20Tokens = tier.erc20Price;
         }
 
-        return (tier.merkleRoot, tier.price, tier.maxMintAmount, tier.saleStartTime, tier.title, requiredTokens);
+        return (tier.merkleRoot, tier.price, tier.maxMintAmount, tier.saleStartTime, tier.title, requiredERC20Tokens);
     }
 
     /**
@@ -139,10 +141,10 @@ contract ERC721Merkle is ERC721Template {
      * @param amount Amount of tokens
      * @param proof Merkle proof
      */
-    function mintWithFixedERC20Price(uint256 tierId, uint256 amount, bytes32[] calldata proof) external {
+    function whitelistMintWithFixedERC20Price(uint256 tierId, uint256 amount, bytes32[] calldata proof) external {
         Tier storage tier = tiers[tierId];
-        uint256 erc20Price = tier.erc20Price;
         checkWhitelistMintRequirements(amount, tier, proof);
+        uint256 erc20Price = tier.erc20Price;
         require(ERC20TokenAddress != address(0), "Payment token address not set");
         require(erc20Price > 0, "Price per token not set");
 

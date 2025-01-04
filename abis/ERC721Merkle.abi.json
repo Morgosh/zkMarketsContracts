@@ -900,29 +900,6 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "tierId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bytes32[]",
-        "name": "proof",
-        "type": "bytes32[]"
-      }
-    ],
-    "name": "mintWithFixedERC20Price",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
         "name": "_mintAmount",
         "type": "uint256"
       }
@@ -1757,6 +1734,29 @@
       }
     ],
     "name": "whitelistMintWithERC20ChainlinkPrice",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tierId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes32[]",
+        "name": "proof",
+        "type": "bytes32[]"
+      }
+    ],
+    "name": "whitelistMintWithFixedERC20Price",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

@@ -163,7 +163,6 @@ describe("deploying", function () {
     await txC.wait()
     wallet1Contract.setERC20TokenAddress(await ERC20Contract.getAddress())
 
-    //
     try {
       await wallet1Contract.mintWithFixedERC20Price(k)
       throw new Error("Should have failed")

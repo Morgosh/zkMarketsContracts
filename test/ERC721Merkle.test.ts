@@ -43,7 +43,7 @@ const tier3Data = {
   priceWei: ethers.parseEther("0.03"),
   tier: 3,
   maxMint: 50,
-  startTime: 0,
+  startTime: 0n,
 }
 
 describe("ERC721Merkle Test", function () {
@@ -92,24 +92,62 @@ describe("ERC721Merkle Test", function () {
   let tier1MerkleTree: MerkleTree
   let tier2MerkleTree: MerkleTree
   let tier3MerkleTree: MerkleTree
+
+  type Tier = {
+    title: string
+    merkleRoot: string
+    price: bigint
+    erc20Price: bigint
+    maxMintAmount: number
+    saleStartTime: bigint
+  }
+  let wlTier: Tier
+  let ogTier: Tier
+  let bigTier: Tier
   it("sets the MerkleTree for tiers", async () => {
     // set start to max
     tier1MerkleTree = new MerkleTree(getLeafNodes(tier1Addresses), keccak256, { sortPairs: true })
     tier2MerkleTree = new MerkleTree(getLeafNodes(tier2Addresses), keccak256, { sortPairs: true })
     tier3MerkleTree = new MerkleTree(getLeafNodes(tier3Data.addresses), keccak256, { sortPairs: true })
-    const a = await adminContract.setTier(1, "wl", getRootHash(tier1MerkleTree), ethers.parseEther("0.02"), ethers.parseEther("2"), 1, ethers.MaxUint256)
-    const b = await adminContract.setTier(2, "OG", getRootHash(tier2MerkleTree), ethers.parseEther("0.01"), ethers.parseEther("1"), 2, ethers.MaxUint256)
-    const c = await adminContract.setTier(3, "BIG", getRootHash(tier3MerkleTree), tier3Data.priceWei, ethers.parseEther("3"), tier3Data.maxMint, tier3Data.startTime)
+    // function setTier(uint256 tierId, string calldata title, bytes32 merkleRoot, uint256 price, uint256 erc20Price, uint256 maxMintAmount, uint256 saleStartTime) external onlyOwner {
+    wlTier = {
+      title: "wl",
+      merkleRoot: getRootHash(tier1MerkleTree),
+      price: ethers.parseEther("0.02"),
+      erc20Price: ethers.parseEther("2"),
+      maxMintAmount: 1,
+      saleStartTime: ethers.MaxUint256,
+    }
+    ogTier = {
+      title: "OG",
+      merkleRoot: getRootHash(tier2MerkleTree),
+      price: ethers.parseEther("0.01"),
+      erc20Price: ethers.parseEther("1"),
+      maxMintAmount: 2,
+      saleStartTime: ethers.MaxUint256,
+    }
+    bigTier = {
+      title: "BIG",
+      merkleRoot: getRootHash(tier3MerkleTree),
+      price: tier3Data.priceWei,
+      erc20Price: ethers.parseEther("3"),
+      maxMintAmount: tier3Data.maxMint,
+      saleStartTime: tier3Data.startTime,
+    }
+    const a = await adminContract.setTier(1, wlTier.title, wlTier.merkleRoot, wlTier.price, wlTier.erc20Price, wlTier.maxMintAmount, wlTier.saleStartTime)
+    const b = await adminContract.setTier(2, ogTier.title, ogTier.merkleRoot, ogTier.price, ogTier.erc20Price, ogTier.maxMintAmount, ogTier.saleStartTime)
+    const c = await adminContract.setTier(3, bigTier.title, bigTier.merkleRoot, bigTier.price, bigTier.erc20Price, bigTier.maxMintAmount, bigTier.saleStartTime)
 
     const tierDetails = await adminContract.getTierDetails(3)
 
     // function getTierDetails(uint256 tierId) external view returns (bytes32 merkleRoot, uint256 price, uint256 maxMintAmount, uint256 saleStartTime, string memory title, uint256 ERC20Price) {
     expect(tierDetails[0]).to.eq(getRootHash(tier3MerkleTree))
+
     expect(tierDetails[1]).to.eq(tier3Data.priceWei)
     expect(tierDetails[2]).to.eq(BigInt(tier3Data.maxMint))
     // expect(tierDetails[3]).to.eq(tier3Data.startTime)
     expect(tierDetails[4]).to.eq("BIG")
-    expect(tierDetails[5].toString()).to.eq("0")
+    expect(tierDetails[5].toString()).to.eq(bigTier.erc20Price.toString())
 
     await a.wait()
     await b.wait()
@@ -137,7 +175,7 @@ describe("ERC721Merkle Test", function () {
     const balanceBefore = parseFloat(ethers.formatEther(await provider.getBalance(withdrawAddress)))
     // get balance on contract
     const contractBalanceBefore = parseFloat(ethers.formatEther(await provider.getBalance(adminContractAddress)))
-    console.log("balanceBefore1", balanceBefore, "contractBalanceBefore1", contractBalanceBefore)
+    // console.log("balanceBefore1", balanceBefore, "contractBalanceBefore1", contractBalanceBefore)
   })
   it("Whitelist not active", async function () {
     const wallet1Contract = new Contract(adminContractAddress, merkleABI, richWallets[0])
@@ -239,5 +277,43 @@ describe("ERC721Merkle Test", function () {
 
     expect(result[0].toLowerCase()).to.eq("0xAA4306c1b90782Ce2710D9512beCD03168eaF7A2".toLowerCase())
     expect(royaltyPercentage).to.eq(5) // Checking the royalty percentage instead of the royalty amount
+  })
+  // lets test function whitelistMintWithFixedERC20Price(uint256 tierId, uint256 amount, bytes32[] calldata proof) external {
+  // first we need to set the fixed price
+  it("erc20 fixed mint", async () => {
+    // lets create nft contract with richWalletsAddresses[6]
+    const richWallets6Contract = new Contract(adminContractAddress, merkleABI, richWallets[6])
+
+    const nftBalanceBefore = await richWallets6Contract.balanceOf(richWalletsAddresses[6])
+  
+    // lets create erc20
+    const ERC20Contract = await deployContract("ERC20Template", ["name", "symbol"])
+    adminContract.setERC20TokenAddress(await ERC20Contract.getAddress())
+    try {
+      await richWallets6Contract.whitelistMintWithFixedERC20Price(3, 1, getProof(richWalletsAddresses[6], tier3MerkleTree))
+      throw new Error("Should have failed")
+    }
+    catch (error: any) {
+      expect(error.message).to.include("ERC20InsufficientAllowance")
+    }
+    // lets approve erc20
+    const ERC20ContractUser = new Contract(await ERC20Contract.getAddress(), merkleABI, richWallets[6])
+    const txA = await ERC20ContractUser.approve(adminContractAddress, bigTier.erc20Price)
+    await txA.wait()
+    // lets mint
+    try {
+      await richWallets6Contract.whitelistMintWithFixedERC20Price(3, 1, getProof(richWalletsAddresses[6], tier3MerkleTree))
+      throw new Error("Should have failed")
+    } catch (error: any) {
+      expect(error.message).to.include("ERC20InsufficientBalance")
+    }
+    const txC = await ERC20Contract.adminMint(richWalletsAddresses[6], bigTier.erc20Price)
+    await txC.wait()
+
+    const tx = await richWallets6Contract.whitelistMintWithFixedERC20Price(3, 1, getProof(richWalletsAddresses[6], tier3MerkleTree))
+    await tx.wait()
+
+    const balance = await richWallets6Contract.balanceOf(richWalletsAddresses[6])
+    expect(balance).to.equal(nftBalanceBefore + 1n)
   })
 })
