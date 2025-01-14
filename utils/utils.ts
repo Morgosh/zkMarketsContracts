@@ -141,6 +141,7 @@ export async function getDefaultWallet() {
       if (signers && signers.length > 0 && signers[0].address === wallet.address) {
         return wallet
       } else {
+        console.log("wallet1", wallet?.address, "signer1", signers[0]?.address)
         console.log(`⚠️  The PRIVATE_KEY provided in the .env file doesn't match the first signer's address. Using the first rich wallet instead.`)
       }
     }

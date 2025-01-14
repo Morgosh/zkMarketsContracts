@@ -42,6 +42,15 @@ const config: HardhatUserConfig = {
     "hardhat": {
       // zksync: true,
     },
+    "abstract-testnet": {
+      url: "https://api.testnet.abs.xyz",
+      ethNetwork: "sepolia",
+      //https://api-explorer-verify.testnet.abs.xyz/contract_verification doesn't seem to work
+      verifyURL: "https://api-sepolia.abscan.org/api",
+      zksync: true,
+      chainId: 11124,
+      accounts: [deployerKey!],
+    },
   },
   zksolc: {
     version: "latest",
