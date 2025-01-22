@@ -106,7 +106,7 @@ async function deployDiamond(options: any = {}, transactFacetOptions: any = null
   // await diamond.waitForDeployment()
   const diamondContract = await deployContract("Diamond", [facetCuts, diamondArgs], options)
   console.log()
-  console.log("Diamond deployed:", await diamondContract.getAddress())
+  console.log("Diamond deployed:", (await diamondContract.getAddress()).toLowerCase())
 
   // returning the address of the diamond
   return await diamondContract

@@ -71,7 +71,7 @@ export const deployContractZkSync = async (contractArtifactName: string, constru
 
   // Display contract deployment info
   log(`\n"${artifact.contractName}" was successfully deployed:`)
-  console.log(`Deployed ${contractArtifactName} address: ${address}`)
+  console.log(`Deployed ${contractArtifactName} address: ${address.toLowerCase()}`)
   log(` - Contract source: ${fullContractSource}`)
   log(` - Encoded constructor arguments: ${constructorArgs}\n`)
 

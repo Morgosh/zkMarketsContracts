@@ -45,8 +45,8 @@ const config: HardhatUserConfig = {
     "abstract-testnet": {
       url: "https://api.testnet.abs.xyz",
       ethNetwork: "sepolia",
-      //https://api-explorer-verify.testnet.abs.xyz/contract_verification doesn't seem to work
-      verifyURL: "https://api-sepolia.abscan.org/api",
+      // etherscan aka https://api-sepolia.abscan.org/api doesn't seem to work, but blockscout does
+      verifyURL: "https://api-explorer-verify.testnet.abs.xyz/contract_verification",
       zksync: true,
       chainId: 11124,
       accounts: [deployerKey!],
