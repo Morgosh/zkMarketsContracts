@@ -13,7 +13,7 @@ import { ethers } from "hardhat"
 import { getSelectors, FacetCutAction } from "./libraries/diamond"
 import { deployContract, getDefaultWallet } from "../utils/utils"
 
-async function deployDiamond(options: any = {}, transactFacetOptions: any = null) {
+async function deployDiamond(options: any = {}, transactFacetOptions: any = null, marketplaceOptions: any = null) {
   const contractOwner = await getDefaultWallet()
 
   // Deploy DiamondInit
@@ -96,7 +96,7 @@ async function deployDiamond(options: any = {}, transactFacetOptions: any = null
     // add any other custom arguments here
     wethAddress: ethers.ZeroAddress,
     premiumNftAddress: ethers.ZeroAddress,
-    platformFee: 200, // 2%
+    platformFee: marketplaceOptions?.platformFee ?? 200, // 2%
     premiumDiscount: 5000, // 50%
   }
 

@@ -59,7 +59,7 @@ export const deployContractZkSync = async (contractArtifactName: string, constru
   // await verifyEnoughBalance(wallet, deploymentFee);
 
   if (options?.sleepMS) {
-    log(`Sleeping for ${options.sleepMS} seconds...`)
+    log(`Sleeping for ${options.sleepMS} MS...`)
     await new Promise(r => setTimeout(r, options.sleepMS!))
   }
 
@@ -122,7 +122,7 @@ export const deployContract = async (contractArtifactName: string, constructorAr
     }
 
     if (options?.sleepMS) {
-      console.log(`Sleeping for ${options.sleepMS} seconds...`)
+      console.log(`Sleeping for ${options.sleepMS} MS...`)
       await new Promise(r => setTimeout(r, options.sleepMS!))
     }
     const contract = await factory.deploy(...constructorArguments)
