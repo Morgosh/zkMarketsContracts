@@ -52,10 +52,10 @@ const config: HardhatUserConfig = {
       accounts: [deployerKey!],
     },
     "abstract": {
-      url: "https://abstract-mainnet.blastapi.io/aabef526-e6c5-405f-8bcd-d470a2058702/",
+      url: "https://api.mainnet.abs.xyz/",
       ethNetwork: "mainnet",
       // etherscan aka https://api-sepolia.abscan.org/api doesn't seem to work, but blockscout does
-      verifyURL: "https://api-explorer-verify.abs.xyz/contract_verification",
+      // verifyURL: "https://api-explorer-verify.abs.xyz/contract_verification",
       zksync: true,
       chainId: 2741,
       accounts: [deployerKey!],
