@@ -17,7 +17,7 @@ const config: HardhatUserConfig = {
       url: "https://sepolia.era.zksync.dev",
       ethNetwork: "sepolia",
       zksync: true,
-      verifyURL: "https://explorer.sepolia.era.zksync.dev/contract_verification",
+      //verifyURL: "https://explorer.sepolia.era.zksync.dev/contract_verification",
       accounts: [deployerKey!],
     },
     "zksync-era": {
@@ -45,8 +45,9 @@ const config: HardhatUserConfig = {
     "abstract-testnet": {
       url: "https://api.testnet.abs.xyz",
       ethNetwork: "sepolia",
-      // etherscan aka https://api-sepolia.abscan.org/api doesn't seem to work, but blockscout does
-      verifyURL: "https://api-explorer-verify.testnet.abs.xyz/contract_verification",
+      // verify url no longer needed in 1.7 + its automatic, blocksout is the default, if etherscan key then etherscan
+      verifyURL: "https://api-explorer-verify.testnet.abs.xyz/contract_verification", // blockscout
+      enableVerifyURL: true, // you can enable verifyurl to verify on multiple explorers
       zksync: true,
       chainId: 11124,
       accounts: [deployerKey!],
@@ -54,15 +55,36 @@ const config: HardhatUserConfig = {
     "abstract": {
       url: "https://api.mainnet.abs.xyz/",
       ethNetwork: "mainnet",
-      // etherscan aka https://api-sepolia.abscan.org/api doesn't seem to work, but blockscout does
-      // verifyURL: "https://api-explorer-verify.abs.xyz/contract_verification",
+      // verify url no longer needed in 1.7 + its automatic, blocksout is the default, if etherscan key then etherscan
+      // verifyURL: "https://api-explorer-verify.abs.xyz/contract_verification", // blockscout
       zksync: true,
       chainId: 2741,
       accounts: [deployerKey!],
     },
   },
+  etherscan: {
+    apiKey: process.env.ETHERSCAN_API_KEY, // use the corresponding key depending on the network
+    customChains: [
+      {
+        network: "abstractTestnet",
+        chainId: 11124,
+        urls: {
+          apiURL: "https://api-sepolia.abscan.org/api",
+          browserURL: "https://sepolia.abscan.org/",
+        },
+      },
+      {
+        network: "abstractMainnet",
+        chainId: 2741,
+        urls: {
+          apiURL: "https://api.abscan.org/api",
+          browserURL: "https://abscan.org/",
+        },
+      },
+    ],
+  },
   zksolc: {
-    version: "latest",
+    version: "1.5.7", // Ensure version is 1.5.7!
     settings: {
       // find all available options in the official documentation
       // https://era.zksync.io/docs/tools/hardhat/hardhat-zksync-solc.html#configuration

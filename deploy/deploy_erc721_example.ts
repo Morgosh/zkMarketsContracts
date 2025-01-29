@@ -6,7 +6,7 @@ import { ethers } from "hardhat"
 
 const network: string = process.argv.includes("--network") ? process.argv[process.argv.indexOf("--network") + 1] : "testnet"
 
-export default async function (_: HardhatRuntimeEnvironment) {
+export default async function (hre: HardhatRuntimeEnvironment) {
 
   const collectionParams = {
     name: "Zeeks",
@@ -50,7 +50,11 @@ export default async function (_: HardhatRuntimeEnvironment) {
   }
 
   const adminContract = await deployContract("ERC721Merkle", deployParams, options)
-  const adminContractAddress = await adminContract.getAddress()
+
+  // to manually verify you can use this
+  // const adminContractAddress = await adminContract.getAddress()
+  // console.log(`yarn hardhat verify --network ${hre.network.name} ${adminContractAddress} ${deployParams.join(" ")}`)
+
 
   // we must now set mint date
   await adminContract.setPublicSaleStartTime(collectionParams.mintDateTimeStamp)

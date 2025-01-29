@@ -76,14 +76,19 @@ export const deployContractZkSync = async (contractArtifactName: string, constru
   log(` - Encoded constructor arguments: ${constructorArgs}\n`)
 
   // @ts-expect-error verifyURL does not exist
-  if (options?.verify && hre.network.config && hre.network.config.verifyURL) {
+  if (options?.verify && hre.network.config) {
     log("Requesting contract verification...")
-    await verifyContract({
-      address,
-      contract: fullContractSource,
-      constructorArguments: constructorArgs,
-      bytecode: artifact.bytecode,
-    })
+    try {   
+      await verifyContract({
+        address,
+        contract: fullContractSource,
+        constructorArguments: constructorArgs,
+        bytecode: artifact.bytecode,
+      })
+    } catch (error) {
+      console.error(`⛔️ Contract verification failed: ${error.message}`)
+      console.log("continuing...")
+    }
   }
 
   return contract
