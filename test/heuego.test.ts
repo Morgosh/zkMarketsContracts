@@ -27,25 +27,8 @@ describe("deploying", function () {
   const withdrawAddress = "0x62d8B1c7FE0c8a6d3a8a8Ac051c24A06b4602e65"
   let adminContract: Contract
   it("It should deploy", async () => {
-    // const deployer = new Deployer(hre, richWallets[0]);
-    // const artifact = await deployer.loadArtifact('ERC721Template');
-
-    const deployParams = [
-      deployParamsObj.name, // Name of the token, if it includes space its harder to verify, you could also test with quote marks it should work, but it doesnt
-      deployParamsObj.symbol, // Symbol of the token
-      "ipfs://QmSQx4aRgj8x4mVP8jJajbChxL8Qexs1HB3dnspt5aHYbj", // Contract URI
-      1000, // Maximum supply of the token
-      deployParamsObj.pricePerToken.toString(), // Price per token in WEI
-      "https://zkmarkets.infura-ipfs.io/ipfs/Qmc7VZzy1CdKHmp74eH26BBCUPxdCQNVPNr5dFS4dJJAn8/", // Default base URI of the token metadata
-      "null", // URI of the token metadata when it is not yet revealed
-      withdrawAddress, // withdrawAddress
-      await richWallets[2].getAddress(), // _comissionRecipient
-      0, // _fixedCommisionThreshold WEI
-      500, // _comissionPercentageIn10000,
-      await richWallets[3].getAddress(), // _defaultRoyaltyRecipient
-      500, // _defaultRoyaltyPercentage in 10000 denominator
-    ]
-    adminContract = await deployContract("ERC721Template", deployParams)
+    const deployParams: any = []
+    adminContract = await deployContract("Huego", deployParams)
     adminContract = new Contract(await adminContract.getAddress(), ERC721TemplateABI, richWallets[0])
     erc721ContractAddress = await adminContract.getAddress()
     expect(await adminContract.name()).to.eq(deployParams[0])
@@ -163,6 +146,7 @@ describe("deploying", function () {
     await txC.wait()
     wallet1Contract.setERC20TokenAddress(await ERC20Contract.getAddress())
 
+    //
     try {
       await wallet1Contract.mintWithFixedERC20Price(k)
       throw new Error("Should have failed")
