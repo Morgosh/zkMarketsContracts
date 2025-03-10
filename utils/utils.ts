@@ -78,7 +78,8 @@ export const deployContractZkSync = async (contractArtifactName: string, constru
   // @ts-expect-error verifyURL does not exist
   if (options?.verify && hre.network.config) {
     log("Requesting contract verification...")
-    try {   
+    try {
+      // console.log(`yarn hardhat verify --network ${hre.network.name} ${address} ${constructorArguments?.map(param => `"${param}"`).join(" ")}`)
       await verifyContract({
         address,
         contract: fullContractSource,

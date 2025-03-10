@@ -11,6 +11,7 @@
     "test": "cross-env NODE_ENV=test hardhat test --network hardhat",
     "testGas": "cross-env REPORT_GAS=true NODE_ENV=test hardhat test --network hardhat",
     "testzk": "cross-env NODE_ENV=test hardhat test --network zkHardhat",
+    "verify":  "hardhat deploy-zksync --script verify.ts --network abstract",
     "deploy-diamond-test": "hardhat deploy-zksync --script deploy_diamond.ts --network zksync-era-testnet",
     "deploy-diamond-main": "hardhat deploy-zksync --script deploy_diamond.ts --network zksync-era",
     "upgrade-diamond-test": "yarn hardhat deploy-zksync --script update_diamond.ts --network zksync-era-testnet",
