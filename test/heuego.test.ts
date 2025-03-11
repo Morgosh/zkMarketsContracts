@@ -311,6 +311,17 @@ describe("deploying", function () {
 
     // if player tries to move again, it should be rejected
     await expectRejectedWithMessage(player2Contract.play(1, 0, 0, 0), "GameSession has ended")
+
+    // lets try to set time limit to 1 second
+    await adminContract.setGameTimeLimit(1n)
+    // if a player wants to make a new game, he should be able to, since the previous game has ended
+    await player2Contract.createSession(richWalletsAddresses[1], richWalletsAddresses[2])
+    // a new game can't be created since the time limit is 1 second
+    await expectRejectedWithMessage(player2Contract.createSession(richWalletsAddresses[1], richWalletsAddresses[2]), "Player 1 has an active session")
+
+    // ok if we sleep for 2 seconds, the game should be ended and a new game can be created
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    await player2Contract.createSession(richWalletsAddresses[1], richWalletsAddresses[2])
   })
 
 

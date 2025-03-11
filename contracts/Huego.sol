@@ -25,7 +25,6 @@ contract Huego {
 
     event BlockPlaced(uint256 indexed sessionId, uint8 indexed game, uint8 turn, uint8 pieceType, uint8 x, uint8 z, uint8 y, Rotation rotation);
 
-
     struct WagerInfo {
         uint256 amount;
         bool processed;     // To prevent double-processing
@@ -78,24 +77,50 @@ contract Huego {
         gameSessions.push();
     }
 
-    function getInitialStacks(uint256 sessionId, uint8 game) external view returns (topStack[] memory) {
+    function getInitialStacks(uint256 sessionId, uint8 game) public view returns (topStack[] memory) {
         return gameSessions[sessionId].initialStacks[game];
     }
-    function getStacksGrid(uint256 sessionId, uint8 game) external view returns (topStack[8][8] memory) {
+    function getStacksGrid(uint256 sessionId, uint8 game) public view returns (topStack[8][8] memory) {
         return stacksGrid[sessionId][game].grid;
     }
 
-    function proposeWager(uint256 sessionId, uint256 _amount) public payable {
+    function getPlayerActiveSession(address player) public view returns (uint256) {
+        uint256 sessionId = userGameSession[player];
+
+        if (sessionId == 0) {
+            return 0;
+        }
+
+        GameSession storage session = gameSessions[sessionId];
+
+        if (session.gameEnded) {
+            return 0;
+        }
+
+        address starter = session.game == 0 ? session.player1 : session.player2;
+        address nonStarter = session.game == 0 ? session.player2 : session.player1;
+        address playerOnTurn = session.turn % 2 == 1 ? starter : nonStarter;
+
+        uint256 currentPlayerTimeRemaining = (playerOnTurn == session.player1)
+            ? session.timeRemainingP1
+            : session.timeRemainingP2;
+
+        bool currentPlayerHasTime = block.timestamp - session.lastMoveTime <= currentPlayerTimeRemaining;
+
+        return currentPlayerHasTime ? sessionId : 0;
+    }
+
+    function proposeWager(uint256 sessionId, uint256 _amount) external payable {
         require(msg.value == _amount, "Wager amount mismatch");
         _proposeWager(sessionId, _amount, msg.sender);
     }
 
-    function acceptWagerProposal(uint256 sessionId, uint256 _amount) public payable {
+    function acceptWagerProposal(uint256 sessionId, uint256 _amount) external payable {
         require(msg.value == _amount, "Wager amount mismatch");
         _acceptWager(sessionId, _amount, msg.sender);
     }
 
-    function acceptAndProposeWager(uint256 sessionId, uint256 _acceptAmount, uint256 _proposeAmount) public payable {
+    function acceptAndProposeWager(uint256 sessionId, uint256 _acceptAmount, uint256 _proposeAmount) external payable {
         require(msg.value == _acceptAmount + _proposeAmount, "Wager amount mismatch");
         _acceptWager(sessionId, _acceptAmount, msg.sender);
         _proposeWager(sessionId, _proposeAmount, msg.sender);
@@ -125,7 +150,6 @@ contract Huego {
         gameSessions[sessionId].wager.amount += wagerProposals[proposer][sessionId].amount;
         delete wagerProposals[proposer][sessionId];
     }
-
 
     function cancelWagerProposal(uint256 sessionId) external {
         require(wagerProposals[msg.sender][sessionId].amount != 0, "No wager proposal exists");
@@ -191,8 +215,8 @@ contract Huego {
         // only player 1 can create a session
         require(msg.sender == player2, "Not player 2");
         // player 1 and 2 must not have an active game
-        require(userGameSession[player1] == 0, "Player 1 has an active session");
-        require(userGameSession[player2] == 0, "Player 2 has an active game");
+        require(getPlayerActiveSession(player1) == 0, "Player 1 has an active session");
+        require(getPlayerActiveSession(player2) == 0, "Player 2 has an active session");
 
         uint256 sessionId = gameSessions.length;
         GameSession storage session = gameSessions.push();
@@ -403,6 +427,7 @@ contract Huego {
         timeLimit = _timeLimit;
     }
 
+    // if funds are stuck on contract for some reason
     function withdrawERC20(IERC20 erc20Token) external onlyOwner {
         uint256 erc20Balance = erc20Token.balanceOf(address(this));
         erc20Token.safeTransfer(msg.sender, erc20Balance);
