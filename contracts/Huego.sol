@@ -226,7 +226,7 @@ contract Huego {
         session.game = 0;
         session.gameStartTime = block.timestamp;
         session.lastMoveTime = block.timestamp;
-        session.timeRemainingP1 = timeLimit;
+        session.timeRemainingP1 = timeLimit + 5; // Extra 5 seconds for player 1
         session.timeRemainingP2 = timeLimit;
         session.gameEnded = false;
 
@@ -301,6 +301,18 @@ contract Huego {
 
         stacksGrid[sessionId][game].grid[x][z].y += 1;
         stacksGrid[sessionId][game].grid[x][z].color = currentColor;
+    }
+
+    function forfeit(uint256 sessionId) external {
+        GameSession storage session = gameSessions[sessionId];
+        require(!session.gameEnded, "GameSession has ended");
+        if (msg.sender == session.player1) {
+            session.timeRemainingP1 = 0;
+        } else if (msg.sender == session.player2) {
+            session.timeRemainingP2 = 0;
+        } else {
+            revert("Not a player of this game");
+        }
     }
 
     // SCORING
