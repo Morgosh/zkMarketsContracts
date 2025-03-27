@@ -9,6 +9,7 @@
 pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 contract Huego {
     using SafeERC20 for IERC20;
@@ -17,6 +18,8 @@ contract Huego {
     uint256 public timeLimit = 600; // 10 minutes per player
     address public owner;
     uint256 public feePercentage = 500; // 5%
+    IERC721 public nftContract;
+    uint256 public discountedFeePercentage = 200; // 2% for NFT holders
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Not the owner");
@@ -24,6 +27,10 @@ contract Huego {
     }
 
     event BlockPlaced(uint256 indexed sessionId, uint8 indexed game, uint8 turn, uint8 pieceType, uint8 x, uint8 z, uint8 y, Rotation rotation);
+    event GameSessionCreated(uint256 indexed sessionId, address indexed player1, address indexed player2, uint256 wagerAmount);
+    event WagerProposed(address indexed proposer, uint256 indexed sessionId, uint256 amount);
+    event WagerAccepted(uint256 indexed sessionId, address indexed player1, address indexed player2, uint256 amount);
+    event GameEnded(uint256 indexed sessionId, address indexed winner, address indexed loser, uint256 amount);
 
     struct WagerInfo {
         uint256 amount;
@@ -145,6 +152,8 @@ contract Huego {
             (bool success,) = payable(sender).call{value: currentWagerAmount}("");
             require(success, "Refund failed");
         }
+        
+        emit WagerProposed(sender, sessionId, _amount);
     }
 
     function _acceptWager(uint256 sessionId, uint256 _amount, address sender) internal {
@@ -155,6 +164,8 @@ contract Huego {
 
         gameSessions[sessionId].wager.amount += wagerProposals[proposer][sessionId].amount;
         delete wagerProposals[proposer][sessionId];
+        
+        emit WagerAccepted(sessionId, gameSessions[sessionId].player1, gameSessions[sessionId].player2, _amount);
     }
 
     function cancelWagerProposal(uint256 sessionId) external {
@@ -243,6 +254,8 @@ contract Huego {
         userGameSession[player1] = sessionId;
         userGameSession[player2] = sessionId;
         session.turn = 1;
+        
+        emit GameSessionCreated(sessionId, player1, player2, 0);
     }
 
     function play(uint256 sessionId, uint8 x, uint8 z, Rotation rotation) external {
@@ -398,13 +411,20 @@ contract Huego {
             totalPlayer2Points += starterPoints1;
             if (totalPlayer1Points > totalPlayer2Points) {
                 winner = session.player1;
+                emit GameEnded(sessionId, session.player1, session.player2, session.wager.amount * 2);
             } else if (totalPlayer2Points > totalPlayer1Points) {
                 winner = session.player2;
+                emit GameEnded(sessionId, session.player2, session.player1, session.wager.amount * 2);
             } else {
                 // require either player1, player2 
                 require(msg.sender == session.player1 || msg.sender == session.player2, "Not a player of this game");
                 // Tie case, refund wager to both players
-                uint256 feeEach = session.wager.amount * feePercentage / 10000;
+                uint256 feeEach;
+                if (address(nftContract) != address(0) && nftContract.balanceOf(msg.sender) > 0) {
+                    feeEach = session.wager.amount * discountedFeePercentage / 10000;
+                } else {
+                    feeEach = session.wager.amount * feePercentage / 10000;
+                }
                 uint256 rewardSplit = session.wager.amount - feeEach;
                 (bool success1,) = payable(session.player1).call{value: rewardSplit}("");
                 require(success1, "Transfer failed");
@@ -412,6 +432,7 @@ contract Huego {
                 require(success2, "Transfer failed");
                 (bool success3,) = payable(owner).call{value: 2 * feeEach}("");
                 require(success3, "Transfer failed");
+                emit GameEnded(sessionId, address(0), address(0), session.wager.amount * 2); // address(0) indicates a tie
                 return;
             }
         } else {
@@ -423,15 +444,25 @@ contract Huego {
             if (onTurn == session.player1) {
                 require(block.timestamp - session.lastMoveTime > session.timeRemainingP1, "Player 1 still has time");
                 winner = session.player2;
+                emit GameEnded(sessionId, session.player2, session.player1, session.wager.amount * 2);
             } else {
                 require(block.timestamp - session.lastMoveTime > session.timeRemainingP2, "Player 2 still has time");
                 winner = session.player1;
+                emit GameEnded(sessionId, session.player1, session.player2, session.wager.amount * 2);
             }
         }
         // caller has to be the winner
         require(msg.sender == winner, "Not the winner");
         uint256 pot = session.wager.amount * 2;
-        uint256 fee = pot * feePercentage / 10000;
+        uint256 fee;
+        
+        // Check if winner holds NFT and discount is enabled
+        if (address(nftContract) != address(0) && nftContract.balanceOf(winner) > 0) {
+            fee = pot * discountedFeePercentage / 10000;
+        } else {
+            fee = pot * feePercentage / 10000;
+        }
+        
         uint256 reward = pot - fee;
         (bool success4,) = payable(winner).call{value: reward}("");
         require(success4, "Transfer failed");
@@ -446,6 +477,16 @@ contract Huego {
 
     function setGameTimeLimit(uint256 _timeLimit) external onlyOwner {
         timeLimit = _timeLimit;
+    }
+
+    function setNftContract(address _nftContract) external onlyOwner {
+        require(address(nftContract) == address(0), "NFT contract already set");
+        require(_nftContract != address(0), "Invalid NFT contract address");
+        nftContract = IERC721(_nftContract);
+    }
+
+    function disableNftDiscount() external onlyOwner {
+        nftContract = IERC721(address(0));
     }
 
     // if funds are stuck on contract for some reason
