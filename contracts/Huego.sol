@@ -46,6 +46,8 @@ contract Huego {
         uint256 timeRemainingP1;
         uint256 timeRemainingP2;
         bool gameEnded;
+        // forfeited
+        address forfeitedBy;
         topStack[][] initialStacks; // basically [2][16]
     }
 
@@ -94,6 +96,10 @@ contract Huego {
         GameSession storage session = gameSessions[sessionId];
 
         if (session.gameEnded) {
+            return 0;
+        }
+
+        if (session.forfeitedBy != address(0)) {
             return 0;
         }
 
@@ -307,9 +313,9 @@ contract Huego {
         GameSession storage session = gameSessions[sessionId];
         require(!session.gameEnded, "GameSession has ended");
         if (msg.sender == session.player1) {
-            session.timeRemainingP1 = 0;
+            session.forfeitedBy = session.player1;
         } else if (msg.sender == session.player2) {
-            session.timeRemainingP2 = 0;
+            session.forfeitedBy = session.player2;
         } else {
             revert("Not a player of this game");
         }
@@ -377,7 +383,10 @@ contract Huego {
         require(!session.wager.processed, "Wager already processed");
         session.wager.processed = true;
         address winner;
-        if(session.game == 1 && session.turn == 29 && session.gameEnded) {
+        // if forfeited
+        if(session.forfeitedBy != address(0)) {
+            winner = session.forfeitedBy == session.player1 ? session.player2 : session.player1;
+        } else if(session.game == 1 && session.turn == 29 && session.gameEnded) {
             uint256 totalPlayer1Points = 0;
             uint256 totalPlayer2Points = 0;
 
