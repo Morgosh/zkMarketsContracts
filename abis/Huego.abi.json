@@ -83,12 +83,6 @@
       },
       {
         "indexed": false,
-        "internalType": "uint8",
-        "name": "y",
-        "type": "uint8"
-      },
-      {
-        "indexed": false,
         "internalType": "enum Huego.Rotation",
         "name": "rotation",
         "type": "uint8"
