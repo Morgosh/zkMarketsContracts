@@ -18,6 +18,7 @@ contract Huego {
     uint256 public timeLimit = 600; // 10 minutes per player
     address public owner;
     uint256 public feePercentage = 500; // 5%
+    uint256 public extraTimeForPlayer1 = 5; // Extra seconds for player 1
     IERC721 public nftContract;
     uint256 public discountedFeePercentage = 200; // 2% for NFT holders
 
@@ -26,7 +27,7 @@ contract Huego {
         _;
     }
 
-    event BlockPlaced(uint256 indexed sessionId, uint8 indexed game, uint8 turn, uint8 pieceType, uint8 x, uint8 z, uint8 y, Rotation rotation);
+    event BlockPlaced(uint256 indexed sessionId, uint8 indexed game, uint8 turn, uint8 pieceType, uint8 x, uint8 z, Rotation rotation);
     event GameSessionCreated(uint256 indexed sessionId, address indexed player1, address indexed player2, uint256 wagerAmount);
     event WagerProposed(address indexed proposer, uint256 indexed sessionId, uint256 amount);
     event WagerAccepted(uint256 indexed sessionId, address indexed player1, address indexed player2, uint256 amount);
@@ -225,7 +226,7 @@ contract Huego {
         gameSessions[sessionId].initialStacks[game].push(stack3);
         gameSessions[sessionId].initialStacks[game].push(stack4);
 
-        emit BlockPlaced(sessionId, game, gameSessions[sessionId].turn, 1, x, z, 0, Rotation.X);
+        emit BlockPlaced(sessionId, game, gameSessions[sessionId].turn, 1, x, z, Rotation.X);
     }
 
     function createSession(address player1, address player2) external {
@@ -243,7 +244,7 @@ contract Huego {
         session.game = 0;
         session.gameStartTime = block.timestamp;
         session.lastMoveTime = block.timestamp;
-        session.timeRemainingP1 = timeLimit + 5; // Extra 5 seconds for player 1
+        session.timeRemainingP1 = timeLimit + extraTimeForPlayer1; // Use the variable instead of hardcoded 5
         session.timeRemainingP2 = timeLimit;
         session.gameEnded = false;
 
@@ -300,7 +301,7 @@ contract Huego {
                     session.gameEnded = true;
                 }
             }
-            emit BlockPlaced(sessionId, session.game, session.turn, 2, x, z, stacksGrid[sessionId][session.game].grid[x][z].y, rotation);
+            emit BlockPlaced(sessionId, session.game, session.turn, 2, x, z, rotation);
         }
         session.lastMoveTime = block.timestamp;
         session.turn += 1;
@@ -324,7 +325,8 @@ contract Huego {
 
     function forfeit(uint256 sessionId) external {
         GameSession storage session = gameSessions[sessionId];
-        require(!session.gameEnded, "GameSession has ended");
+        // you can only forfeit an active session
+        require(getPlayerActiveSession(msg.sender) == sessionId, "Not an active session");
         if (msg.sender == session.player1) {
             session.forfeitedBy = session.player1;
         } else if (msg.sender == session.player2) {
@@ -487,6 +489,11 @@ contract Huego {
 
     function disableNftDiscount() external onlyOwner {
         nftContract = IERC721(address(0));
+    }
+
+    function setExtraTimeForPlayer1(uint256 _extraTime) external onlyOwner {
+        require(_extraTime <= 60, "Extra time too high"); // Max 60 seconds extra
+        extraTimeForPlayer1 = _extraTime;
     }
 
     // if funds are stuck on contract for some reason

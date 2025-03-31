@@ -113,7 +113,7 @@ describe("deploying", function () {
     expect(session[3]).to.eq(1n) // turn is 1
     expect(session[4]).to.eq(0n) // game is 0
     expect(session[5]).to.eq(session[6]) // gameStartTime is equal to lastMoveTime
-    expect(session[7]).to.eq(600n) // timeRemainingP1
+    expect(session[7]).to.eq(605n) // timeRemainingP1
     expect(session[8]).to.eq(600n) // timeRemainingP2
     expect(session[9]).to.eq(false) // gameEnded is false
     // expect(session[10]).to.eq() // initialStacks is in a getter
@@ -314,14 +314,34 @@ describe("deploying", function () {
 
     // lets try to set time limit to 1 second
     await adminContract.setGameTimeLimit(1n)
+    await adminContract.setExtraTimeForPlayer1(0n)
     // if a player wants to make a new game, he should be able to, since the previous game has ended
     await player2Contract.createSession(richWalletsAddresses[1], richWalletsAddresses[2])
     // a new game can't be created since the time limit is 1 second
     await expectRejectedWithMessage(player2Contract.createSession(richWalletsAddresses[1], richWalletsAddresses[2]), "Player 1 has an active session")
 
     // ok if we sleep for 2 seconds, the game should be ended and a new game can be created
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    await new Promise(resolve => setTimeout(resolve, 1200)) // player 1
+    // lets reset time limit to 10 minutes
+    await adminContract.setExtraTimeForPlayer1(0n)
+    await adminContract.setGameTimeLimit(600n)
+    const createSessionTx = await player2Contract.createSession(richWalletsAddresses[1], richWalletsAddresses[2])
+    await createSessionTx.wait()
+
+    // you can only forfeit an active session
+    await expectRejectedWithMessage(player2Contract.forfeit(1), "Not an active session")
+    const forfeitTx = await player2Contract.forfeit(await player2Contract.getPlayerActiveSession(richWalletsAddresses[2]))
+    await forfeitTx.wait()
+    // lets check if the game is forfeited
+    const session3 = await player1Contract.gameSessions(3)  
+    expect(session3[10]).to.eq(richWalletsAddresses[2]) // forfeitedBy is player 2
+
+    await new Promise(resolve => setTimeout(resolve, 1000)) // player 1 has 5 additional seconds to move
     await player2Contract.createSession(richWalletsAddresses[1], richWalletsAddresses[2])
+    // lets set back time limit to 10 minutes
+    // end the game
+    const forfeitTx2 = await player2Contract.forfeit(4)
+    await forfeitTx2.wait()
   })
 
 
@@ -331,7 +351,6 @@ interface BlockPlacedEvent {
   pieceType: number;
   x: number;
   z: number;
-  y: number;
   rotation: number;
 }
 
@@ -346,61 +365,151 @@ async function reconstructGrid(sessionId: number, game: number): Promise<Grid> {
   );
   try {
       // Fetch past logs of the BlockPlaced event
-      const eventFilter = adminContract.filters.BlockPlaced(sessionId, game);
+      // I dont think this filter works!
+      // I dont think this filter works!
+      // I dont think this filter works!
+      // I dont think this filter works!
+      const eventFilter = adminContract.filters.BlockPlaced(
+        BigInt(sessionId), 
+        game
+      );
+      
+      // console.log("Fetching logs with filter:", eventFilter);
+      
       const logs = await provider.getLogs({
           ...eventFilter,
-          fromBlock: 0,  // Adjust block range if needed
+          fromBlock: 0,
           toBlock: "latest"
       });
+      
+      // console.log("Found logs:", logs.length);
+      
       // Parse logs and populate grid
-      logs.forEach((log) => {
-          const parsedLog: any = adminContract.interface.parseLog(log);
-          if (!parsedLog) return;
-          let { turn, pieceType, x, z, y, rotation } = parsedLog.args as BlockPlacedEvent;
-          rotation = Number(rotation);
-          pieceType = Number(pieceType);
-          const color = ((Number(turn.toString()) - 1) % 4) + 1;
-          x = Number(x);
-          y = Number(y);
-          z = Number(z);
-          if(pieceType == 1) { // piece type 1 or 2
-            // we know its 4x1
-            grid[x][z][y] = color
-            grid[x+1][z][y] = color
-            grid[x][z+1][y] = color
-            grid[x+1][z+1][y] = color
-          } else {
-            // we know its 1x2
-            grid[x][z][y] = color
-            // depending on rotation
-            if(rotation == 0) {
-              grid[x+1][z][y] = color
-            } else if (rotation == 1) {
-              grid[x][z+1][y] = color
-            } else {
-              grid[x][z][y+1] = color
-            }
+      for (const log of logs) {
+          try {
+              const parsedLog = adminContract.interface.parseLog({
+                  data: log.data,
+                  topics: log.topics
+              });
+              
+              if (!parsedLog) {
+                  console.log("Failed to parse log:", log);
+                  continue;
+              }
+              
+              //console.log("Parsed log args:", parsedLog.args);
+              
+              // Use the specific names from your event definition
+              // event BlockPlaced(uint256 indexed sessionId, uint8 indexed game, uint8 turn, uint8 pieceType, uint8 x, uint8 z, uint8 y, Rotation rotation);
+              const turn = Number(parsedLog.args[2]); // turn
+              const pieceType = Number(parsedLog.args[3]); // pieceType
+              const x = Number(parsedLog.args[4]); // x
+              const z = Number(parsedLog.args[5]); // z
+              const rotation = Number(parsedLog.args[7]); // rotation
+              const color = ((turn - 1) % 4) + 1;
+              
+              //console.log(`Processing block: x=${x}, z=${z}, y=${y}, pieceType=${pieceType}, color=${color}, rotation=${rotation}`);
+              
+              if (pieceType === 1) { // 4x1 block
+                  const y = 0
+                  grid[x][z][y] = color;
+                  grid[x+1][z][y] = color;
+                  grid[x][z+1][y] = color;
+                  grid[x+1][z+1][y] = color;
+              } else { // 2x1 block
+                // y is highest in that x z range
+                  const y = 123
+                  grid[x][z][y] = color;
+                  if (rotation === 0) {
+                      grid[x+1][z][y] = color;
+                  } else if (rotation === 1) {
+                      grid[x][z+1][y] = color;
+                  } else {
+                      grid[x][z][y+1] = color;
+                  }
+              }
+          } catch (error) {
+              // console.error("Error processing log:", error);
+              // console.log("Problematic log:", log);
           }
-      });
+      }
       return grid;
   } catch (error) {
       console.error("Error fetching logs:", error);
-      return grid; // Return empty grid on error
+      return grid;
   }
 }
-  // reconstruct grid from events
-  it("reconstructing grid", async () => {
-    const grid = await reconstructGrid(1, 0)
-    // this is 8x8 and they must match the grid
-    const stacksGrid = await player1Contract.getStacksGrid(1,0) // session 1, game 0 8x8 = y and color
-    for(let z = 0; z < 8; z++) {
-      for(let x = 0; x < 8; x++) {
-        expect(grid[x][z][stacksGrid[x][z][2]] ?? 0).to.eq(Number(stacksGrid[x][z][3] ?? 0))
-      }
+// reconstruct grid from events
+it("reconstructing grid", async () => {
+  const grid = await reconstructGrid(1, 0)
+  // this is 8x8 and they must match the grid
+  const stacksGrid = await player1Contract.getStacksGrid(1,0) // session 1, game 0 8x8 = y and color
+  //console.log(grid)
+  //console.log(stacksGrid)
+  for(let z = 0; z < 8; z++) {
+    for(let x = 0; x < 8; x++) {
+      //console.log(grid[x][z][stacksGrid[x][z][2]] ?? 0, Number(stacksGrid[x][z][3] ?? 0))
+      expect(grid[x][z][stacksGrid[x][z][2]] ?? 0).to.eq(Number(stacksGrid[x][z][3] ?? 0))
     }
-  })
+  }
+})
 
+// lets start another game, and see if blocks fall down correctly
+it("blocks fall down correctly", async () => {
+  // lets check if no active session is left
+  let stacksGrid
+  expect(await player1Contract.getPlayerActiveSession(richWalletsAddresses[1])).to.eq(0n)
+  expect(await player1Contract.getPlayerActiveSession(richWalletsAddresses[2])).to.eq(0n)
+  // lets start another game
+  await player2Contract.createSession(richWalletsAddresses[1], richWalletsAddresses[2])
+  // lets make the default grid
+  const sessionId = 4
+  const legitMoveTx1 = await player1Contract.play(sessionId, 0, 0, 0)
+  await legitMoveTx1.wait()
+  const legitMoveTx2 = await player2Contract.play(sessionId, 2, 0, 0)
+  await legitMoveTx2.wait()
+  const legitMoveTx3 = await player1Contract.play(sessionId, 4, 0, 0)
+  await legitMoveTx3.wait()
+  const legitMoveTx4 = await player2Contract.play(sessionId, 0, 2, 0)
+  await legitMoveTx4.wait()
+  stacksGrid = await player1Contract.getStacksGrid(sessionId, 0)
 
+  // lets place a block on top of the grid
+  const legitMoveTx5 = await player1Contract.play(sessionId, 0, 0, 0)
+  await legitMoveTx5.wait()
+  stacksGrid = await player1Contract.getStacksGrid(sessionId, 0)
+  expect(stacksGrid[0][0][2]).to.eq(1n)
+  expect(stacksGrid[1][0][2]).to.eq(1n)
+  expect(stacksGrid[2][0][2]).to.eq(0n)
+  // lets place another block
+  const legitMoveTx6 = await player2Contract.play(sessionId, 1, 0, 0)
+  await legitMoveTx6.wait()
+  stacksGrid = await player1Contract.getStacksGrid(sessionId, 0)
+  expect(stacksGrid[0][0][2]).to.eq(1n)
+  expect(stacksGrid[1][0][2]).to.eq(2n)
+  expect(stacksGrid[2][0][2]).to.eq(1n)
+
+  const legitMoveTx7 = await player1Contract.play(sessionId, 0, 0, 0)
+  await legitMoveTx7.wait()
+  stacksGrid = await player1Contract.getStacksGrid(sessionId, 0)
+  expect(stacksGrid[0][0][2]).to.eq(2n)
+  expect(stacksGrid[1][0][2]).to.eq(3n)
+  expect(stacksGrid[2][0][2]).to.eq(1n)
+})
+
+// lets make a function that converts stacks grid to 2d grid with height
+// 1 1 1 1 1 1 1 1
+// 1 1 1 1 1 1 1 1
+// 1 1 1 1 1 1 1 1
+// 1 1 1 1 1 1 1 1
+// 1 1 1 1 1 1 1 1
+// 1 1 1 1 1 1 1 1
+// 1 1 1 1 1 1 1 1
+function logStacksGridTo2DGrid(stacksGrid: number[][][]) {
+  for(let z = 0; z < 8; z++) {
+    console.log(stacksGrid[0][z][2], stacksGrid[1][z][2], stacksGrid[2][z][2], stacksGrid[3][z][2], stacksGrid[4][z][2], stacksGrid[5][z][2], stacksGrid[6][z][2], stacksGrid[7][z][2])
+  }
+}
 
 
   // it("test", async () => {
