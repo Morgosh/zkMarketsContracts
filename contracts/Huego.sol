@@ -111,9 +111,7 @@ contract Huego {
             return 0;
         }
 
-        address starter = session.game == 0 ? session.player1 : session.player2;
-        address nonStarter = session.game == 0 ? session.player2 : session.player1;
-        address playerOnTurn = session.turn % 2 == 1 ? starter : nonStarter;
+        address playerOnTurn = getPlayerOnTurn(sessionId);
 
         uint256 currentPlayerTimeRemaining = (playerOnTurn == session.player1)
             ? session.timeRemainingP1
@@ -122,6 +120,26 @@ contract Huego {
         bool currentPlayerHasTime = block.timestamp - session.lastMoveTime <= currentPlayerTimeRemaining;
 
         return currentPlayerHasTime ? sessionId : 0;
+    }
+
+    function getPlayerTimeLeft(uint256 sessionId, address player) public view returns (uint256) {
+        GameSession storage session = gameSessions[sessionId];
+        address playerOnTurn = getPlayerOnTurn(sessionId);
+
+        if (player == playerOnTurn) {
+            return (player == session.player1)
+                ? session.timeRemainingP1 - (block.timestamp - session.lastMoveTime)
+                : session.timeRemainingP2 - (block.timestamp - session.lastMoveTime);
+        } else {
+            return (player == session.player1) ? session.timeRemainingP1 : session.timeRemainingP2;
+        }
+    }
+
+    function getPlayerOnTurn(uint256 sessionId) public view returns (address) {
+        GameSession storage session = gameSessions[sessionId];
+        address starter = session.game == 0 ? session.player1 : session.player2;
+        address nonStarter = session.game == 0 ? session.player2 : session.player1;
+        return session.turn % 2 == 1 ? starter : nonStarter;
     }
 
     function proposeWager(uint256 sessionId, uint256 _amount) external payable {
@@ -264,9 +282,7 @@ contract Huego {
         // game must not have ended
         require(!session.gameEnded, "GameSession has ended");
         // only player on turn can play
-        address starter = session.game == 0 ? session.player1 : session.player2;
-        address nonStarter = session.game == 0 ? session.player2 : session.player1;
-        address onTurn = session.turn % 2 == 1 ? starter : nonStarter;
+        address onTurn = getPlayerOnTurn(sessionId);
         require(msg.sender == onTurn, "Not your turn");
         uint8 currentColor = ((session.turn - 1) % 4) + 1;
         // requirement that the player still has time
@@ -439,9 +455,7 @@ contract Huego {
             }
         } else {
             // lets throw require current turn is 29
-            address starter = session.game == 0 ? session.player1 : session.player2;
-            address nonStarter = session.game == 0 ? session.player2 : session.player1;
-            address onTurn = session.turn % 2 == 1 ? starter : nonStarter;
+            address onTurn = getPlayerOnTurn(sessionId);
             // if not turn 28, game has not ended, we can calculate the winner one player runs out of time
             if (onTurn == session.player1) {
                 require(block.timestamp - session.lastMoveTime > session.timeRemainingP1, "Player 1 still has time");
