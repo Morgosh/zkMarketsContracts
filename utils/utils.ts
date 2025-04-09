@@ -8,6 +8,26 @@ import { Deployer } from "@matterlabs/hardhat-zksync"
 
 import { Provider, Wallet } from "zksync-ethers"
 
+// Helper function to safely convert BigInt values to strings
+export function convertBigIntToString(args: any[]): any[] {
+  return args.map(arg => {
+    if (typeof arg === 'bigint') {
+      return arg.toString();
+    } else if (Array.isArray(arg)) {
+      return convertBigIntToString(arg);
+    } else if (typeof arg === 'object' && arg !== null) {
+      const result: Record<string, any> = {};
+      for (const key in arg) {
+        result[key] = typeof arg[key] === 'bigint' 
+          ? arg[key].toString() 
+          : arg[key];
+      }
+      return result;
+    }
+    return arg;
+  });
+}
+
 export interface DeployContractOptions {
   // If true, the deployment process will not print any logs
   doLog?: boolean
@@ -38,6 +58,15 @@ export const deployContractZkSync = async (contractArtifactName: string, constru
   const log = (message: string) => {
     if (options?.doLog) console.log(message)
   }
+  
+  // Convert any BigInt values in constructor arguments to strings
+  const safeArgs = constructorArguments ? [...constructorArguments].map(arg => {
+    if (typeof arg === 'bigint') {
+      return arg.toString();
+    }
+    return arg;
+  }) : [];
+  
   const walletZkSync = !options?.wallet ? await getDefaultWallet() : options.wallet
   const deployer = new Deployer(hre, walletZkSync as Wallet)
 
@@ -52,7 +81,7 @@ export const deployContractZkSync = async (contractArtifactName: string, constru
   })
 
   // Estimate contract deployment fee
-  const deploymentFee = await deployer.estimateDeployFee(artifact, constructorArguments || [])
+  const deploymentFee = await deployer.estimateDeployFee(artifact, safeArgs)
   log(`Estimated deployment cost: ${ethers.formatEther(deploymentFee)} ETH`)
 
   // Check if the wallet has enough balance
@@ -64,9 +93,9 @@ export const deployContractZkSync = async (contractArtifactName: string, constru
   }
 
   // Deploy the contract to zkSync
-  const contract = await deployer.deploy(artifact, constructorArguments)
+  const contract = await deployer.deploy(artifact, safeArgs)
   const address = await contract.getAddress()
-  const constructorArgs = contract.interface.encodeDeploy(constructorArguments)
+  const constructorArgs = contract.interface.encodeDeploy(safeArgs)
   const fullContractSource = `${artifact.sourceName}:${artifact.contractName}`
 
   // Display contract deployment info

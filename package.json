@@ -18,7 +18,9 @@
     "upgrade-diamond-main": "yarn hardhat deploy-zksync --script update_diamond.ts --network zksync-era",
     "upgrade-diamond-fully-test": "yarn hardhat deploy-zksync --script update_diamond_fully.ts --network zksync-era-testnet",
     "upgrade-diamond-fully-main": "yarn hardhat deploy-zksync --script update_diamond_fully.ts --network zksync-era",
-    "deploy-erc721-test": "hardhat deploy-zksync --script deploy_erc721_example.ts --network zksync-era-testnet"
+    "deploy-erc721-test": "hardhat deploy-zksync --script deploy_erc721_example.ts --network zksync-era-testnet",
+    "deploy-noottoken-test": "hardhat deploy-zksync --script deploy_noot.ts --network abstract-testnet",
+    "deploy-nootladder-test": "hardhat deploy-zksync --script deploy_noot_ladder.ts --network abstract-testnet"
   },
   "devDependencies": {
     "@chainlink/contracts": "^1.1.1",
