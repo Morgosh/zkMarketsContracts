@@ -41,13 +41,9 @@ export default async function (hre: HardhatRuntimeEnvironment) {
   
   // Game configuration - adjust based on network
   // Using strings instead of BigInt for zkSync deployment compatibility
-  const minWager = hre.network.name === "abstract-testnet" 
-    ? hre.ethers.parseUnits("1", 18).toString() // 1 NOOT minimum
-    : hre.ethers.parseUnits("10", 18).toString(); // 10 NOOT minimum
+  const minWager = hre.ethers.parseUnits("100", 18).toString() // 1 NOOT minimum
     
-  const maxWager = hre.network.name === "abstract-testnet"
-    ? hre.ethers.parseUnits("100", 18).toString() // 100 NOOT maximum
-    : hre.ethers.parseUnits("1000", 18).toString(); // 1000 NOOT maximum
+  const maxWager = hre.ethers.parseUnits("1000", 18).toString() // 100 NOOT maximum
   
   console.log(`Configured wager limits: Min=${hre.ethers.formatUnits(minWager, 18)} NOOT, Max=${hre.ethers.formatUnits(maxWager, 18)} NOOT`);
   

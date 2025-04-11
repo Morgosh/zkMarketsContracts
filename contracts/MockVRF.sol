@@ -36,8 +36,13 @@ contract MockVRF {
         return (requestId, randomness);
     }
     
+    // Simple direct random number function for the new implementation
+    function getRandomNumber() external view returns (uint256) {
+        return generateRandomNumber(type(uint256).max);
+    }
+    
     // Generate randomness (mock implementation)
-    function generateRandomNumber(uint256 max) external view returns (uint256) {
+    function generateRandomNumber(uint256 max) public view returns (uint256) {
         return uint256(keccak256(abi.encodePacked(
             block.timestamp,
             block.prevrandao,

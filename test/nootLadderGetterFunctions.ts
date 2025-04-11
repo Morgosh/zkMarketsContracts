@@ -34,7 +34,7 @@ export function getCardName(cardValue: number): string {
 export async function getContractSettings(contract: ethers.Contract) {
   const admin = await contract.admin();
   const nootToken = await contract.nootToken();
-  const randomProvider = await contract.randomProvider();
+  const mockRandomProvider = await contract.mockRandomProvider();
   const minWager = await contract.minWager();
   const maxWager = await contract.maxWager();
   const maxTurns = await contract.maxTurns();
@@ -43,7 +43,7 @@ export async function getContractSettings(contract: ethers.Contract) {
   return {
     admin,
     nootToken,
-    randomProvider,
+    randomProvider: mockRandomProvider, // Keep the property name for backward compatibility
     minWager,
     maxWager,
     maxTurns,
@@ -64,8 +64,7 @@ export async function getGameState(contract: ethers.Contract) {
     currentCard: result[3],
     currentCardName: getCardName(Number(result[3])),
     turnsLeft: Number(result[4]),
-    totalTurns: Number(result[5]),
-    pendingRequestId: result[6]
+    totalTurns: Number(result[5])
   };
 }
 
