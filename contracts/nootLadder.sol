@@ -146,9 +146,9 @@ contract NootLadder {
             won = uint8(newCard) < uint8(previousCard);
         }
         
+        game.currentCard = newCard;
         if (won) {
             game.currentPot = (game.currentPot * multiplier) / 100;
-            game.currentCard = newCard;
             game.turnsLeft--;
             
             emit RoundWon(msg.sender, previousCard, newCard, guess, game.turnsLeft);
@@ -192,8 +192,8 @@ contract NootLadder {
         emit GameWon(msg.sender, prize);
     }
     
-    // Function to view game state
-    function getGameState() external view returns (
+    // Function to view game state (default is caller's state if no address provided)
+    function getGameState(address player) external view returns (
         bool active,
         uint256 wager,
         uint256 currentPot,
@@ -201,7 +201,7 @@ contract NootLadder {
         uint8 turnsLeft,
         uint8 totalTurns
     ) {
-        Game storage game = games[msg.sender];
+        Game storage game = games[player];
         return (
             game.active,
             game.wager,

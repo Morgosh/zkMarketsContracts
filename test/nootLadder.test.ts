@@ -1,7 +1,7 @@
 import { expect } from "chai"
 import { ethers } from "ethers"
 import { deployContract, getRichWallets } from "../utils/utils"
-import { Card, Guess, getCardName, getContractSettings, getGameState, calculatePotentialWin } from "./nootLadderGetterFunctions"
+import { Card, Guess, getCardName, getContractSettings, getGameState, getPlayerGameState, calculatePotentialWin } from "./nootLadderGetterFunctions"
 import { expectRejectedWithMessage } from "../utils/testingUtils"
 // import abis
 import nootLadderAbi from "../abis/NootLadder.abi.json"
@@ -219,7 +219,7 @@ describe("NootLadder", function () {
       const gameStartedEvents = receipt.logs.filter((log: any) => log.fragment?.name === "GameStarted");
       expect(gameStartedEvents.length).to.be.greaterThan(0);
       
-      const gameState = await getGameState(nootLadder.connect(player1));
+      const gameState = await getPlayerGameState(nootLadder, player1Address);
       expect(gameState.active).to.be.true;
       expect(gameState.wager).to.equal(wagerAmount);
       expect(gameState.currentPot).to.equal(wagerAmount);
