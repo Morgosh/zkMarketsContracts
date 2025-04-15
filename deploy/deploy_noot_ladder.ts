@@ -11,39 +11,27 @@ export default async function (hre: HardhatRuntimeEnvironment) {
 
   // Get deployed NOOT token address based on network
   let nootAddress: string;
-  let VRFAddress: string;
   
   if (hre.network.name === "abstract-testnet") {
     // Use the existing NOOT token on testnet
     nootAddress = "0xe3d94b74131f3d831b407fcef76e7b8ee78f8096";
     console.log(`Using existing NOOT token at ${nootAddress} on ${hre.network.name}`);
     
-    // Deploy MockVRF for testing purposes
-    console.log("Deploying MockVRF...");
-    const mockVRF = await deployContract("MockVRF", [], options);
-    VRFAddress = await mockVRF.getAddress();
-    console.log(`MockVRF deployed at: ${VRFAddress}`);
   } else if (hre.network.name === "hardhat" || hre.network.name === "localhost") {
     // For local testing, deploy fresh tokens
     console.log("Deploying on local network, deploying mock NOOT token");
     const mockNoot = await deployContract("ERC20Template", ["NOOT Token", "NOOT"], options);
     nootAddress = await mockNoot.getAddress();
     console.log(`Mock NOOT token deployed at: ${nootAddress}`);
-    
-    // Deploy MockVRF locally
-    console.log("Deploying MockVRF...");
-    const mockVRF = await deployContract("MockVRF", [], options);
-    VRFAddress = await mockVRF.getAddress();
-    console.log(`MockVRF deployed at: ${VRFAddress}`);
   } else {
     throw new Error(`No configuration available for network: ${hre.network.name}. Please update the deployment script.`);
   }
   
+  const trustedSigner = "0x9a1E4E03fb299F223b37c67691de9461257848b4";
   // Game configuration - adjust based on network
   // Using strings instead of BigInt for zkSync deployment compatibility
-  const minWager = hre.ethers.parseUnits("100", 18).toString() // 1 NOOT minimum
-    
-  const maxWager = hre.ethers.parseUnits("1000", 18).toString() // 100 NOOT maximum
+  const minWager = hre.ethers.parseEther("100").toString()
+  const maxWager = hre.ethers.parseEther("10000").toString()
   
   console.log(`Configured wager limits: Min=${hre.ethers.formatUnits(minWager, 18)} NOOT, Max=${hre.ethers.formatUnits(maxWager, 18)} NOOT`);
   
@@ -51,7 +39,7 @@ export default async function (hre: HardhatRuntimeEnvironment) {
   console.log("Deploying NootLadder...");
   const deployParams = [
     nootAddress,    // NOOT token address
-    VRFAddress,     // Random provider address
+    trustedSigner,  // Trusted signer address
     minWager,       // Minimum wager as string
     maxWager        // Maximum wager as string
   ];
@@ -64,7 +52,6 @@ export default async function (hre: HardhatRuntimeEnvironment) {
   console.log("Deployment Summary:");
   console.log(`Network: ${hre.network.name}`);
   console.log(`NOOT Token: ${nootAddress}`);
-  console.log(`VRF Provider: ${VRFAddress}`);
   console.log(`NootLadder: ${nootLadderAddress}`);
   console.log(`Min Wager: ${hre.ethers.formatUnits(minWager, 18)} NOOT`);
   console.log(`Max Wager: ${hre.ethers.formatUnits(maxWager, 18)} NOOT`);
@@ -72,7 +59,6 @@ export default async function (hre: HardhatRuntimeEnvironment) {
   
   return {
     nootLadderAddress,
-    VRFAddress,
     nootAddress
   };
 } 

@@ -39,8 +39,6 @@ contract NootLadder {
     event GameLost(address indexed player, Card previousCard, Card newCard, Guess guess);
     event GameWon(address indexed player, uint256 prize);
     event AdminTransferred(address indexed previousAdmin, address indexed newAdmin);
-    event FirstCardRevealed(address indexed player, Card firstCard);
-    event GuessMade(address indexed player, Guess guess);
     
     modifier onlyAdmin() {
         require(msg.sender == admin, "NootLadder: caller is not the admin");

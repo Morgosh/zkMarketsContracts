@@ -168,13 +168,5 @@ export async function generateCardSignature(signer: ethers.Wallet, gameId: ether
     )
   );
   
-  // const ethSignedMessageHash = ethers.keccak256(
-  //   ethers.solidityPacked(
-  //     ["string", "bytes32"],
-  //     ["\x19Ethereum Signed Message:\n32", messageHash]
-  //   )
-  // );
-  
-  const signature = await signer.signMessage(ethers.getBytes(messageHash));
-  return signature;
+  return await signer.signMessage(ethers.getBytes(messageHash));
 }

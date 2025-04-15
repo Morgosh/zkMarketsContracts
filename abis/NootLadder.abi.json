@@ -56,25 +56,6 @@
       {
         "indexed": false,
         "internalType": "enum NootLadder.Card",
-        "name": "firstCard",
-        "type": "uint8"
-      }
-    ],
-    "name": "FirstCardRevealed",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "player",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "enum NootLadder.Card",
         "name": "previousCard",
         "type": "uint8"
       },
@@ -142,25 +123,6 @@
       }
     ],
     "name": "GameWon",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "player",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "enum NootLadder.Guess",
-        "name": "guess",
-        "type": "uint8"
-      }
-    ],
-    "name": "GuessMade",
     "type": "event"
   },
   {
