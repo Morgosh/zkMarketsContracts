@@ -7,11 +7,6 @@ interface IERC20 {
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
 }
 
-// Simple interface for mock random provider
-interface IMockRandomProvider {
-    function getRandomNumber() external view returns (uint256);
-}
-
 contract NootLadder {
     enum Card { Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King, Ace }
     enum Guess { Higher, Lower }
@@ -20,41 +15,45 @@ contract NootLadder {
         address player;
         uint256 wager;
         uint256 currentPot;
-        Card currentCard;
-        uint8 turnsLeft;
+        Card previousCard;
+        Guess previousGuess;
         uint8 totalTurns;
         bool active;
+        uint8 turn;
+        uint256 gameId;
     }
     
     address public admin;
+    address public trustedSigner;
     IERC20 public nootToken;
-    IMockRandomProvider public mockRandomProvider;
     uint256 public minWager;
     uint256 public maxWager;
     uint8 public maxTurns = 10;
     uint256 public multiplier = 125; // 1.25x represented as 125/100
+    uint256 public gameCounter = 0;
     
     mapping(address => Game) public games;
     
-    event GameStarted(address indexed player, uint256 wager, Card firstCard, uint8 turns);
+    event GameStarted(address indexed player, uint256 wager, uint8 turns, uint256 gameId);
     event RoundWon(address indexed player, Card previousCard, Card newCard, Guess guess, uint8 turnsLeft);
     event GameLost(address indexed player, Card previousCard, Card newCard, Guess guess);
     event GameWon(address indexed player, uint256 prize);
     event AdminTransferred(address indexed previousAdmin, address indexed newAdmin);
-    event RandomProviderUpdated(address indexed previousProvider, address indexed newProvider);
+    event FirstCardRevealed(address indexed player, Card firstCard);
+    event GuessMade(address indexed player, Guess guess);
     
     modifier onlyAdmin() {
         require(msg.sender == admin, "NootLadder: caller is not the admin");
         _;
     }
     
-    constructor(address _nootToken, address _mockRandomProvider, uint256 _minWager, uint256 _maxWager) {
+    constructor(address _nootToken, address _trustedSigner, uint256 _minWager, uint256 _maxWager) {
         require(_nootToken != address(0), "NootLadder: token address cannot be zero");
-        require(_mockRandomProvider != address(0), "NootLadder: random provider cannot be zero");
+        require(_trustedSigner != address(0), "NootLadder: trusted signer cannot be zero");
         
         admin = msg.sender; // Deployer is the default admin
         nootToken = IERC20(_nootToken);
-        mockRandomProvider = IMockRandomProvider(_mockRandomProvider);
+        trustedSigner = _trustedSigner;
         minWager = _minWager;
         maxWager = _maxWager;
     }
@@ -63,12 +62,6 @@ contract NootLadder {
         require(newAdmin != address(0), "NootLadder: new admin is the zero address");
         emit AdminTransferred(admin, newAdmin);
         admin = newAdmin;
-    }
-    
-    function updateRandomProvider(address newProvider) external onlyAdmin {
-        require(newProvider != address(0), "NootLadder: new provider cannot be zero address");
-        emit RandomProviderUpdated(address(mockRandomProvider), newProvider);
-        mockRandomProvider = IMockRandomProvider(newProvider);
     }
     
     function updateWagerLimits(uint256 _minWager, uint256 _maxWager) external onlyAdmin {
@@ -84,21 +77,53 @@ contract NootLadder {
         maxTurns = _maxTurns;
     }
     
-    // Get a random card (0-12) for the 13 cards
-    function _getRandomCard() internal view returns (Card) {
-        uint256 randomValue;
-        try mockRandomProvider.getRandomNumber() returns (uint256 value) {
-            randomValue = value;
-        } catch {
-            // Fallback randomness if provider fails
-            randomValue = uint256(keccak256(abi.encodePacked(
-                block.timestamp,
-                block.prevrandao,
-                msg.sender,
-                blockhash(block.number - 1)
-            )));
+    // Get a card from the signature
+    function getCardFromSignature(bytes memory signature) external pure returns (Card) {
+        (bytes32 r, bytes32 s, ) = _splitSignature(signature);
+        // Use only r and s to generate the card, ignoring v
+        bytes32 signatureHash = keccak256(abi.encodePacked(r, s));
+        return Card(uint8(uint256(signatureHash) % 13));
+    }
+    
+    // Verify the signature and return the card
+    function _verifySignatureAndGetCard(
+        uint256 gameId,
+        address player,
+        uint8 turnNumber,
+        bytes memory signature
+    ) internal view returns (Card) {
+        // Create the message hash that was signed
+        bytes32 messageHash = keccak256(abi.encodePacked(gameId, player, turnNumber));
+        
+        // Get the ethereum signed message hash
+        bytes32 ethSignedMessageHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
+        
+        // Recover the signer from the signature
+        (bytes32 r, bytes32 s, uint8 v) = _splitSignature(signature);
+        address recoveredSigner = ecrecover(ethSignedMessageHash, v, r, s);
+        
+        require(recoveredSigner == trustedSigner, "NootLadder: invalid signature");
+        
+        // Get a card from the signature using only r and s components
+        bytes32 cardHash = keccak256(abi.encodePacked(r, s));
+        return Card(uint8(uint256(cardHash) % 13));
+    }
+    
+    // Helper function to split signature into r, s, v components
+    function _splitSignature(bytes memory sig) internal pure returns (bytes32 r, bytes32 s, uint8 v) {
+        require(sig.length == 65, "NootLadder: invalid signature length");
+        
+        assembly {
+            // first 32 bytes
+            r := mload(add(sig, 32))
+            // next 32 bytes
+            s := mload(add(sig, 64))
+            // final byte (first byte of the next 32 bytes)
+            v := byte(0, mload(add(sig, 96)))
         }
-        return Card(randomValue % 13);
+        
+        require(v == 1, "NootLadder: only v=1 signatures are accepted");
+        return (r, s, v);
     }
     
     function startGame(uint256 wagerAmount, uint8 turns) external {
@@ -108,53 +133,75 @@ contract NootLadder {
         require(wagerAmount <= maxWager, "Wager too large");
         require(!games[msg.sender].active, "Game already in progress");
         
+        // Generate a sequential game ID
+        uint256 gameId = gameCounter;
+        gameCounter++;
+        
         // Transfer NOOT tokens from player to contract
         require(nootToken.transferFrom(msg.sender, address(this), wagerAmount), "Token transfer failed");
-        
-        // Get a random card using our helper function
-        Card firstCard = _getRandomCard();
         
         // Initialize the game
         games[msg.sender] = Game({
             player: msg.sender,
             wager: wagerAmount,
             currentPot: wagerAmount,
-            currentCard: firstCard,
-            turnsLeft: turns,
+            previousCard: Card.Two,
+            previousGuess: Guess.Higher,
             totalTurns: turns,
-            active: true
+            active: true,
+            turn: 0,
+            gameId: gameId
         });
         
-        emit GameStarted(msg.sender, wagerAmount, firstCard, turns);
+        emit GameStarted(msg.sender, wagerAmount, turns, gameId);
     }
     
-    function playRound(Guess guess) external {
+    // Resolve the round with a new card from signature
+    function makeGuess(bytes memory signature, Guess newGuess) external {
         Game storage game = games[msg.sender];
         
         require(game.active, "No active game");
-        require(game.turnsLeft > 0, "No turns left");
+        require(game.turn < game.totalTurns, "No turns left");
         
-        // Get a random card using our helper function
-        Card newCard = _getRandomCard();
-        Card previousCard = game.currentCard;
+        // Get the current round number for the signature
+        uint8 currentTurn = game.turn + 1;
         
+        // Verify signature and get the new card
+        Card newCard = _verifySignatureAndGetCard(
+            game.gameId,
+            msg.sender,
+            currentTurn,
+            signature
+        );
+        
+        Guess previousGuess = game.previousGuess;
+        Card previousCard = game.previousCard;
+
+        game.previousCard = newCard;
+        game.previousGuess = newGuess;
+
+        game.turn++;
+        // if turn is 1 we don't need to check the guess
+        if (game.turn == 1) {
+            return;
+        }
+
+        // Check if the previous guess was correct
         bool won = false;
         
-        if (guess == Guess.Higher) {
+        if (previousGuess == Guess.Higher) {
             won = uint8(newCard) > uint8(previousCard);
         } else {
             won = uint8(newCard) < uint8(previousCard);
         }
         
-        game.currentCard = newCard;
         if (won) {
             game.currentPot = (game.currentPot * multiplier) / 100;
-            game.turnsLeft--;
             
-            emit RoundWon(msg.sender, previousCard, newCard, guess, game.turnsLeft);
+            emit RoundWon(msg.sender, previousCard, newCard, previousGuess, game.totalTurns - game.turn);
             
             // If player has completed all rounds, they win the game
-            if (game.turnsLeft == 0) {
+            if (game.turn == game.totalTurns) {
                 uint256 prize = game.currentPot;
                 game.active = false;
                 game.currentPot = 0;
@@ -168,7 +215,7 @@ contract NootLadder {
             game.active = false;
             game.currentPot = 0;
             
-            emit GameLost(msg.sender, previousCard, newCard, guess);
+            emit GameLost(msg.sender, previousCard, newCard, previousGuess);
         }
     }
     
@@ -197,23 +244,45 @@ contract NootLadder {
         bool active,
         uint256 wager,
         uint256 currentPot,
-        Card currentCard,
-        uint8 turnsLeft,
-        uint8 totalTurns
+        Card previousCard,
+        uint8 totalTurns,
+        uint256 gameId,
+        uint8 turn
     ) {
         Game storage game = games[player];
         return (
             game.active,
             game.wager,
             game.currentPot,
-            game.currentCard,
-            game.turnsLeft,
-            game.totalTurns
+            game.previousCard,
+            game.totalTurns,
+            game.gameId,
+            game.turn
         );
     }
     
     // Allow admin to withdraw any NOOT tokens accidentally sent to the contract
     function withdrawTokens(uint256 amount) external onlyAdmin {
         require(nootToken.transfer(admin, amount), "Token transfer failed");
+    }
+    
+    // Function to verify if a signature is valid for a given game round
+    function verifySignature(
+        uint256 gameId,
+        address player,
+        uint8 turnNumber,
+        bytes memory signature
+    ) external view returns (bool) {
+        // Create the message hash that was signed
+        bytes32 messageHash = keccak256(abi.encodePacked(gameId, player, turnNumber));
+        
+        // Get the ethereum signed message hash
+        bytes32 ethSignedMessageHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
+        
+        // Recover the signer from the signature
+        (bytes32 r, bytes32 s, uint8 v) = _splitSignature(signature);
+        address recoveredSigner = ecrecover(ethSignedMessageHash, v, r, s);
+        
+        return recoveredSigner == trustedSigner;
     }
 }

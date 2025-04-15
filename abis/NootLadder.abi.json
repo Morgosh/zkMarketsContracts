@@ -8,7 +8,7 @@
       },
       {
         "internalType": "address",
-        "name": "_mockRandomProvider",
+        "name": "_trustedSigner",
         "type": "address"
       },
       {
@@ -42,6 +42,25 @@
       }
     ],
     "name": "AdminTransferred",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "player",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum NootLadder.Card",
+        "name": "firstCard",
+        "type": "uint8"
+      }
+    ],
+    "name": "FirstCardRevealed",
     "type": "event"
   },
   {
@@ -92,15 +111,15 @@
       },
       {
         "indexed": false,
-        "internalType": "enum NootLadder.Card",
-        "name": "firstCard",
+        "internalType": "uint8",
+        "name": "turns",
         "type": "uint8"
       },
       {
         "indexed": false,
-        "internalType": "uint8",
-        "name": "turns",
-        "type": "uint8"
+        "internalType": "uint256",
+        "name": "gameId",
+        "type": "uint256"
       }
     ],
     "name": "GameStarted",
@@ -131,17 +150,17 @@
       {
         "indexed": true,
         "internalType": "address",
-        "name": "previousProvider",
+        "name": "player",
         "type": "address"
       },
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "newProvider",
-        "type": "address"
+        "indexed": false,
+        "internalType": "enum NootLadder.Guess",
+        "name": "guess",
+        "type": "uint8"
       }
     ],
-    "name": "RandomProviderUpdated",
+    "name": "GuessMade",
     "type": "event"
   },
   {
@@ -202,6 +221,19 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "gameCounter",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -228,12 +260,12 @@
       },
       {
         "internalType": "enum NootLadder.Card",
-        "name": "currentCard",
+        "name": "previousCard",
         "type": "uint8"
       },
       {
-        "internalType": "uint8",
-        "name": "turnsLeft",
+        "internalType": "enum NootLadder.Guess",
+        "name": "previousGuess",
         "type": "uint8"
       },
       {
@@ -245,9 +277,38 @@
         "internalType": "bool",
         "name": "active",
         "type": "bool"
+      },
+      {
+        "internalType": "uint8",
+        "name": "turn",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "gameId",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes",
+        "name": "signature",
+        "type": "bytes"
+      }
+    ],
+    "name": "getCardFromSignature",
+    "outputs": [
+      {
+        "internalType": "enum NootLadder.Card",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "stateMutability": "pure",
     "type": "function"
   },
   {
@@ -277,21 +338,44 @@
       },
       {
         "internalType": "enum NootLadder.Card",
-        "name": "currentCard",
-        "type": "uint8"
-      },
-      {
-        "internalType": "uint8",
-        "name": "turnsLeft",
+        "name": "previousCard",
         "type": "uint8"
       },
       {
         "internalType": "uint8",
         "name": "totalTurns",
         "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "gameId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint8",
+        "name": "turn",
+        "type": "uint8"
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes",
+        "name": "signature",
+        "type": "bytes"
+      },
+      {
+        "internalType": "enum NootLadder.Guess",
+        "name": "newGuess",
+        "type": "uint8"
+      }
+    ],
+    "name": "makeGuess",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -335,19 +419,6 @@
   },
   {
     "inputs": [],
-    "name": "mockRandomProvider",
-    "outputs": [
-      {
-        "internalType": "contract IMockRandomProvider",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
     "name": "multiplier",
     "outputs": [
       {
@@ -370,19 +441,6 @@
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "enum NootLadder.Guess",
-        "name": "guess",
-        "type": "uint8"
-      }
-    ],
-    "name": "playRound",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -417,6 +475,19 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "trustedSigner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint8",
@@ -445,19 +516,6 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "newProvider",
-        "type": "address"
-      }
-    ],
-    "name": "updateRandomProvider",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "uint256",
         "name": "_minWager",
         "type": "uint256"
@@ -471,6 +529,40 @@
     "name": "updateWagerLimits",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "gameId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "player",
+        "type": "address"
+      },
+      {
+        "internalType": "uint8",
+        "name": "turnNumber",
+        "type": "uint8"
+      },
+      {
+        "internalType": "bytes",
+        "name": "signature",
+        "type": "bytes"
+      }
+    ],
+    "name": "verifySignature",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
