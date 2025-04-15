@@ -34,7 +34,7 @@ export function getCardName(cardValue: number): string {
 export async function getContractSettings(contract: ethers.Contract) {
   const admin = await contract.admin();
   const nootToken = await contract.nootToken();
-  const mockRandomProvider = await contract.mockRandomProvider();
+  const trustedSigner = await contract.trustedSigner();
   const minWager = await contract.minWager();
   const maxWager = await contract.maxWager();
   const maxTurns = await contract.maxTurns();
@@ -43,7 +43,7 @@ export async function getContractSettings(contract: ethers.Contract) {
   return {
     admin,
     nootToken,
-    randomProvider: mockRandomProvider, // Keep the property name for backward compatibility
+    trustedSigner,
     minWager,
     maxWager,
     maxTurns,
@@ -72,15 +72,17 @@ export async function getGameState(contract: ethers.Contract) {
     // Call the contract's getGameState function with the determined address
     const result = await contract.getGameState(playerAddress);
 
-    // Parse the returned values
+    // Parse the returned values based on updated contract
     return {
       active: result[0],
       wager: result[1],
       currentPot: result[2],
-      currentCard: result[3],
-      currentCardName: getCardName(Number(result[3])),
-      turnsLeft: Number(result[4]),
-      totalTurns: Number(result[5])
+      previousCard: result[3],    // Updated from currentCard to previousCard
+      previousCardName: getCardName(Number(result[3])),
+      totalTurns: Number(result[4]),
+      gameId: result[5],
+      turn: Number(result[6]),     // Updated from turnsLeft to turn
+      turnsLeft: Number(result[4]) - Number(result[6]) // Calculate turnsLeft for backward compatibility
     };
   } catch (error) {
     console.error("Error getting game state:", error);
@@ -89,10 +91,12 @@ export async function getGameState(contract: ethers.Contract) {
       active: false,
       wager: 0n,
       currentPot: 0n,
-      currentCard: 0,
-      currentCardName: "Two",
-      turnsLeft: 0,
-      totalTurns: 0
+      previousCard: 0,
+      previousCardName: "Two",
+      totalTurns: 0,
+      gameId: 0n,
+      turn: 0,
+      turnsLeft: 0
     };
   }
 }
@@ -103,15 +107,17 @@ export async function getPlayerGameState(contract: ethers.Contract, playerAddres
     // Call the getGameState function with the specified player address
     const result = await contract.getGameState(playerAddress);
 
-    // Parse the returned values
+    // Parse the returned values based on updated contract
     return {
       active: result[0],
       wager: result[1],
       currentPot: result[2],
-      currentCard: result[3],
-      currentCardName: getCardName(Number(result[3])),
-      turnsLeft: Number(result[4]),
-      totalTurns: Number(result[5])
+      previousCard: result[3],    // Updated from currentCard to previousCard
+      previousCardName: getCardName(Number(result[3])),
+      totalTurns: Number(result[4]),
+      gameId: result[5],
+      turn: Number(result[6]),     // Updated from turnsLeft to turn
+      turnsLeft: Number(result[4]) - Number(result[6]) // Calculate turnsLeft for backward compatibility
     };
   } catch (error) {
     console.error("Error getting player game state:", error);
@@ -120,10 +126,12 @@ export async function getPlayerGameState(contract: ethers.Contract, playerAddres
       active: false,
       wager: 0n,
       currentPot: 0n,
-      currentCard: 0,
-      currentCardName: "Two",
-      turnsLeft: 0,
-      totalTurns: 0
+      previousCard: 0,
+      previousCardName: "Two",
+      totalTurns: 0,
+      gameId: 0n,
+      turn: 0,
+      turnsLeft: 0
     };
   }
 }
@@ -149,4 +157,24 @@ export function formatCardComparison(previousCard: number, newCard: number, gues
   const won = guessName === result;
   
   return `Previous card: ${previousCardName}, New card: ${newCardName}, Guess: ${guessName}, Result: ${result}, Won: ${won}`;
+}
+
+// Helper to create a signature for testing
+export async function generateCardSignature(signer: ethers.Wallet, gameId: ethers.BigNumberish, playerAddress: string, turnNumber: number): Promise<string> {
+  const messageHash = ethers.keccak256(
+    ethers.solidityPacked(
+      ["uint256", "address", "uint8"],
+      [gameId, playerAddress, turnNumber]
+    )
+  );
+  
+  // const ethSignedMessageHash = ethers.keccak256(
+  //   ethers.solidityPacked(
+  //     ["string", "bytes32"],
+  //     ["\x19Ethereum Signed Message:\n32", messageHash]
+  //   )
+  // );
+  
+  const signature = await signer.signMessage(ethers.getBytes(messageHash));
+  return signature;
 }

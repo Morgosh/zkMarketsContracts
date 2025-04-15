@@ -122,7 +122,8 @@ contract NootLadder {
             v := byte(0, mload(add(sig, 96)))
         }
         
-        require(v == 1, "NootLadder: only v=1 signatures are accepted");
+        // 27 or 28 for eth
+        require(v == 27 || v == 28, "NootLadder: only v=27 or v=28 signatures are accepted");
         return (r, s, v);
     }
     
@@ -131,7 +132,6 @@ contract NootLadder {
         require(turns <= maxTurns, "Turns cannot exceed maxTurns");
         require(wagerAmount >= minWager, "Wager too small");
         require(wagerAmount <= maxWager, "Wager too large");
-        require(!games[msg.sender].active, "Game already in progress");
         
         // Generate a sequential game ID
         uint256 gameId = gameCounter;

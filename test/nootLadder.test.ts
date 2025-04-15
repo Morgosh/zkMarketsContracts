@@ -1,19 +1,19 @@
 import { expect } from "chai"
 import { ethers } from "ethers"
 import { deployContract, getRichWallets } from "../utils/utils"
-import { Card, Guess, getCardName, getContractSettings, getGameState, getPlayerGameState, calculatePotentialWin } from "./nootLadderGetterFunctions"
+import { Card, Guess, getCardName, getContractSettings, getGameState, getPlayerGameState, calculatePotentialWin, generateCardSignature } from "./nootLadderGetterFunctions"
 import { expectRejectedWithMessage } from "../utils/testingUtils"
 // import abis
 import nootLadderAbi from "../abis/NootLadder.abi.json"
 
 describe("NootLadder", function () {
   let nootLadder: any;
-  let mockVRF: any;
   let nootToken: any;
   let wallets: any[];
-  let adminPrivateKey: any;
+  let adminWallet: any;
   let player1: any;
   let player2: any;
+  let signerWallet: any;
   
   // Test constants
   const minWager = 100n;
@@ -21,23 +21,21 @@ describe("NootLadder", function () {
   
   before(async function() {
     wallets = await getRichWallets();
-    adminPrivateKey = wallets[0];
+    adminWallet = wallets[0];
     player1 = wallets[1];
     player2 = wallets[2];
+    signerWallet = wallets[3]; // Use a separate wallet for trusted signer
     
     // Deploy ERC20 token
     nootToken = await deployContract("ERC20Template", ["NOOT Token", "NOOT"]);
     
-    // Deploy MockVRF
-    mockVRF = await deployContract("MockVRF", []);
-    
     // Deploy NootLadder with contract addresses
     const nootTokenAddress = await nootToken.getAddress();
-    const mockVRFAddress = await mockVRF.getAddress();
+    const signerAddress = await signerWallet.getAddress();
     
     nootLadder = await deployContract("NootLadder", [
       nootTokenAddress,
-      mockVRFAddress,
+      signerAddress,
       minWager,
       maxWager
     ]);
@@ -63,13 +61,13 @@ describe("NootLadder", function () {
   describe("Admin functions", function() {
     it("Should have correct initial settings", async function() {
       const settings = await getContractSettings(nootLadder);
-      const adminAddress = await adminPrivateKey.getAddress();
+      const adminAddress = await adminWallet.getAddress();
       const nootTokenAddress = await nootToken.getAddress();
-      const mockVRFAddress = await mockVRF.getAddress();
+      const signerAddress = await signerWallet.getAddress();
       
       expect(settings.admin).to.equal(adminAddress);
       expect(settings.nootToken).to.equal(nootTokenAddress);
-      expect(settings.randomProvider).to.equal(mockVRFAddress);
+      expect(settings.trustedSigner).to.equal(signerAddress);
       expect(settings.minWager).to.equal(minWager);
       expect(settings.maxWager).to.equal(maxWager);
       expect(Number(settings.maxTurns)).to.equal(10); // Convert BigInt to Number
@@ -78,7 +76,7 @@ describe("NootLadder", function () {
     
     it("Should allow admin to transfer admin role", async function() {
       const player1Address = await player1.getAddress();
-      const adminAddress = await adminPrivateKey.getAddress();
+      const adminAddress = await adminWallet.getAddress();
       
       await nootLadder.transferAdmin(player1Address);
       expect(await nootLadder.admin()).to.equal(player1Address);
@@ -101,35 +99,6 @@ describe("NootLadder", function () {
       await expectRejectedWithMessage(
         nootLadder.transferAdmin(ethers.ZeroAddress),
         "NootLadder: new admin is the zero address"
-      );
-    });
-    
-    it("Should allow admin to update the random provider", async function() {
-      // Deploy another MockVRF
-      const newMockVRF = await deployContract("MockVRF", []);
-      const newMockVRFAddress = await newMockVRF.getAddress();
-      const mockVRFAddress = await mockVRF.getAddress();
-      
-      await nootLadder.updateRandomProvider(newMockVRFAddress);
-      expect(await nootLadder.mockRandomProvider()).to.equal(newMockVRFAddress);
-      
-      // Set it back for other tests
-      await nootLadder.updateRandomProvider(mockVRFAddress);
-    });
-    
-    it("Should prevent non-admin from updating random provider", async function() {
-      const player1Address = await player1.getAddress();
-      
-      await expectRejectedWithMessage(
-        nootLadder.connect(player1).updateRandomProvider(player1Address),
-        "NootLadder: caller is not the admin"
-      );
-    });
-    
-    it("Should not allow updating provider to zero address", async function() {
-      await expectRejectedWithMessage(
-        nootLadder.updateRandomProvider(ethers.ZeroAddress),
-        "NootLadder: new provider cannot be zero address"
       );
     });
     
@@ -189,7 +158,7 @@ describe("NootLadder", function () {
     it("Should allow admin to withdraw tokens", async function() {
       // First add some tokens to the contract
       const nootLadderAddress = await nootLadder.getAddress();
-      const adminAddress = await adminPrivateKey.getAddress();
+      const adminAddress = await adminWallet.getAddress();
       
       await nootToken.adminMint(nootLadderAddress, 1000n);
       
@@ -325,37 +294,22 @@ describe("NootLadder", function () {
   
   describe("Game play", function() {
     it("Should let player win a round with correct guess", async function() {
-      // Since we can't control random card drawing, we need to try both guesses
-      // First, let's modify the approach to guarantee we can test a win scenario
-      
-      // Intentionally force a win by starting a new game for player1
-      // End the current game first by losing a round if needed
-      const currentState = await getGameState(nootLadder.connect(player1));
+      // Get player1's game state
+      const player1Address = await player1.getAddress();
+      const currentState = await getPlayerGameState(nootLadder, player1Address);
       
       // If there's an active game, we need to force it to end
       if (currentState.active) {
-        // Try to forcibly end the game by making a guess that's likely to lose
+        // Try to forcibly end the game by claiming rewards
         try {
-          const card = Number(currentState.currentCard);
-          const losingGuess = card <= 5 ? Guess.Lower : Guess.Higher;
-          await nootLadder.connect(player1).playRound(losingGuess);
+          await nootLadder.connect(player1).claimRewards();
         } catch (e) {
-          // Ignore failures, we'll check if the game is still active
-          const newState = await getGameState(nootLadder.connect(player1));
-          if (newState.active) {
-            // If still active, try the opposite guess
-            try {
-              const card = Number(newState.currentCard);
-              const otherGuess = card <= 5 ? Guess.Higher : Guess.Lower;
-              await nootLadder.connect(player1).playRound(otherGuess);
-            } catch (e) {
-              // Ignore this failure too
-            }
-          }
+          // Ignore failures
+          console.log("Could not claim rewards to end existing game");
         }
         
         // Final check - if game is still active, we need to skip this test
-        const finalCheck = await getGameState(nootLadder.connect(player1));
+        const finalCheck = await getPlayerGameState(nootLadder, player1Address);
         if (finalCheck.active) {
           console.log("Could not end existing game - skipping test");
           this.skip();
@@ -366,65 +320,58 @@ describe("NootLadder", function () {
       // Start a new game with small wager
       await nootLadder.connect(player1).startGame(200n, 5);
       
-      // Get current card to determine the best guess
-      const gameState = await getGameState(nootLadder.connect(player1));
-      const currentCard = Number(gameState.currentCard);
+      // Get the game id for signing
+      const gameState = await getPlayerGameState(nootLadder, player1Address);
+      const gameId = gameState.gameId;
       
-      // Choose the most likely winning guess based on the current card
-      // For low cards (2-6), Higher is more likely to win
-      // For high cards (8-Ace), Lower is more likely to win
-      // For middle cards (7), it's 50/50, so we'll try both
+      // First turn - just reveal a card
+      const firstTurnSignature = await generateCardSignature(signerWallet, gameId, player1Address, 1);
+      await nootLadder.connect(player1).makeGuess(firstTurnSignature, Guess.Higher);
+      
+      // Get the state after first turn
+      const stateAfterFirstTurn = await getPlayerGameState(nootLadder, player1Address);
+      
+      // For the second turn, try both guesses if needed
       let wonRound = false;
-      let attempts = 0;
-      const maxAttempts = 5;  // Limit attempts to prevent infinite loop
       
-      while (!wonRound && attempts < maxAttempts) {
-        attempts++;
-        try {
-          let guess;
-          if (currentCard <= 4) {
-            // Low card, try Higher
-            guess = Guess.Higher;
-          } else if (currentCard >= 8) {
-            // High card, try Lower
-            guess = Guess.Lower;
-          } else {
-            // Middle card, alternate guesses
-            guess = attempts % 2 === 0 ? Guess.Higher : Guess.Lower;
-          }
-          
-          const tx = await nootLadder.connect(player1).playRound(guess);
-          const receipt = await tx.wait();
-          
-          // Check if we won this round
-          wonRound = receipt.logs.some((log: any) => log.fragment?.name === "RoundWon");
-          
-          if (wonRound) break;
-        } catch (e) {
-          // Try again with a different guess if this one failed
-          continue;
-        }
+      // Try Higher guess
+      try {
+        const higherSignature = await generateCardSignature(signerWallet, gameId, player1Address, 2);
+        const tx = await nootLadder.connect(player1).makeGuess(higherSignature, Guess.Higher);
+        const receipt = await tx.wait();
+        wonRound = receipt.logs.some((log: any) => log.fragment?.name === "RoundWon");
+      } catch (e) {
+        console.log("Higher guess failed, trying Lower");
       }
       
-      // If we exceeded max attempts, restart the game and try one more time
+      // If Higher didn't win, try Lower
       if (!wonRound) {
-        // Start a new game
-        await nootLadder.connect(player1).startGame(200n, 5);
-        const newState = await getGameState(nootLadder.connect(player1));
-        
-        // Try both guesses one more time
         try {
-          const tx = await nootLadder.connect(player1).playRound(Guess.Higher);
-          const receipt = await tx.wait();
-          wonRound = receipt.logs.some((log: any) => log.fragment?.name === "RoundWon");
-        } catch (e) {
-          try {
-            const tx = await nootLadder.connect(player1).playRound(Guess.Lower);
+          // Start a new game if needed
+          const checkState = await getPlayerGameState(nootLadder, player1Address);
+          if (!checkState.active) {
+            await nootLadder.connect(player1).startGame(200n, 5);
+            const newGameState = await getPlayerGameState(nootLadder, player1Address);
+            const newGameId = newGameState.gameId;
+            
+            // First turn - just reveal a card
+            const newFirstSignature = await generateCardSignature(signerWallet, newGameId, player1Address, 1);
+            await nootLadder.connect(player1).makeGuess(newFirstSignature, Guess.Higher);
+            
+            // Second turn with Lower guess
+            const lowerSignature = await generateCardSignature(signerWallet, newGameId, player1Address, 2);
+            const tx = await nootLadder.connect(player1).makeGuess(lowerSignature, Guess.Lower);
             const receipt = await tx.wait();
             wonRound = receipt.logs.some((log: any) => log.fragment?.name === "RoundWon");
-          } catch (e) {
-            // If both guesses fail, we'll have to skip this test
+          } else {
+            // Just try Lower on existing game
+            const lowerSignature = await generateCardSignature(signerWallet, gameId, player1Address, 2);
+            const tx = await nootLadder.connect(player1).makeGuess(lowerSignature, Guess.Lower);
+            const receipt = await tx.wait();
+            wonRound = receipt.logs.some((log: any) => log.fragment?.name === "RoundWon");
           }
+        } catch (e) {
+          console.log("Lower guess also failed");
         }
       }
       
@@ -434,15 +381,17 @@ describe("NootLadder", function () {
         this.skip();
       } else {
         // Verify game state updated correctly (only if we won)
-        const updatedState = await getGameState(nootLadder.connect(player1));
+        const updatedState = await getPlayerGameState(nootLadder, player1Address);
         expect(updatedState.active).to.be.true;
         expect(Number(updatedState.currentPot)).to.be.greaterThan(200);
       }
     });
     
     it("Should increase pot by multiplier when winning a round", async function() {
+      const player1Address = await player1.getAddress();
+      const gameState = await getPlayerGameState(nootLadder, player1Address);
+      
       // This test depends on the previous test winning, so if that failed, this should be skipped
-      const gameState = await getGameState(nootLadder.connect(player1));
       if (!gameState.active) {
         console.log("No active game for player1 - skipping test");
         this.skip();
@@ -450,39 +399,34 @@ describe("NootLadder", function () {
       }
       
       const potBefore = gameState.currentPot;
+      const gameId = gameState.gameId;
+      const currentTurn = gameState.turn;
       
-      // Try to win a round with intelligent guessing
-      const currentCard = Number(gameState.currentCard);
+      // Try to win a round with both guesses if needed
       let won = false;
-      let attempts = 0;
-      const maxAttempts = 5;
       
-      while (!won && attempts < maxAttempts) {
-        attempts++;
-        try {
-          // Choose the most likely winning guess
-          let guess;
-          if (currentCard <= 4) {
-            // Low card, try Higher
-            guess = Guess.Higher;
-          } else if (currentCard >= 8) {
-            // High card, try Lower
-            guess = Guess.Lower;
-          } else {
-            // Middle card, alternate guesses
-            guess = attempts % 2 === 0 ? Guess.Higher : Guess.Lower;
+      // Try Higher guess
+      try {
+        const higherSignature = await generateCardSignature(signerWallet, gameId, player1Address, currentTurn + 1);
+        const tx = await nootLadder.connect(player1).makeGuess(higherSignature, Guess.Higher);
+        const receipt = await tx.wait();
+        won = receipt.logs.some((log: any) => log.fragment?.name === "RoundWon");
+      } catch (e) {
+        console.log("Higher guess failed");
+      }
+      
+      // If Higher didn't win, and game is still active, try Lower
+      if (!won) {
+        const checkState = await getPlayerGameState(nootLadder, player1Address);
+        if (checkState.active) {
+          try {
+            const lowerSignature = await generateCardSignature(signerWallet, gameId, player1Address, checkState.turn + 1);
+            const tx = await nootLadder.connect(player1).makeGuess(lowerSignature, Guess.Lower);
+            const receipt = await tx.wait();
+            won = receipt.logs.some((log: any) => log.fragment?.name === "RoundWon");
+          } catch (e) {
+            console.log("Lower guess also failed");
           }
-          
-          const tx = await nootLadder.connect(player1).playRound(guess);
-          const receipt = await tx.wait();
-          
-          // Check if we won this round
-          won = receipt.logs.some((log: any) => log.fragment?.name === "RoundWon");
-          
-          if (won) break;
-        } catch (e) {
-          // Try a different guess
-          continue;
         }
       }
       
@@ -494,7 +438,7 @@ describe("NootLadder", function () {
       }
       
       // Check pot increased by multiplier
-      const updatedState = await getGameState(nootLadder.connect(player1));
+      const updatedState = await getPlayerGameState(nootLadder, player1Address);
       const multiplier = await nootLadder.multiplier();
       const expectedPot = (potBefore * BigInt(multiplier)) / 100n;
       expect(updatedState.currentPot).to.equal(expectedPot);
@@ -508,78 +452,75 @@ describe("NootLadder", function () {
       // Start a new game for player2
       await nootLadder.connect(player2).startGame(500n, 5);
       
-      // Get initial card
-      const gameState = await getGameState(nootLadder.connect(player2));
-      const currentCard = Number(gameState.currentCard);
+      const player2Address = await player2.getAddress();
+      const gameState = await getPlayerGameState(nootLadder, player2Address);
+      const gameId = gameState.gameId;
       
-      // Let's deliberately lose by trying both guesses, but choosing the wrong one first
+      // First turn - just reveal a card
+      const firstTurnSignature = await generateCardSignature(signerWallet, gameId, player2Address, 1);
+      await nootLadder.connect(player2).makeGuess(firstTurnSignature, Guess.Higher);
+      
+      // Get card after first turn
+      const stateAfterFirstTurn = await getPlayerGameState(nootLadder, player2Address);
+      const previousCard = stateAfterFirstTurn.previousCard;
+      
+      // Let's deliberately lose by using the wrong guess based on the card
       let lost = false;
-      let attempts = 0;
-      const maxAttempts = 10;  // More attempts for this test
       
-      // Strategy: if current card is 2, we can't go lower, if it's Ace, we can't go higher
-      // For all other cards, we'll try both and look for the loss
-      while (!lost && attempts < maxAttempts) {
-        attempts++;
-        try {
-          let guess;
-          
-          if (currentCard === 0) { // Two, can only go higher - so we'll try Lower to lose
-            guess = Guess.Lower;
-          } else if (currentCard === 12) { // Ace, can only go lower - so we'll try Higher to lose
-            guess = Guess.Higher;
-          } else if (currentCard <= 4) { // Low card, more likely to win with Higher, so try Lower
-            guess = Guess.Lower;
-          } else if (currentCard >= 8) { // High card, more likely to win with Lower, so try Higher
-            guess = Guess.Higher;
-          } else {
-            // Middle card, alternate
-            guess = attempts % 2 === 0 ? Guess.Higher : Guess.Lower;
-          }
-          
-          const tx = await nootLadder.connect(player2).playRound(guess);
-          const receipt = await tx.wait();
-          lost = receipt.logs.some((log: any) => log.fragment?.name === "GameLost");
-          
-          if (lost) break;
-        } catch (e) {
-          // If this guess failed, try another
-          continue;
-        }
+      // Choose a guess likely to lose
+      const losingGuess = previousCard <= 5 ? Guess.Lower : Guess.Higher;
+      
+      try {
+        const signature = await generateCardSignature(signerWallet, gameId, player2Address, 2);
+        const tx = await nootLadder.connect(player2).makeGuess(signature, losingGuess);
+        const receipt = await tx.wait();
+        lost = receipt.logs.some((log: any) => log.fragment?.name === "GameLost");
+      } catch (e) {
+        console.log("First guess attempt failed");
       }
       
-      // If we couldn't force a loss, start fresh with extreme cards
+      // If we couldn't lose with first guess, try the opposite
       if (!lost) {
-        // Start a new game
-        await nootLadder.connect(player2).startGame(500n, 5);
-        const newState = await getGameState(nootLadder.connect(player2));
-        const newCard = Number(newState.currentCard);
-        
-        // Try the losing move
-        try {
-          let guess;
-          if (newCard === 0) { // Two - try Lower to lose
-            guess = Guess.Lower;
-          } else if (newCard === 12) { // Ace - try Higher to lose
-            guess = Guess.Higher;
-          } else if (newCard <= 5) {
-            guess = Guess.Lower;
-          } else {
-            guess = Guess.Higher;
-          }
-          
-          const tx = await nootLadder.connect(player2).playRound(guess);
-          const receipt = await tx.wait();
-          lost = receipt.logs.some((log: any) => log.fragment?.name === "GameLost");
-        } catch (e) {
-          // If that didn't work, try the other option
+        // Check if game is still active
+        const checkState = await getPlayerGameState(nootLadder, player2Address);
+        if (checkState.active) {
           try {
-            const guess = newCard <= 5 ? Guess.Higher : Guess.Lower;
-            const tx = await nootLadder.connect(player2).playRound(guess);
+            const oppositeGuess = losingGuess === Guess.Higher ? Guess.Lower : Guess.Higher;
+            const signature = await generateCardSignature(signerWallet, gameId, player2Address, checkState.turn + 1);
+            const tx = await nootLadder.connect(player2).makeGuess(signature, oppositeGuess);
             const receipt = await tx.wait();
             lost = receipt.logs.some((log: any) => log.fragment?.name === "GameLost");
           } catch (e) {
-            // Still couldn't lose, we'll have to skip
+            console.log("Second guess attempt also failed");
+          }
+        }
+      }
+      
+      // If we still couldn't lose, start a new game and try again
+      if (!lost) {
+        // Start a new game
+        await nootLadder.connect(player2).startGame(500n, 5);
+        const newGameState = await getPlayerGameState(nootLadder, player2Address);
+        const newGameId = newGameState.gameId;
+        
+        // First turn - reveal card
+        const newFirstSignature = await generateCardSignature(signerWallet, newGameId, player2Address, 1);
+        await nootLadder.connect(player2).makeGuess(newFirstSignature, Guess.Higher);
+        
+        // Get new card after first turn
+        const newStateAfterFirstTurn = await getPlayerGameState(nootLadder, player2Address);
+        const newPreviousCard = newStateAfterFirstTurn.previousCard;
+        
+        // Try both guesses
+        for (const guess of [Guess.Higher, Guess.Lower]) {
+          try {
+            const signature = await generateCardSignature(signerWallet, newGameId, player2Address, 2);
+            const tx = await nootLadder.connect(player2).makeGuess(signature, guess);
+            const receipt = await tx.wait();
+            lost = receipt.logs.some((log: any) => log.fragment?.name === "GameLost");
+            if (lost) break;
+          } catch (e) {
+            continue;
           }
         }
       }
@@ -592,7 +533,7 @@ describe("NootLadder", function () {
       }
       
       // Check game state after loss
-      const finalState = await getGameState(nootLadder.connect(player2));
+      const finalState = await getPlayerGameState(nootLadder, player2Address);
       expect(finalState.active).to.be.false;
       expect(finalState.currentPot).to.equal(0n);
     });
@@ -609,60 +550,42 @@ describe("NootLadder", function () {
       const player2Address = await player2.getAddress();
       const balanceBefore = await nootToken.balanceOf(player2Address);
       
-      // Get current card and choose the best guess
-      const gameState = await getGameState(nootLadder.connect(player2));
-      const currentCard = Number(gameState.currentCard);
+      // Get game state for first turn
+      const gameState = await getPlayerGameState(nootLadder, player2Address);
+      const gameId = gameState.gameId;
       
-      // Try to win with intelligent guessing first
+      // Since it's only 1 turn, we just need to make one guess and we'll either win or lose
       let won = false;
-      let attempts = 0;
-      const maxAttempts = 5;
       
-      while (!won && attempts < maxAttempts) {
-        attempts++;
+      // Try both guesses
+      for (const guess of [Guess.Higher, Guess.Lower]) {
         try {
-          // Choose the most likely winning guess
-          let guess;
-          if (currentCard <= 4) {
-            // Low card, try Higher
-            guess = Guess.Higher;
-          } else if (currentCard >= 8) {
-            // High card, try Lower
-            guess = Guess.Lower;
-          } else {
-            // Middle card, alternate guesses
-            guess = attempts % 2 === 0 ? Guess.Higher : Guess.Lower;
-          }
-          
-          const tx = await nootLadder.connect(player2).playRound(guess);
+          const signature = await generateCardSignature(signerWallet, gameId, player2Address, 1);
+          const tx = await nootLadder.connect(player2).makeGuess(signature, guess);
           const receipt = await tx.wait();
-          
-          // Check if we won the game
           won = receipt.logs.some((log: any) => log.fragment?.name === "GameWon");
-          
           if (won) break;
         } catch (e) {
-          // Try a different guess if this one failed
           continue;
         }
       }
       
-      // If we couldn't win, try one more time with explicit guesses
+      // If we still couldn't win, try with a new game
       if (!won) {
-        // Start a new game
         await nootLadder.connect(player2).startGame(500n, 1);
+        const newGameState = await getPlayerGameState(nootLadder, player2Address);
+        const newGameId = newGameState.gameId;
         
-        try {
-          const tx = await nootLadder.connect(player2).playRound(Guess.Higher);
-          const receipt = await tx.wait();
-          won = receipt.logs.some((log: any) => log.fragment?.name === "GameWon");
-        } catch (e) {
+        // Try both guesses again
+        for (const guess of [Guess.Higher, Guess.Lower]) {
           try {
-            const tx = await nootLadder.connect(player2).playRound(Guess.Lower);
+            const signature = await generateCardSignature(signerWallet, newGameId, player2Address, 1);
+            const tx = await nootLadder.connect(player2).makeGuess(signature, guess);
             const receipt = await tx.wait();
             won = receipt.logs.some((log: any) => log.fragment?.name === "GameWon");
+            if (won) break;
           } catch (e) {
-            // If both guesses fail, we'll have to skip this test
+            continue;
           }
         }
       }
@@ -679,59 +602,50 @@ describe("NootLadder", function () {
       expect(balanceAfter > balanceBefore).to.be.true;
       
       // Check game is over
-      const finalState = await getGameState(nootLadder.connect(player2));
+      const finalState = await getPlayerGameState(nootLadder, player2Address);
       expect(finalState.active).to.be.false;
     });
     
     it("Should not allow playing round with no active game", async function() {
       // Player2's game should be over by now
+      const player2Address = await player2.getAddress();
+      
+      // Start a game with only 1 turn for player2
+      await nootLadder.connect(player2).startGame(500n, 1);
+      
+      // Get the game ID
+      const gameState = await getPlayerGameState(nootLadder, player2Address);
+      const gameId = gameState.gameId;
+      
+      // Play the turn to complete the game (but don't win)
+      const signature = await generateCardSignature(signerWallet, gameId, player2Address, 1);
+      await nootLadder.connect(player2).makeGuess(signature, Guess.Higher);
+      
+      // Now the game should be completed (all turns used)
+      // Try to play another round
+      const signature2 = await generateCardSignature(signerWallet, gameId, player2Address, 2);
+      
       await expectRejectedWithMessage(
-        nootLadder.connect(player2).playRound(Guess.Higher),
-        "revert"
+        nootLadder.connect(player2).makeGuess(signature2, Guess.Higher),
+        "No turns left"
       );
     });
     
     it("Should allow player to claim rewards early", async function() {
       // Make sure player1 doesn't have an active game
-      const initialState = await getGameState(nootLadder.connect(player1));
-      if (initialState.active) {
-        // Try to forcibly end the game by making a guess that's likely to lose
-        try {
-          const card = Number(initialState.currentCard);
-          const losingGuess = card <= 5 ? Guess.Lower : Guess.Higher;
-          await nootLadder.connect(player1).playRound(losingGuess);
-        } catch (e) {
-          // Try the other guess
-          try {
-            const card = Number(initialState.currentCard);
-            const otherGuess = card <= 5 ? Guess.Higher : Guess.Lower;
-            await nootLadder.connect(player1).playRound(otherGuess);
-          } catch (e) {
-            // If we can't end the game, we'll skip this test
-            console.log("Could not end existing game - skipping claim rewards test");
-            this.skip();
-            return;
-          }
-        }
-        
-        // Check if game ended
-        const checkState = await getGameState(nootLadder.connect(player1));
-        if (checkState.active) {
-          console.log("Could not end existing game - skipping claim rewards test");
-          this.skip();
-          return;
-        }
+      const player1Address = await player1.getAddress();
+      const initialState = await getPlayerGameState(nootLadder, player1Address);
+      
+      if (!initialState.active) {
+        // Start a new game if no active game
+        await nootLadder.connect(player1).startGame(500n, 5);
       }
       
-      // Start a new game for player1
-      await nootLadder.connect(player1).startGame(500n, 5);
-      
       // Get initial balance
-      const player1Address = await player1.getAddress();
       const balanceBefore = await nootToken.balanceOf(player1Address);
       
       // Get game state before claiming
-      const gameStateBefore = await getGameState(nootLadder.connect(player1));
+      const gameStateBefore = await getPlayerGameState(nootLadder, player1Address);
       expect(gameStateBefore.active).to.be.true;
       
       // Claim rewards
@@ -742,22 +656,22 @@ describe("NootLadder", function () {
       expect(balanceAfter > balanceBefore).to.be.true;
       
       // Check game is now inactive
-      const gameStateAfter = await getGameState(nootLadder.connect(player1));
+      const gameStateAfter = await getPlayerGameState(nootLadder, player1Address);
       expect(gameStateAfter.active).to.be.false;
       expect(gameStateAfter.currentPot).to.equal(0n);
     });
     
     it("Should not allow claiming rewards with no active game", async function() {
       // Ensure player2 has no active game first
-      const state = await getGameState(nootLadder.connect(player2));
+      const player2Address = await player2.getAddress();
+      const state = await getPlayerGameState(nootLadder, player2Address);
+      
       if (state.active) {
         try {
           // Try to end any active game
-          const card = Number(state.currentCard);
-          const losingGuess = card <= 5 ? Guess.Lower : Guess.Higher;
-          await nootLadder.connect(player2).playRound(losingGuess);
+          await nootLadder.connect(player2).claimRewards();
         } catch (e) {
-          // Ignore errors, we just want to make sure there's no active game
+          // Ignore errors
         }
       }
       
@@ -772,72 +686,25 @@ describe("NootLadder", function () {
       }
     });
     
-    it("Should handle randomness directly without callbacks", async function() {
-      this.timeout(10000); // Increase timeout for this test
+    it("Should verify signatures correctly", async function() {
+      // Create a test game ID and round number
+      const testGameId = 12345n;
+      const testTurn = 1;
+      const player2Address = await player2.getAddress();
       
-      // Make sure player1 doesn't have an active game
-      const initialState = await getGameState(nootLadder.connect(player1));
-      if (initialState.active) {
-        // Clean up any existing game
-        try {
-          await nootLadder.connect(player1).claimRewards();
-        } catch (e) {
-          // If claim fails, try to lose the game
-          try {
-            const card = Number(initialState.currentCard);
-            const losingGuess = card <= 5 ? Guess.Lower : Guess.Higher;
-            await nootLadder.connect(player1).playRound(losingGuess);
-          } catch (e) {
-            // If we still can't end the game, skip test
-            console.log("Could not end existing game - skipping test");
-            this.skip();
-            return;
-          }
-        }
-      }
+      // Generate a valid signature
+      const validSignature = await generateCardSignature(signerWallet, testGameId, player2Address, testTurn);
       
-      try {
-        // Start a new game
-        await nootLadder.connect(player1).startGame(300n, 3);
-        
-        // Get current game state
-        const gameState = await getGameState(nootLadder.connect(player1));
-        expect(gameState.active).to.be.true;
-        
-        // Play a round
-        const tx = await nootLadder.connect(player1).playRound(Guess.Higher);
-        const receipt = await tx.wait();
-        
-        // Check for either a RoundWon or GameLost event to verify randomness was processed
-        const roundWonEvents = receipt.logs.filter(
-          (log: any) => log.fragment?.name === "RoundWon"
-        );
-        
-        const gameLostEvents = receipt.logs.filter(
-          (log: any) => log.fragment?.name === "GameLost"
-        );
-        
-        // Verify that either a win or loss event was emitted
-        expect(roundWonEvents.length > 0 || gameLostEvents.length > 0).to.be.true;
-        
-        // Check the game state was updated
-        const finalState = await getGameState(nootLadder.connect(player1));
-        
-        if (roundWonEvents.length > 0) {
-          // Player won the round
-          expect(finalState.active).to.be.true;
-          expect(finalState.turnsLeft).to.equal(gameState.turnsLeft - 1);
-          // Compare BigInts properly
-          expect(Number(finalState.currentPot) > Number(gameState.currentPot)).to.be.true;
-        } else {
-          // Player lost the round
-          expect(finalState.active).to.be.false;
-          expect(finalState.currentPot).to.equal(0n);
-        }
-      } catch (error) {
-        console.log("Test had an error:", error);
-        this.skip(); // Skip the test if there are any errors
-      }
+      // Verify the signature
+      const isValid = await nootLadder.verifySignature(testGameId, player2Address, testTurn, validSignature);
+      expect(isValid).to.be.true;
+      
+      // Generate an invalid signature (from a different signer)
+      const invalidSignature = await generateCardSignature(adminWallet, testGameId, player2Address, testTurn);
+      
+      // Verify the invalid signature
+      const isInvalid = await nootLadder.verifySignature(testGameId, player2Address, testTurn, invalidSignature);
+      expect(isInvalid).to.be.false;
     });
   });
   
@@ -861,6 +728,31 @@ describe("NootLadder", function () {
       
       const result = calculatePotentialWin(startAmount, multiplier, rounds);
       expect(result.toString()).to.equal(expected.toString());
+    });
+    
+    it("Should extract card from signature consistently", async function() {
+      const testGameId = 54321n;
+      const player1Address = await player1.getAddress();
+      const testTurn = 1;
+      
+      // Generate a signature
+      const signature = await generateCardSignature(signerWallet, testGameId, player1Address, testTurn);
+      
+      // Get the card using the contract function
+      const card = await nootLadder.getCardFromSignature(signature);
+      
+      // Check that it returns a valid card (0-12)
+      expect(Number(card)).to.be.gte(0);
+      expect(Number(card)).to.be.lte(12);
+      
+      // Generate another signature with the same parameters
+      const signature2 = await generateCardSignature(signerWallet, testGameId, player1Address, testTurn);
+      
+      // Get the card using the contract function
+      const card2 = await nootLadder.getCardFromSignature(signature2);
+      
+      // They should be the same
+      expect(card).to.equal(card2);
     });
   });
 });
