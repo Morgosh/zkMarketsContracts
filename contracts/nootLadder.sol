@@ -83,30 +83,6 @@ contract NootLadder {
         return Card(uint8(uint256(signatureHash) % 13));
     }
     
-    // Verify the signature and return the card
-    function _verifySignatureAndGetCard(
-        uint256 gameId,
-        address player,
-        uint8 turnNumber,
-        bytes memory signature
-    ) internal view returns (Card) {
-        // Create the message hash that was signed
-        bytes32 messageHash = keccak256(abi.encodePacked(gameId, player, turnNumber));
-        
-        // Get the ethereum signed message hash
-        bytes32 ethSignedMessageHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
-        
-        // Recover the signer from the signature
-        (bytes32 r, bytes32 s, uint8 v) = _splitSignature(signature);
-        address recoveredSigner = ecrecover(ethSignedMessageHash, v, r, s);
-        
-        require(recoveredSigner == trustedSigner, "NootLadder: invalid signature");
-        
-        // Get a card from the signature using only r and s components
-        bytes32 cardHash = keccak256(abi.encodePacked(r, s));
-        return Card(uint8(uint256(cardHash) % 13));
-    }
-    
     // Helper function to split signature into r, s, v components
     function _splitSignature(bytes memory sig) internal pure returns (bytes32 r, bytes32 s, uint8 v) {
         require(sig.length == 65, "NootLadder: invalid signature length");
@@ -123,6 +99,52 @@ contract NootLadder {
         // 27 or 28 for eth
         require(v == 27 || v == 28, "NootLadder: only v=27 or v=28 signatures are accepted");
         return (r, s, v);
+    }
+
+    // Internal helper to check win condition
+    function _checkWin(Card previousCard, Card newCard, Guess guess) internal pure returns (bool) {
+        if (guess == Guess.Higher) {
+            return uint8(newCard) > uint8(previousCard);
+        } else {
+            return uint8(newCard) < uint8(previousCard);
+        }
+    }
+
+    // Internal function to verify signature logic
+    function _verifySignature(
+        uint256 gameId,
+        address player,
+        uint8 turnNumber,
+        bytes memory signature
+    ) internal view returns (bool) {
+        // Create the message hash that was signed
+        bytes32 messageHash = keccak256(abi.encodePacked(gameId, player, turnNumber));
+        
+        // Get the ethereum signed message hash
+        bytes32 ethSignedMessageHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
+        
+        // Recover the signer from the signature
+        (bytes32 r, bytes32 s, uint8 v) = _splitSignature(signature);
+        address recoveredSigner = ecrecover(ethSignedMessageHash, v, r, s);
+        
+        return recoveredSigner == trustedSigner;
+    }
+    
+    // Verify the signature and return the card
+    function _verifyAndGetCard(
+        uint256 gameId,
+        address player,
+        uint8 turnNumber,
+        bytes memory signature
+    ) internal view returns (Card) {
+        require(_verifySignature(gameId, player, turnNumber, signature), "NootLadder: invalid signature");
+        
+        // Signature is valid, now extract card (split again, slightly inefficient but keeps concerns separate)
+        (bytes32 r, bytes32 s, ) = _splitSignature(signature); 
+        
+        // Get a card from the signature using only r and s components
+        bytes32 cardHash = keccak256(abi.encodePacked(r, s));
+        return Card(uint8(uint256(cardHash) % 13));
     }
     
     function startGame(uint256 wagerAmount, uint8 turns) external {
@@ -165,7 +187,7 @@ contract NootLadder {
         uint8 currentTurn = game.turn + 1;
         
         // Verify signature and get the new card
-        Card newCard = _verifySignatureAndGetCard(
+        Card newCard = _verifyAndGetCard(
             game.gameId,
             msg.sender,
             currentTurn,
@@ -181,17 +203,13 @@ contract NootLadder {
         game.turn++;
         // if turn is 1 we don't need to check the guess
         if (game.turn == 1) {
+            game.currentPot = (game.currentPot * multiplier) / 100;
+            emit RoundWon(msg.sender, previousCard, newCard, previousGuess, game.totalTurns - game.turn);
             return;
         }
 
-        // Check if the previous guess was correct
-        bool won = false;
-        
-        if (previousGuess == Guess.Higher) {
-            won = uint8(newCard) > uint8(previousCard);
-        } else {
-            won = uint8(newCard) < uint8(previousCard);
-        }
+        // Check if the previous guess was correct using the helper
+        bool won = _checkWin(previousCard, newCard, previousGuess);
         
         if (won) {
             game.currentPot = (game.currentPot * multiplier) / 100;
@@ -218,14 +236,25 @@ contract NootLadder {
     }
     
     /**
-     * @notice Allows a player to claim their current pot and end the game early
-     * @dev Player will get their current pot and the game will be marked as inactive
+     * @notice Allows a player to claim their current pot and end the game early.
+     * @dev Player must provide a valid signature for the *next* turn.
+     * The contract checks if the player's *stored* guess (`game.previousGuess`) would have won against the card revealed by the signature.
+     * The game will be marked as inactive.
+     * @param signature The signature from the trusted signer for the next turn (game.turn + 1).
      */
-    function claimRewards() external {
+    function claimRewards(bytes memory signature) external {
         Game storage game = games[msg.sender];
         
         require(game.active, "No active game");
         require(game.currentPot > 0, "No rewards to claim");
+        require(game.turn > 0, "Turn must be greater than 0");
+        
+        // Verify the signature and get the card for the next turn
+        uint8 nextTurnNumber = game.turn + 1;
+        Card nextCard = _verifyAndGetCard(game.gameId, msg.sender, nextTurnNumber, signature);
+        
+        // Check if the player's stored guess would have won against the next card
+        require(_checkWin(game.previousCard, nextCard, game.previousGuess), "Stored guess would not win next turn");
         
         uint256 prize = game.currentPot;
         game.active = false;
@@ -271,16 +300,6 @@ contract NootLadder {
         uint8 turnNumber,
         bytes memory signature
     ) external view returns (bool) {
-        // Create the message hash that was signed
-        bytes32 messageHash = keccak256(abi.encodePacked(gameId, player, turnNumber));
-        
-        // Get the ethereum signed message hash
-        bytes32 ethSignedMessageHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
-        
-        // Recover the signer from the signature
-        (bytes32 r, bytes32 s, uint8 v) = _splitSignature(signature);
-        address recoveredSigner = ecrecover(ethSignedMessageHash, v, r, s);
-        
-        return recoveredSigner == trustedSigner;
+        return _verifySignature(gameId, player, turnNumber, signature);
     }
 }

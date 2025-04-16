@@ -176,7 +176,13 @@
     "type": "function"
   },
   {
-    "inputs": [],
+    "inputs": [
+      {
+        "internalType": "bytes",
+        "name": "signature",
+        "type": "bytes"
+      }
+    ],
     "name": "claimRewards",
     "outputs": [],
     "stateMutability": "nonpayable",
