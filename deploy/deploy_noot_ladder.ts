@@ -14,7 +14,7 @@ export default async function (hre: HardhatRuntimeEnvironment) {
   
   if (hre.network.name === "abstract-testnet") {
     // Use the existing NOOT token on testnet
-    nootAddress = "0xe3d94b74131f3d831b407fcef76e7b8ee78f8096";
+    nootAddress = "0x3d8b869eB751B63b7077A0A93D6b87a54e6C8f56";
     console.log(`Using existing NOOT token at ${nootAddress} on ${hre.network.name}`);
     
   } else if (hre.network.name === "hardhat" || hre.network.name === "localhost") {

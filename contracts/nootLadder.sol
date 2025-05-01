@@ -1,6 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
+/**
+ * @title NootLadder - High/Low Card Game (Testnet PoC Version)
+ * @notice IMPORTANT: This version relies on a trusted backend signer for randomness.
+ * 
+ * Current implementation:
+ * - Uses a single trusted signer address for all games
+ * - Signatures are generated using RFC 6979 (deterministic, canonical, secure)
+ * 
+ * Planned future improvements:
+ * - Backend will use a new unique keypair per game
+ * - After the game ends, backend will reveal the unique game keypair private key
+ *   to prove signatures were generated deterministically and fairly
+ * 
+ * Known limitations (to be addressed in future versions):
+ * - Backend could refuse to provide signatures, stalling games
+ * - Backend could generate non-deterministic signatures, violating RFC 6979
+ * - Backend could refuse to reveal signer after game, breaking verification
+ * 
+ * This is a Proof of Concept for testnet only. Future versions will implement
+ * fully verifiable randomness with no reliance on backend trust.
+ */
+
 interface IERC20 {
     function balanceOf(address account) external view returns (uint256);
     function transfer(address recipient, uint256 amount) external returns (bool);
@@ -98,6 +120,9 @@ contract NootLadder {
         
         // 27 or 28 for eth
         require(v == 27 || v == 28, "NootLadder: only v=27 or v=28 signatures are accepted");
+
+        bytes32 secp256k1nHalf = 0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0;
+        require(uint256(s) <= uint256(secp256k1nHalf), "NootLadder: non-canonical signature");
         return (r, s, v);
     }
 
