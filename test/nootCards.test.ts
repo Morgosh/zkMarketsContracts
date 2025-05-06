@@ -11,8 +11,8 @@ const TEST_CONFIG = {
   runCalculatorTests: true,
   runGameStartTests: true,
   runGamePlayTests: true,
-  runWithdrawalTests: false,
-  runDealerWithdrawalTests: false
+  runWithdrawalTests: true,
+  runDealerWithdrawalTests: true
 };
 
 // Define helpful types/enums similar to the contract
@@ -428,15 +428,8 @@ describe("NootCards", function () {
       
       // For the first turn, we need to provide h10 (last hash in the chain)
       const firstHash = hashChain[10]; // h10
-
-      console.log("hashChain", hashChain);
-      console.log("firstHash", firstHash);
       // lets see what it is when hashed 1 time
       const firstHashHashedOnce = ethers.keccak256(ethers.concat([firstHash]));
-      console.log("firstHashHashedOnce", firstHashHashedOnce);
-      console.log("commitment", commitment);
-      // lets log onchain data aswell
-      console.log("onchain data", await getGameState(nootCards, player2Address));
       
       // Make the first guess
       const tx = await nootCards.connect(player2).makeGuess(firstHash, Guess.Higher);
@@ -492,8 +485,10 @@ describe("NootCards", function () {
         expect(gameState2.turn).to.equal(2);
         expect(gameState2.previousGuess).to.equal(Guess.Lower);
         
-        // Verify pot increased
-        expect(gameState2.currentPot).to.be.gt(gameState1.currentPot);
+        // Verify pot increased - make sure to compare BigInt values
+        const pot1 = gameState1.currentPot;
+        const pot2 = gameState2.currentPot;
+        expect(Number(pot2) > Number(pot1)).to.be.true;
       } else if (gameLostEvents.length > 0) {
         // If we lost, check game is inactive
         const gameState2 = await getGameState(nootCards, player2Address);
