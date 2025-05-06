@@ -53,7 +53,7 @@ contract NootCards {
     uint256 public maxWager;
     
     // Add withdrawal timelock duration
-    uint256 public withdrawalTimelock = 48 hours;
+    uint256 public immutable withdrawalTimelock = 48 hours;
     
     // Add player-specific game counter
     mapping(address => uint256) public playerGameCounters;
@@ -130,16 +130,6 @@ contract NootCards {
         } else {
             return 130; // Round 10: 1.30x
         }
-    }
-    
-    /**
-     * @notice Update the withdrawal timelock duration (same for both players and dealer)
-     * @param newTimelock The new timelock duration in seconds
-     */
-    function updateWithdrawalTimelock(uint256 newTimelock) external onlyAdmin {
-        require(newTimelock >= 1 hours, "Timelock must be at least 1 hour");
-        require(newTimelock <= 7 days, "Timelock cannot exceed 7 days");
-        withdrawalTimelock = newTimelock;
     }
     
     // Helper to derive a card from a hash with user entropy
@@ -255,6 +245,8 @@ contract NootCards {
     ) external {
         require(wagerAmount >= minWager, "Wager too small");
         require(wagerAmount <= maxWager, "Wager too large");
+        // Check if the player has a pending withdrawal request
+        require(withdrawalRequests[msg.sender] == 0, "Pending withdrawal request exists");
         
         // Generate a player-specific sequential game ID
         uint256 gameId = playerGameCounters[msg.sender];
@@ -376,7 +368,7 @@ contract NootCards {
         Game storage game = games[msg.sender];
         
         require(game.status == GameStatus.Active, "Game is not active");
-        require(game.turn > 1, "Must complete at least one round");
+        require(game.turn > 0, "Must complete at least one round");
         
         // Verify the hash chain leads back to the commitment
         // Hash should be hashed exactly game.turn times to match commitment
@@ -455,6 +447,19 @@ contract NootCards {
         withdrawalRequests[msg.sender] = block.timestamp;
         
         emit WithdrawalRequested(msg.sender, block.timestamp);
+    }
+    
+    /**
+     * @notice Cancel a pending withdrawal request
+     * @dev Allows players to cancel their withdrawal request if they change their mind
+     */
+    function cancelWithdrawalRequest() external {
+        require(withdrawalRequests[msg.sender] > 0, "No withdrawal request found");
+        
+        // Clear the withdrawal request
+        withdrawalRequests[msg.sender] = 0;
+        
+        emit WithdrawalCancelled(msg.sender);
     }
     
     /**
