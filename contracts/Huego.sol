@@ -152,27 +152,32 @@ contract Huego {
         _acceptWager(sessionId, _amount, msg.sender);
     }
 
-    function acceptAndProposeWager(uint256 sessionId, uint256 _acceptAmount, uint256 _proposeAmount) external payable {
-        require(msg.value == _acceptAmount + _proposeAmount, "Wager amount mismatch");
-        _acceptWager(sessionId, _acceptAmount, msg.sender);
-        _proposeWager(sessionId, _proposeAmount, msg.sender);
-    }
-
-    // Internal helper functions to reduce redundancy
     function _proposeWager(uint256 sessionId, uint256 _amount, address sender) internal {
         require(sender == gameSessions[sessionId].player1 || sender == gameSessions[sessionId].player2, "Not a player of this game");
-        uint currentWagerAmount = wagerProposals[sender][sessionId].amount;
+        address otherPlayer = (sender == gameSessions[sessionId].player1) ? gameSessions[sessionId].player2 : gameSessions[sessionId].player1;
+        
+        uint256 currentWagerAmount = wagerProposals[sender][sessionId].amount;
+        uint256 otherPlayerWagerAmount = wagerProposals[otherPlayer][sessionId].amount;
+        
+        // Update state before external calls
+        delete wagerProposals[otherPlayer][sessionId];
         wagerProposals[sender][sessionId] = WagerProposal({
             sessionId: sessionId,
             amount: _amount
         });
-
+        
+        emit WagerProposed(sender, sessionId, _amount);
+        
+        // INTERACTIONS - Perform external calls last to prevent reentrancy
         if (currentWagerAmount != 0) {
             (bool success,) = payable(sender).call{value: currentWagerAmount}("");
             require(success, "Refund failed");
         }
         
-        emit WagerProposed(sender, sessionId, _amount);
+        if (otherPlayerWagerAmount != 0) {
+            (bool success,) = payable(otherPlayer).call{value: otherPlayerWagerAmount}("");
+            require(success, "Refund to other player failed");
+        }
     }
 
     function _acceptWager(uint256 sessionId, uint256 _amount, address sender) internal {

@@ -215,29 +215,6 @@
         "internalType": "uint256",
         "name": "sessionId",
         "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_acceptAmount",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_proposeAmount",
-        "type": "uint256"
-      }
-    ],
-    "name": "acceptAndProposeWager",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "sessionId",
-        "type": "uint256"
       }
     ],
     "name": "acceptRewards",
