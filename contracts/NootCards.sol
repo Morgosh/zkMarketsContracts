@@ -11,7 +11,6 @@ pragma solidity ^0.8.23;
  * - Player provides entropy through a random nonce
  * - Combined entropy creates a deterministic, verifiable game seed
  * - Hash chain derived from game seed determines card sequence
- * - Full private seed is revealed at the end for verification
  * - Dispute resolution if dealer acts maliciously
  * 
  * Security guarantees:
