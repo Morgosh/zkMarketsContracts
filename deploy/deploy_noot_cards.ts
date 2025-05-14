@@ -14,7 +14,7 @@ export default async function (hre: HardhatRuntimeEnvironment) {
   
   if (hre.network.name === "abstract-testnet") {
     // Use the existing NOOT token on testnet
-    nootAddress = "0x3d8b869eB751B63b7077A0A93D6b87a54e6C8f56";
+    nootAddress = "0xe3d94b74131f3d831b407fcef76e7b8ee78f8096";
     console.log(`Using existing NOOT token at ${nootAddress} on ${hre.network.name}`);
     
   } else if (hre.network.name === "hardhat" || hre.network.name === "localhost") {
@@ -27,38 +27,47 @@ export default async function (hre: HardhatRuntimeEnvironment) {
     throw new Error(`No configuration available for network: ${hre.network.name}. Please update the deployment script.`);
   }
   
-  const trustedSigner = "0x9a1E4E03fb299F223b37c67691de9461257848b4";
+  const dealerAddress = "0x9a1E4E03fb299F223b37c67691de9461257848b4";
+  
   // Game configuration - adjust based on network
   // Using strings instead of BigInt for zkSync deployment compatibility
   const minWager = hre.ethers.parseEther("100").toString()
   const maxWager = hre.ethers.parseEther("10000").toString()
+  const minEthWager = hre.ethers.parseEther("0.01").toString() // 0.01 ETH
+  const maxEthWager = hre.ethers.parseEther("1").toString() // 1 ETH
   
-  console.log(`Configured wager limits: Min=${hre.ethers.formatUnits(minWager, 18)} NOOT, Max=${hre.ethers.formatUnits(maxWager, 18)} NOOT`);
+  console.log(`Configured NOOT wager limits: Min=${hre.ethers.formatUnits(minWager, 18)} NOOT, Max=${hre.ethers.formatUnits(maxWager, 18)} NOOT`);
+  console.log(`Configured ETH wager limits: Min=${hre.ethers.formatUnits(minEthWager, 18)} ETH, Max=${hre.ethers.formatUnits(maxEthWager, 18)} ETH`);
   
-  // Deploy NootLadder
-  console.log("Deploying NootLadder...");
+  // Deploy NootCards
+  console.log("Deploying NootCards...");
   const deployParams = [
     nootAddress,    // NOOT token address
-    trustedSigner,  // Trusted signer address
-    minWager,       // Minimum wager as string
-    maxWager        // Maximum wager as string
+    dealerAddress,  // Dealer address (previously trustedSigner)
+    minWager,       // Minimum token wager
+    maxWager,       // Maximum token wager
+    minEthWager,    // Minimum ETH wager
+    maxEthWager     // Maximum ETH wager
   ];
 
-  const nootLadderContract = await deployContract("NootLadder", deployParams, options);
-  const nootLadderAddress = await nootLadderContract.getAddress();
+  const nootCardsContract = await deployContract("NootCards", deployParams, options);
+  const nootCardsAddress = await nootCardsContract.getAddress();
   
-  console.log(`NootLadder deployed at: ${nootLadderAddress}`);
+  console.log(`NootCards deployed at: ${nootCardsAddress}`);
   console.log("-----------------------------");
   console.log("Deployment Summary:");
   console.log(`Network: ${hre.network.name}`);
   console.log(`NOOT Token: ${nootAddress}`);
-  console.log(`NootLadder: ${nootLadderAddress}`);
-  console.log(`Min Wager: ${hre.ethers.formatUnits(minWager, 18)} NOOT`);
-  console.log(`Max Wager: ${hre.ethers.formatUnits(maxWager, 18)} NOOT`);
+  console.log(`NootCards: ${nootCardsAddress}`);
+  console.log(`Dealer Address: ${dealerAddress}`);
+  console.log(`Min Token Wager: ${hre.ethers.formatUnits(minWager, 18)} NOOT`);
+  console.log(`Max Token Wager: ${hre.ethers.formatUnits(maxWager, 18)} NOOT`);
+  console.log(`Min ETH Wager: ${hre.ethers.formatUnits(minEthWager, 18)} ETH`);
+  console.log(`Max ETH Wager: ${hre.ethers.formatUnits(maxEthWager, 18)} ETH`);
   console.log("-----------------------------");
   
   return {
-    nootLadderAddress,
+    nootCardsAddress,
     nootAddress
   };
 } 
