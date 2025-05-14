@@ -8,7 +8,7 @@
       },
       {
         "internalType": "address",
-        "name": "_trustedSigner",
+        "name": "_dealer",
         "type": "address"
       },
       {
@@ -42,6 +42,88 @@
       }
     ],
     "name": "AdminTransferred",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "gameId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "commitment",
+        "type": "bytes32"
+      }
+    ],
+    "name": "CommitmentSubmitted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "previousDealer",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newDealer",
+        "type": "address"
+      }
+    ],
+    "name": "DealerTransferred",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "gameId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "player",
+        "type": "address"
+      }
+    ],
+    "name": "DisputeInitiated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "gameId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "player",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "playerWon",
+        "type": "bool"
+      }
+    ],
+    "name": "DisputeResolved",
     "type": "event"
   },
   {
@@ -101,6 +183,12 @@
         "internalType": "uint256",
         "name": "gameId",
         "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "commitment",
+        "type": "bytes32"
       }
     ],
     "name": "GameStarted",
@@ -163,6 +251,25 @@
     "type": "event"
   },
   {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "gameId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "privateSecret",
+        "type": "bytes32"
+      }
+    ],
+    "name": "SeedRevealed",
+    "type": "event"
+  },
+  {
     "inputs": [],
     "name": "admin",
     "outputs": [
@@ -176,16 +283,74 @@
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "bytes",
-        "name": "signature",
-        "type": "bytes"
-      }
-    ],
+    "inputs": [],
     "name": "claimRewards",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "dealer",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "disputeTimeLock",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "disputeTimeouts",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "gameCommitments",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -255,28 +420,34 @@
         "internalType": "uint256",
         "name": "gameId",
         "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "commitment",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "currentHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "userRandomNonce",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bool",
+        "name": "disputeInProgress",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "seedRevealed",
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes",
-        "name": "signature",
-        "type": "bytes"
-      }
-    ],
-    "name": "getCardFromSignature",
-    "outputs": [
-      {
-        "internalType": "enum NootLadder.Card",
-        "name": "",
-        "type": "uint8"
-      }
-    ],
-    "stateMutability": "pure",
     "type": "function"
   },
   {
@@ -323,17 +494,44 @@
         "internalType": "uint8",
         "name": "turn",
         "type": "uint8"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "commitment",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "currentHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bool",
+        "name": "disputeInProgress",
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "initiateDispute",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
-        "internalType": "bytes",
-        "name": "signature",
-        "type": "bytes"
+        "internalType": "bytes32",
+        "name": "nextHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "proof",
+        "type": "bytes32"
       },
       {
         "internalType": "enum NootLadder.Guess",
@@ -387,12 +585,12 @@
   },
   {
     "inputs": [],
-    "name": "multiplier",
+    "name": "nootToken",
     "outputs": [
       {
-        "internalType": "uint256",
+        "internalType": "contract IERC20",
         "name": "",
-        "type": "uint256"
+        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -400,12 +598,62 @@
   },
   {
     "inputs": [],
-    "name": "nootToken",
+    "name": "resolveDispute",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "gameId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "privateSecret",
+        "type": "bytes32"
+      }
+    ],
+    "name": "revealSeed",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "revealedSecrets",
     "outputs": [
       {
-        "internalType": "contract IERC20",
+        "internalType": "bytes32",
         "name": "",
-        "type": "address"
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "roundMultipliers",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -422,9 +670,37 @@
         "internalType": "uint8",
         "name": "turns",
         "type": "uint8"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "commitment",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "userRandomNonce",
+        "type": "bytes32"
       }
     ],
     "name": "startGame",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "gameId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "commitment",
+        "type": "bytes32"
+      }
+    ],
+    "name": "submitCommitment",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -443,16 +719,29 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "trustedSigner",
-    "outputs": [
+    "inputs": [
       {
         "internalType": "address",
-        "name": "",
+        "name": "newDealer",
         "type": "address"
       }
     ],
-    "stateMutability": "view",
+    "name": "transferDealer",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_disputeTimeLock",
+        "type": "uint256"
+      }
+    ],
+    "name": "updateDisputeTimeLock",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -471,12 +760,12 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "_multiplier",
-        "type": "uint256"
+        "internalType": "uint256[10]",
+        "name": "_multipliers",
+        "type": "uint256[10]"
       }
     ],
-    "name": "updateMultiplier",
+    "name": "updateRoundMultipliers",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -502,27 +791,17 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "gameId",
-        "type": "uint256"
+        "internalType": "bytes32",
+        "name": "privateSecret",
+        "type": "bytes32"
       },
       {
-        "internalType": "address",
-        "name": "player",
-        "type": "address"
-      },
-      {
-        "internalType": "uint8",
-        "name": "turnNumber",
-        "type": "uint8"
-      },
-      {
-        "internalType": "bytes",
-        "name": "signature",
-        "type": "bytes"
+        "internalType": "bytes32",
+        "name": "commitment",
+        "type": "bytes32"
       }
     ],
-    "name": "verifySignature",
+    "name": "verifyCommitment",
     "outputs": [
       {
         "internalType": "bool",
@@ -530,7 +809,70 @@
         "type": "bool"
       }
     ],
-    "stateMutability": "view",
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "privateSecret",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "userRandomNonce",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "player",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "expectedGameSeed",
+        "type": "bytes32"
+      }
+    ],
+    "name": "verifyGameSeed",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "seed",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "nextHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint8",
+        "name": "steps",
+        "type": "uint8"
+      }
+    ],
+    "name": "verifyHashChain",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "pure",
     "type": "function"
   },
   {
