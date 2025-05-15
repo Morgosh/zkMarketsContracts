@@ -209,6 +209,8 @@ contract NootLadder {
         require(game.turn < game.totalTurns, "NootLadder: no turns left");
         require(!game.disputeInProgress, "NootLadder: dispute in progress");
         
+        // Get the new card from the hash
+        Card newCard = _getCardFromHash(nextHash);
         // For first turn, we set up the hash chain
         if (game.turn == 0) {
             // Validate the first hash in the chain
@@ -225,9 +227,6 @@ contract NootLadder {
             
             // Set the current hash for future verification
             game.currentHash = nextHash;
-            
-            // Get the initial card
-            Card newCard = _getCardFromHash(nextHash);
             game.previousCard = newCard;
             game.previousGuess = newGuess;
             game.turn++;
@@ -241,9 +240,6 @@ contract NootLadder {
         
         // For subsequent turns, verify the hash chain
         require(keccak256(abi.encodePacked(nextHash)) == game.currentHash, "NootLadder: invalid hash chain");
-        
-        // Get the new card from the hash
-        Card newCard = _getCardFromHash(nextHash);
         
         // Store values for event emission
         Guess previousGuess = game.previousGuess;
