@@ -41,6 +41,7 @@ contract Huego {
     event GameSessionCreated(uint256 indexed sessionId, address indexed player1, address indexed player2, uint256 wagerAmount);
     event WagerProposed(address indexed proposer, uint256 indexed sessionId, uint256 amount);
     event WagerAccepted(uint256 indexed sessionId, address indexed player1, address indexed player2, uint256 amount);
+    event WagerCancelled(address indexed proposer, uint256 indexed sessionId);
     event GameEnded(uint256 indexed sessionId, address indexed winner, address indexed loser, uint256 amount);
 
     struct WagerInfo {
@@ -216,6 +217,7 @@ contract Huego {
         // refund the player
         (bool success,) = payable(msg.sender).call{value: amountToRefund}("");
         require(success, "Transfer failed");
+        emit WagerCancelled(msg.sender, sessionId);
     }
     
     function _placeInitial4x1Stack(uint256 sessionId, uint8 game, uint8 x, uint8 z, uint8 color) internal {
