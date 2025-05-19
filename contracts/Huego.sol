@@ -209,7 +209,7 @@ contract Huego {
         require(success, "Transfer failed");
     }
     
-    function placeInitial4x1Stack(uint256 sessionId, uint8 game, uint8 x, uint8 z, uint8 color) internal {
+    function _placeInitial4x1Stack(uint256 sessionId, uint8 game, uint8 x, uint8 z, uint8 color) internal {
         require(game < 2, "Invalid game index");
         require(x + 1 < GRID_SIZE && z + 1 < GRID_SIZE, "Invalid coordinates");
 
@@ -336,17 +336,17 @@ contract Huego {
 
         // we are placing initial stacks
         if(session.turn <= 4) {
-            placeInitial4x1Stack(sessionId, session.game, x, z, currentColor);
+            _placeInitial4x1Stack(sessionId, session.game, x, z, currentColor);
         } else {
-            placeBlock(sessionId, session.game, x, z, currentColor);
+            _placeBlock(sessionId, session.game, x, z, currentColor);
             if (rotation == Rotation.X) {
-                require(checkStackWithColorExists(sessionId, session.game, currentColor), "No stack with color exists");
-                placeBlock(sessionId, session.game, x + 1, z, currentColor);
+                require(_checkStackWithColorExists(sessionId, session.game, currentColor), "No stack with color exists");
+                _placeBlock(sessionId, session.game, x + 1, z, currentColor);
             } else if (rotation == Rotation.Z) {
-                require(checkStackWithColorExists(sessionId, session.game, currentColor), "No stack with color exists");
-                placeBlock(sessionId, session.game, x, z + 1, currentColor);
+                require(_checkStackWithColorExists(sessionId, session.game, currentColor), "No stack with color exists");
+                _placeBlock(sessionId, session.game, x, z + 1, currentColor);
             } else {
-                placeBlock(sessionId, session.game, x, z, currentColor);
+                _placeBlock(sessionId, session.game, x, z, currentColor);
             }
             // game ends on turn 28
             if (session.turn == 28) {
@@ -363,7 +363,7 @@ contract Huego {
         session.turn += 1;
     }
 
-    function checkStackWithColorExists(uint256 sessionId, uint8 game, uint8 color) internal view returns (bool) {
+    function _checkStackWithColorExists(uint256 sessionId, uint8 game, uint8 color) internal view returns (bool) {
         for (uint8 i = 0; i < 16; i++) {
             if (stacksGrid[sessionId][game].grid[gameSessions[sessionId].initialStacks[game][i].x][gameSessions[sessionId].initialStacks[game][i].z].color == color) {
                 return true;
@@ -372,7 +372,7 @@ contract Huego {
         return false;
     }
 
-    function placeBlock(uint256 sessionId, uint8 game, uint8 x, uint8 z, uint8 currentColor) internal {
+    function _placeBlock(uint256 sessionId, uint8 game, uint8 x, uint8 z, uint8 currentColor) internal {
         require(stacksGrid[sessionId][game].grid[x][z].color != 0, "Stack does not exist");
 
         stacksGrid[sessionId][game].grid[x][z].y += 1;
