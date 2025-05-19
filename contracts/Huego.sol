@@ -10,9 +10,11 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 contract Huego {
     using SafeERC20 for IERC20;
+    using ECDSA for bytes32;
 
     uint8 constant GRID_SIZE = 8;
     uint256 public timeLimit = 600; // 10 minutes per player
@@ -21,6 +23,10 @@ contract Huego {
     uint256 public extraTimeForPlayer1 = 5; // Extra seconds for player 1
     IERC721 public nftContract;
     uint256 public discountedFeePercentage = 200; // 2% for NFT holders
+    
+    // Maximum time window for a player to use a signature after it's created
+    // Player2 must create the game within 1 minute of player1 signing the message
+    uint256 public constant SIGNATURE_VALIDITY_PERIOD = 60; // 60 seconds = 1 minute
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Not the owner");
@@ -32,6 +38,7 @@ contract Huego {
     event WagerProposed(address indexed proposer, uint256 indexed sessionId, uint256 amount);
     event WagerAccepted(uint256 indexed sessionId, address indexed player1, address indexed player2, uint256 amount);
     event GameEnded(uint256 indexed sessionId, address indexed winner, address indexed loser, uint256 amount);
+    event SessionSignatureVerified(address indexed player1, address indexed player2, uint256 timestamp);
 
     struct WagerInfo {
         uint256 amount;
@@ -80,6 +87,9 @@ contract Huego {
 
     // Colors: 0 = empty, 1 = yellow, 2 = purple, 3 = orange, 4 = green
     enum Rotation {X, Z, Y}
+
+    // Mapping to track used signatures
+    mapping(bytes32 => bool) public usedSignatures;
 
     constructor() {
         owner = msg.sender;
@@ -252,12 +262,41 @@ contract Huego {
         emit BlockPlaced(sessionId, game, gameSessions[sessionId].turn, 1, x, z, Rotation.X);
     }
 
-    function createSession(address player1, address player2) external {
-        // only player 1 can create a session
+    function getSessionMessageHash(address player1, address player2, uint256 timestamp) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked("Create Huego Game Session", player1, player2, timestamp));
+    }
+
+    function createSession(address player1, address player2, uint256 timestamp, bytes memory signature) external {
+        // only player 2 can create a session
         require(msg.sender == player2, "Not player 2");
         // player 1 and 2 must not have an active game
         require(getPlayerActiveSession(player1) == 0, "Player 1 has an active session");
         require(getPlayerActiveSession(player2) == 0, "Player 2 has an active session");
+        
+        // Verify timestamp is valid and within the allowed time window (1 minute)
+        require(timestamp <= block.timestamp, "Timestamp is from the future");
+        require(block.timestamp <= timestamp + SIGNATURE_VALIDITY_PERIOD, "Signature expired (must use within 1 minute)");
+        
+        // Create message hash
+        bytes32 messageHash = getSessionMessageHash(player1, player2, timestamp);
+        
+        // Prepend the Ethereum signed message prefix
+        bytes32 ethSignedMessageHash = keccak256(
+            abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
+        );
+        
+        // Verify signature hasn't been used
+        require(!usedSignatures[ethSignedMessageHash], "Signature already used");
+        
+        // Recover signer address
+        address signer = ECDSA.recover(ethSignedMessageHash, signature);
+        require(signer == player1, "Invalid signature");
+        
+        // Mark signature as used
+        usedSignatures[ethSignedMessageHash] = true;
+        
+        // Emit event for signature verification
+        emit SessionSignatureVerified(player1, player2, timestamp);
 
         uint256 sessionId = gameSessions.length;
         GameSession storage session = gameSessions.push();
