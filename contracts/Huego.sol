@@ -42,7 +42,7 @@ contract Huego {
         uint256 sessionId;
         uint256 amount;
     }
-
+    
     struct GameSession {
         address player1;
         address player2;
@@ -155,25 +155,25 @@ contract Huego {
     function _proposeWager(uint256 sessionId, uint256 _amount, address sender) internal {
         require(sender == gameSessions[sessionId].player1 || sender == gameSessions[sessionId].player2, "Not a player of this game");
         address otherPlayer = (sender == gameSessions[sessionId].player1) ? gameSessions[sessionId].player2 : gameSessions[sessionId].player1;
-
+        
         uint256 currentWagerAmount = wagerProposals[sender][sessionId].amount;
         uint256 otherPlayerWagerAmount = wagerProposals[otherPlayer][sessionId].amount;
-
+        
         // Update state before external calls
         delete wagerProposals[otherPlayer][sessionId];
         wagerProposals[sender][sessionId] = WagerProposal({
             sessionId: sessionId,
             amount: _amount
         });
-
+        
         emit WagerProposed(sender, sessionId, _amount);
-
+        
         // INTERACTIONS - Perform external calls last to prevent reentrancy
         if (currentWagerAmount != 0) {
             (bool success,) = payable(sender).call{value: currentWagerAmount}("");
             require(success, "Refund failed");
         }
-
+        
         if (otherPlayerWagerAmount != 0) {
             (bool success,) = payable(otherPlayer).call{value: otherPlayerWagerAmount}("");
             require(success, "Refund to other player failed");
@@ -188,7 +188,7 @@ contract Huego {
 
         gameSessions[sessionId].wager.amount += wagerProposals[proposer][sessionId].amount;
         delete wagerProposals[proposer][sessionId];
-
+        
         emit WagerAccepted(sessionId, gameSessions[sessionId].player1, gameSessions[sessionId].player2, _amount);
     }
 
@@ -199,7 +199,7 @@ contract Huego {
         require(success, "Transfer failed");
         delete wagerProposals[msg.sender][sessionId];
     }
-
+    
     function placeInitial4x1Stack(uint256 sessionId, uint8 game, uint8 x, uint8 z, uint8 color) internal {
         require(game < 2, "Invalid game index");
         require(x + 1 < GRID_SIZE && z + 1 < GRID_SIZE, "Invalid coordinates");
@@ -278,7 +278,7 @@ contract Huego {
         userGameSession[player1] = sessionId;
         userGameSession[player2] = sessionId;
         session.turn = 1;
-
+        
         emit GameSessionCreated(sessionId, player1, player2, 0);
     }
 
@@ -439,7 +439,7 @@ contract Huego {
                 winner = session.player2;
                 emit GameEnded(sessionId, session.player2, session.player1, session.wager.amount * 2);
             } else {
-                // require either player1, player2
+                // require either player1, player2 
                 require(msg.sender == session.player1 || msg.sender == session.player2, "Not a player of this game");
                 // Tie case, refund wager to both players
                 uint256 feeEach;
@@ -476,14 +476,14 @@ contract Huego {
         require(msg.sender == winner, "Not the winner");
         uint256 pot = session.wager.amount * 2;
         uint256 fee;
-
+        
         // Check if winner holds NFT and discount is enabled
         if (address(nftContract) != address(0) && nftContract.balanceOf(winner) > 0) {
             fee = pot * discountedFeePercentage / 10000;
         } else {
             fee = pot * feePercentage / 10000;
         }
-
+        
         uint256 reward = pot - fee;
         (bool success4,) = payable(winner).call{value: reward}("");
         require(success4, "Transfer failed");
