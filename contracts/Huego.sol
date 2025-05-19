@@ -29,8 +29,8 @@ contract Huego {
     uint256 public constant SIGNATURE_VALIDITY_PERIOD = 60; // 60 seconds = 1 minute
 
     // Predefined offsets for the 8 unique neighboring positions
-    int8[8] private constant DX = [int8(-1), int8(-1), int8(0), int8(0), int8(2), int8(2), int8(0), int8(1)];
-    int8[8] private constant DZ = [int8(0), int8(1), int8(2), int8(2), int8(0), int8(1), int8(-1), int8(-1)];
+    int8[8] private DX;
+    int8[8] private DZ;
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Not the owner");
@@ -98,6 +98,10 @@ contract Huego {
         owner = msg.sender;
         // lets create a dummy gameSession to start from 1
         gameSessions.push();
+        
+        // Initialize the array variables
+        DX = [int8(-1), int8(-1), int8(0), int8(0), int8(2), int8(2), int8(0), int8(1)];
+        DZ = [int8(0), int8(1), int8(2), int8(2), int8(0), int8(1), int8(-1), int8(-1)];
     }
 
     function getInitialStacks(uint256 sessionId, uint8 game) public view returns (topStack[] memory) {
@@ -207,9 +211,10 @@ contract Huego {
 
     function cancelWagerProposal(uint256 sessionId) external {
         require(wagerProposals[msg.sender][sessionId].amount != 0, "No wager proposal exists");
+        uint256 amountToRefund = wagerProposals[msg.sender][sessionId].amount;
         delete wagerProposals[msg.sender][sessionId];
         // refund the player
-        (bool success,) = payable(msg.sender).call{value: wagerProposals[msg.sender][sessionId].amount}("");
+        (bool success,) = payable(msg.sender).call{value: amountToRefund}("");
         require(success, "Transfer failed");
     }
     
@@ -406,10 +411,12 @@ contract Huego {
         // Single loop to find both highest and lowest stacks
         for (uint8 i = 0; i < 16; i++) {
             topStack memory stack = stacksGrid[sessionId][game].grid[gameSessions[sessionId].initialStacks[game][i].x][gameSessions[sessionId].initialStacks[game][i].z];
+            
             // Find highest stack
             if (stack.y > highestStack) {
                 highestStack = stack.y;
             }
+            
             // Find lowest stack
             if (stack.y < lowestStack) {
                 lowestStack = stack.y;
@@ -419,11 +426,8 @@ contract Huego {
         // Calculate points based on highest and lowest stacks
         for (uint8 i = 0; i < 16; i++) {
             topStack memory stack = stacksGrid[sessionId][game].grid[gameSessions[sessionId].initialStacks[game][i].x][gameSessions[sessionId].initialStacks[game][i].z];
-            if (stack.color == 1 || stack.color == 3) {
-                starterPoints += 1;
-            } else {
-                nonStarterPoints += 1;
-            }
+            
+            // Match original logic: check high/low first, then default
             if (stack.y == highestStack || stack.y == lowestStack) {
                 // color 1 and color 3 belong to player 1
                 if (stack.color == 1 || stack.color == 3) {
@@ -431,8 +435,15 @@ contract Huego {
                 } else {
                     nonStarterPoints += 2;
                 }
+            } else {
+                if (stack.color == 1 || stack.color == 3) {
+                    starterPoints += 1;
+                } else {
+                    nonStarterPoints += 1;
+                }
             }
         }
+
         return (starterPoints, nonStarterPoints);
     }
 
