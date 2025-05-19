@@ -38,7 +38,6 @@ contract Huego {
     event WagerProposed(address indexed proposer, uint256 indexed sessionId, uint256 amount);
     event WagerAccepted(uint256 indexed sessionId, address indexed player1, address indexed player2, uint256 amount);
     event GameEnded(uint256 indexed sessionId, address indexed winner, address indexed loser, uint256 amount);
-    event SessionSignatureVerified(address indexed player1, address indexed player2, uint256 timestamp);
 
     struct WagerInfo {
         uint256 amount;
@@ -294,9 +293,6 @@ contract Huego {
         
         // Mark signature as used
         usedSignatures[ethSignedMessageHash] = true;
-        
-        // Emit event for signature verification
-        emit SessionSignatureVerified(player1, player2, timestamp);
 
         uint256 sessionId = gameSessions.length;
         GameSession storage session = gameSessions.push();
