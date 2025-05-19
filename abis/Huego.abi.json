@@ -225,6 +225,25 @@
         "internalType": "uint256",
         "name": "sessionId",
         "type": "uint256"
+      }
+    ],
+    "name": "WagerCancelled",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "proposer",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint256",
+        "name": "sessionId",
+        "type": "uint256"
       },
       {
         "indexed": false,
