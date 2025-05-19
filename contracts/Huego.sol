@@ -203,10 +203,10 @@ contract Huego {
 
     function cancelWagerProposal(uint256 sessionId) external {
         require(wagerProposals[msg.sender][sessionId].amount != 0, "No wager proposal exists");
+        delete wagerProposals[msg.sender][sessionId];
         // refund the player
         (bool success,) = payable(msg.sender).call{value: wagerProposals[msg.sender][sessionId].amount}("");
         require(success, "Transfer failed");
-        delete wagerProposals[msg.sender][sessionId];
     }
     
     function placeInitial4x1Stack(uint256 sessionId, uint8 game, uint8 x, uint8 z, uint8 color) internal {
