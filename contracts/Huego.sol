@@ -28,6 +28,10 @@ contract Huego {
     // Player2 must create the game within 1 minute of player1 signing the message
     uint256 public constant SIGNATURE_VALIDITY_PERIOD = 60; // 60 seconds = 1 minute
 
+    // Predefined offsets for the 8 unique neighboring positions
+    int8[8] private constant DX = [int8(-1), int8(-1), int8(0), int8(0), int8(2), int8(2), int8(0), int8(1)];
+    int8[8] private constant DZ = [int8(0), int8(1), int8(2), int8(2), int8(0), int8(1), int8(-1), int8(-1)];
+
     modifier onlyOwner() {
         require(msg.sender == owner, "Not the owner");
         _;
@@ -225,14 +229,10 @@ contract Huego {
 
         // If it's not the first placement, check for a valid neighbor
         if (gameSessions[sessionId].turn > 1) {
-            // Predefined offsets for the 8 unique neighboring positions
-            int8[8] memory dx = [ int8(-1), int8(-1), int8(0), int8(0), int8(2), int8(2), int8(0), int8(1)];
-            int8[8] memory dz = [ int8(0), int8(1), int8(2), int8(2), int8(0), int8(1), int8(-1), int8(-1)];
-
             bool found = false;
             for (uint8 i = 0; i < 8; i++) {
-                int8 nx = int8(x) + dx[i];
-                int8 nz = int8(z) + dz[i];
+                int8 nx = int8(x) + DX[i];
+                int8 nz = int8(z) + DZ[i];
 
                 // Ensure within grid bounds before checking
                 if (nx >= 0 && nx < int8(GRID_SIZE) && nz >= 0 && nz < int8(GRID_SIZE)) {
@@ -401,34 +401,29 @@ contract Huego {
         uint256 nonStarterPoints = 0;
 
         uint8 highestStack = 0;
-        // first lets loop to find the highest stack
-        for (uint8 i = 0; i < 16; i++) {
-            uint x = gameSessions[sessionId].initialStacks[game][i].x;
-            uint z = gameSessions[sessionId].initialStacks[game][i].z;
+        uint8 lowestStack = type(uint8).max; // Initialize to maximum possible value
 
-            topStack memory stack = stacksGrid[sessionId][game].grid[x][z];
+        // Single loop to find both highest and lowest stacks
+        for (uint8 i = 0; i < 16; i++) {
+            topStack memory stack = stacksGrid[sessionId][game].grid[gameSessions[sessionId].initialStacks[game][i].x][gameSessions[sessionId].initialStacks[game][i].z];
+            // Find highest stack
             if (stack.y > highestStack) {
                 highestStack = stack.y;
             }
-        }
-
-        uint lowestStack = highestStack;
-        // now lets loop to find the lowest stack
-        for (uint8 i = 0; i < 16; i++) {
-            uint x = gameSessions[sessionId].initialStacks[game][i].x;
-            uint z = gameSessions[sessionId].initialStacks[game][i].z;
-
-            topStack memory stack = stacksGrid[sessionId][game].grid[x][z];
+            // Find lowest stack
             if (stack.y < lowestStack) {
                 lowestStack = stack.y;
             }
         }
 
+        // Calculate points based on highest and lowest stacks
         for (uint8 i = 0; i < 16; i++) {
-            uint x = gameSessions[sessionId].initialStacks[game][i].x;
-            uint z = gameSessions[sessionId].initialStacks[game][i].z;
-
-            topStack memory stack = stacksGrid[sessionId][game].grid[x][z];
+            topStack memory stack = stacksGrid[sessionId][game].grid[gameSessions[sessionId].initialStacks[game][i].x][gameSessions[sessionId].initialStacks[game][i].z];
+            if (stack.color == 1 || stack.color == 3) {
+                starterPoints += 1;
+            } else {
+                nonStarterPoints += 1;
+            }
             if (stack.y == highestStack || stack.y == lowestStack) {
                 // color 1 and color 3 belong to player 1
                 if (stack.color == 1 || stack.color == 3) {
@@ -436,15 +431,8 @@ contract Huego {
                 } else {
                     nonStarterPoints += 2;
                 }
-            } else {
-                if (stack.color == 1 || stack.color == 3) {
-                    starterPoints += 1;
-                } else {
-                    nonStarterPoints += 1;
-                }
             }
         }
-
         return (starterPoints, nonStarterPoints);
     }
 
