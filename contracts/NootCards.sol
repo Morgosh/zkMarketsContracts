@@ -82,7 +82,7 @@ contract NootCards {
     // Track used sponsorship nonces
     mapping(bytes32 => bool) public usedSponsorshipNonces;
     
-    event GameStarted(address indexed player, uint256 wager, uint8 turns, uint256 gameId, bytes32 commitment, PaymentType paymentType, bytes32 sponsorshipNonce);
+    event GameStarted(address indexed player, uint256 gameId, uint256 wager, uint8 turns, bytes32 commitment, PaymentType paymentType, bytes32 sponsorshipNonce);
     event GuessMade(address indexed player, uint256 gameId, uint8 turn, Guess guess);
     event GameLost(address indexed player, uint256 gameId, Card previousCard, Card newCard, Guess guess, bytes32 currentHash);
     event GameWon(address indexed player, uint256 gameId, uint256 prize, PaymentType paymentType);
@@ -102,14 +102,7 @@ contract NootCards {
         _;
     }
     
-    constructor(
-        address _nootToken, 
-        address _dealer, 
-        uint256 _minWager, 
-        uint256 _maxWager,
-        uint256 _minEthWager,
-        uint256 _maxEthWager
-    ) {
+    constructor(address _nootToken, address _dealer, uint256 _minWager, uint256 _maxWager, uint256 _minEthWager, uint256 _maxEthWager) {
         require(_nootToken != address(0), "NootCards: token address cannot be zero");
         require(_dealer != address(0), "NootCards: dealer address cannot be zero");
         
@@ -156,19 +149,9 @@ contract NootCards {
     }
     
     // Helper to derive a card from a hash with user entropy
-    function _getCardFromHash(
-        bytes32 hash, 
-        bytes32 userRandomNonce, 
-        address player, 
-        uint256 gameId
-    ) internal pure returns (Card) {
+    function _getCardFromHash(bytes32 hash, bytes32 userRandomNonce, address player, uint256 gameId) internal pure returns (Card) {
         // Combine hash with user entropy
-        bytes32 combinedHash = keccak256(abi.encodePacked(
-            hash,
-            userRandomNonce,
-            player,
-            gameId
-        ));
+        bytes32 combinedHash = keccak256(abi.encodePacked(hash, userRandomNonce, player, gameId));
         
         // Use the combined hash to determine the card
         return Card(uint8(uint256(combinedHash) % 13));
@@ -184,12 +167,7 @@ contract NootCards {
     }
     
     // Verify a commitment signature from the dealer, now includes userAddress and gameId
-    function _verifyCommitmentSignature(
-        bytes32 commitment, 
-        bytes memory signature,
-        address userAddress,
-        uint256 gameId
-    ) internal view returns (bool) {
+    function _verifyCommitmentSignature(bytes32 commitment, bytes memory signature, address userAddress, uint256 gameId) internal view returns (bool) {
         // Create message hash including user address and game ID
         bytes32 messageHash = keccak256(abi.encodePacked(
             "\x19Ethereum Signed Message:\n32",
@@ -256,16 +234,8 @@ contract NootCards {
     /**
      * @notice Internal function to start a game (common logic for both regular and sponsored games)
      */
-    function _startGame(
-        address player,
-        uint256 wagerAmount,
-        bytes32 userRandomNonce,
-        bytes32 dealerCommitment,
-        bytes memory commitmentSignature,
-        PaymentType paymentType,
-        bool isSponsored,
-        bytes32 sponsorshipNonce
-    ) internal {
+    function _startGame(address player, uint256 wagerAmount, bytes32 userRandomNonce, bytes32 dealerCommitment,
+     bytes memory commitmentSignature, PaymentType paymentType, bool isSponsored, bytes32 sponsorshipNonce) internal {
         // Check if the player has a pending withdrawal request
         require(withdrawalRequests[player] == 0, "Pending withdrawal request exists");
         
@@ -283,10 +253,8 @@ contract NootCards {
         playerGameCounters[player]++;
         
         // Verify the commitment signature
-        require(
-            _verifyCommitmentSignature(dealerCommitment, commitmentSignature, player, gameId),
-            "Invalid commitment signature"
-        );
+        require(_verifyCommitmentSignature(dealerCommitment, commitmentSignature, player, gameId),
+            "Invalid commitment signature");
         
         // Initialize the game
         playerGames[player][gameId] = Game({
@@ -303,15 +271,7 @@ contract NootCards {
         });
         
         // Emit appropriate event
-        emit GameStarted(
-            player,
-            wagerAmount,
-            GAME_MAX_TURNS,
-            gameId,
-            dealerCommitment,
-            paymentType,
-            isSponsored ? sponsorshipNonce : bytes32(0)
-        );
+        emit GameStarted(player, gameId, wagerAmount, GAME_MAX_TURNS, dealerCommitment, paymentType, isSponsored ? sponsorshipNonce : bytes32(0));
     }
 
     /**
@@ -321,12 +281,7 @@ contract NootCards {
      * @param dealerCommitment The dealer's commitment (hash of privateSecret)
      * @param commitmentSignature The dealer's signature of the commitment
      */
-    function startGame(
-        uint256 wagerAmount,
-        bytes32 userRandomNonce,
-        bytes32 dealerCommitment,
-        bytes memory commitmentSignature
-    ) external payable {
+    function startGame(uint256 wagerAmount, bytes32 userRandomNonce, bytes32 dealerCommitment, bytes memory commitmentSignature) external payable {
         // Determine payment type based on whether ETH was sent
         PaymentType paymentType = msg.value > 0 ? PaymentType.ETH : PaymentType.Token;
         uint256 actualWager;
@@ -344,16 +299,8 @@ contract NootCards {
         }
         
         // Start the game using common logic
-        _startGame(
-            msg.sender,
-            actualWager,
-            userRandomNonce,
-            dealerCommitment,
-            commitmentSignature,
-            paymentType,
-            false, // Not sponsored
-            bytes32(0) // No sponsorship nonce
-        );
+        _startGame(msg.sender, actualWager, userRandomNonce, dealerCommitment, 
+            commitmentSignature, paymentType, false, bytes32(0));
     }
 
     /**
@@ -366,63 +313,29 @@ contract NootCards {
      * @param sponsorshipNonce A unique nonce for the sponsorship to prevent replay attacks
      * @param sponsorshipSignature The dealer's signature authorizing the sponsorship
      */
-    function startSponsoredGame(
-        bytes32 userRandomNonce,
-        bytes32 dealerCommitment,
-        bytes memory commitmentSignature,
-        uint256 sponsoredAmount,
-        PaymentType paymentType,
-        bytes32 sponsorshipNonce,
-        bytes memory sponsorshipSignature
-    ) external {
+    function startSponsoredGame(bytes32 userRandomNonce, bytes32 dealerCommitment, bytes memory commitmentSignature, uint256 sponsoredAmount, 
+    PaymentType paymentType, bytes32 sponsorshipNonce, bytes memory sponsorshipSignature) external {
         // Ensure the nonce hasn't been used before
         require(!usedSponsorshipNonces[sponsorshipNonce], "Sponsorship nonce already used");
         
         // Verify sponsorship signature
-        require(
-            _verifySponsorshipSignature(
-                msg.sender, 
-                sponsoredAmount, 
-                paymentType, 
-                sponsorshipNonce, 
-                sponsorshipSignature
-            ),
-            "Invalid sponsorship signature"
-        );
+        require(_verifySponsorshipSignature(msg.sender, sponsoredAmount, paymentType, 
+            sponsorshipNonce, sponsorshipSignature), "Invalid sponsorship signature");
         
         // Mark sponsorship nonce as used
         usedSponsorshipNonces[sponsorshipNonce] = true;
         
         // Start the game using common logic
-        _startGame(
-            msg.sender,
-            sponsoredAmount,
-            userRandomNonce,
-            dealerCommitment,
-            commitmentSignature,
-            paymentType,
-            true, // Is sponsored
-            sponsorshipNonce
-        );
+        _startGame(msg.sender, sponsoredAmount, userRandomNonce, dealerCommitment,
+            commitmentSignature, paymentType, true, sponsorshipNonce);
     }
     
     // Verify a sponsorship signature from the dealer
-    function _verifySponsorshipSignature(
-        address userAddress,
-        uint256 sponsoredAmount,
-        PaymentType paymentType,
-        bytes32 sponsorshipNonce,
-        bytes memory signature
-    ) internal view returns (bool) {
+    function _verifySponsorshipSignature(address userAddress, uint256 sponsoredAmount, PaymentType paymentType, bytes32 sponsorshipNonce, bytes memory signature) internal view returns (bool) {
         // Create message hash including all sponsorship details
         bytes32 messageHash = keccak256(abi.encodePacked(
             "\x19Ethereum Signed Message:\n32",
-            keccak256(abi.encodePacked(
-                userAddress,
-                sponsoredAmount,
-                uint8(paymentType),
-                sponsorshipNonce
-            ))
+            keccak256(abi.encodePacked(userAddress, sponsoredAmount, uint8(paymentType), sponsorshipNonce))
         ));
         
         // Recover signer from signature
@@ -454,12 +367,7 @@ contract NootCards {
         require(currentHash == game.commitment, "Invalid hash chain");
 
         // Get the new card from the next hash with added user entropy
-        Card newCard = _getCardFromHash(
-            nextHash, 
-            game.userRandomNonce, 
-            msg.sender, 
-            game.gameId
-        );
+        Card newCard = _getCardFromHash(nextHash, game.userRandomNonce, msg.sender, game.gameId);
         game.turn++;
 
 
@@ -469,12 +377,7 @@ contract NootCards {
             game.currentCard = newCard;
             game.currentGuess = newGuess;
             
-            emit GuessMade(
-                msg.sender,
-                game.gameId,
-                game.turn,
-                newGuess
-            );
+            emit GuessMade(msg.sender, game.gameId, game.turn, newGuess);
             
             return;
         }
@@ -486,12 +389,7 @@ contract NootCards {
             // Update card and guess
             game.currentCard = newCard;
             game.currentGuess = newGuess;
-            emit GuessMade(
-                msg.sender,
-                game.gameId,
-                game.turn,
-                newGuess
-            );
+            emit GuessMade(msg.sender, game.gameId, game.turn, newGuess);
             
             // If player has completed all rounds, they win the game
             if (game.turn == GAME_MAX_TURNS) {
@@ -539,18 +437,11 @@ contract NootCards {
         require(currentHash == game.commitment, "Invalid hash chain");
         
         // Get the next card from hash with added user entropy
-        Card nextCard = _getCardFromHash(
-            nextHash, 
-            game.userRandomNonce, 
-            msg.sender, 
-            game.gameId
-        );
+        Card nextCard = _getCardFromHash(nextHash, game.userRandomNonce, msg.sender, game.gameId);
         
         // Check if the player's guess would win
-        require(
-            _checkWin(game.currentCard, nextCard, game.currentGuess),
-            "Current guess would not win next turn"
-        );
+        require(_checkWin(game.currentCard, nextCard, game.currentGuess),
+            "Current guess would not win next turn");
         
         uint256 prize = calculateCurrentPot(game);
         game.status = GameStatus.Completed;
@@ -569,63 +460,21 @@ contract NootCards {
     }
     
     // Get full game state
-    function getGameState(address player) external view returns (
-        GameStatus status,
-        uint256 wager,
-        uint256 currentPot,
-        Card previousCard,
-        Guess previousGuess,
-        uint8 turn,
-        uint256 gameId,
-        bytes32 commitment,
-        bytes32 userRandomNonce,
-        PaymentType paymentType
-    ) {
+    function getGameState(address player) external view returns (GameStatus status, uint256 wager, uint256 currentPot, Card previousCard,
+     Guess previousGuess, uint8 turn, uint256 gameId, bytes32 commitment, bytes32 userRandomNonce, PaymentType paymentType) {
         // Get the active game (most recent game)
         uint256 activeGameId = playerGameCounters[player] > 0 ? playerGameCounters[player] - 1 : 0;
         Game storage game = playerGames[player][activeGameId];
         
-        return (
-            game.status,
-            game.wager,
-            calculateCurrentPot(game),
-            game.currentCard,
-            game.currentGuess,
-            game.turn,
-            game.gameId,
-            game.commitment,
-            game.userRandomNonce,
-            game.paymentType
-        );
+        return (game.status, game.wager, calculateCurrentPot(game), game.currentCard, game.currentGuess, game.turn, game.gameId, game.commitment, game.userRandomNonce, game.paymentType);
     }
     
     // Get specific game state by gameId
-    function getGameStateById(address player, uint256 gameId) external view returns (
-        GameStatus status,
-        uint256 wager,
-        uint256 currentPot,
-        Card previousCard,
-        Guess previousGuess,
-        uint8 turn,
-        uint256 gameIdReturn,
-        bytes32 commitment,
-        bytes32 userRandomNonce,
-        PaymentType paymentType
-    ) {
+    function getGameStateById(address player, uint256 gameId) external view returns (GameStatus status, uint256 wager, uint256 currentPot, Card previousCard,
+     Guess previousGuess, uint8 turn, uint256 gameIdReturn, bytes32 commitment, bytes32 userRandomNonce, PaymentType paymentType) {
         Game storage game = playerGames[player][gameId];
         
-        return (
-            game.status,
-            game.wager,
-            calculateCurrentPot(game),
-            game.currentCard,
-            game.currentGuess,
-            game.turn,
-            game.gameId,
-            game.commitment,
-            game.userRandomNonce,
-            game.paymentType
-        );
+        return (game.status, game.wager, calculateCurrentPot(game), game.currentCard, game.currentGuess, game.turn, game.gameId, game.commitment, game.userRandomNonce, game.paymentType);
     }
     
     /**
@@ -718,12 +567,7 @@ contract NootCards {
         require(currentHash == game.commitment, "Invalid hash chain");
         
         // Get the new card from the hash with added user entropy
-        Card newCard = _getCardFromHash(
-            nextHash, 
-            game.userRandomNonce, 
-            player, 
-            game.gameId
-        );
+        Card newCard = _getCardFromHash(nextHash, game.userRandomNonce, player, game.gameId);
         
         // Check if the player's guess would lose
         bool playerWouldWin = _checkWin(game.currentCard, newCard, game.currentGuess);
