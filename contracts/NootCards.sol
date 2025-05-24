@@ -32,7 +32,7 @@ interface IERC20 {
 contract NootCards {
     enum Card { Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King, Ace }
     enum Guess { Higher, Lower }
-    enum GameStatus { Active, Completed }
+    enum GameStatus { Inactive, Active, Completed }
     enum PaymentType { Token, ETH }
     
     // Add constant for maximum turns
@@ -368,16 +368,16 @@ contract NootCards {
 
         // Get the new card from the next hash with added user entropy
         Card newCard = _getCardFromHash(nextHash, game.userRandomNonce, msg.sender, game.gameId);
-        game.turn++;
 
 
         // First turn should always pass (no previous guess to check)
-        if (game.turn == 1) {
+        if (game.turn == 0) {
             // Update card and guess
             game.currentCard = newCard;
             game.currentGuess = newGuess;
             
             emit GuessMade(msg.sender, game.gameId, game.turn, newGuess);
+            game.turn++;
             
             return;
         }
@@ -390,6 +390,7 @@ contract NootCards {
             game.currentCard = newCard;
             game.currentGuess = newGuess;
             emit GuessMade(msg.sender, game.gameId, game.turn, newGuess);
+            game.turn++;
             
             // If player has completed all rounds, they win the game
             if (game.turn == GAME_MAX_TURNS) {
