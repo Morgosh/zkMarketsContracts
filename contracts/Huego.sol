@@ -582,6 +582,7 @@ contract Huego {
     }
 
     function setFeePercentage(uint256 _feePercentage) external onlyOwner {
+        require(_feePercentage >= DISCOUNTED_FEE_PERCENTAGE, "Fee cannot be lower than NFT discount fee");
         require(_feePercentage <= 1000, "Fee too high"); // Max 10%
         feePercentage = _feePercentage;
     }
