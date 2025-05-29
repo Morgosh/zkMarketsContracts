@@ -102,7 +102,7 @@ contract Huego {
     // Colors: 0 = empty, 1 = yellow, 2 = purple, 3 = orange, 4 = green
     enum Rotation {X, Z, Y}
     enum GameRound {FIRST, SECOND}
-    enum PieceType {FOUR_BY_ONE_BLOCK, TWO_BY_ONE_BLOCK}
+    enum PieceType {TWO_BY_TWO_BLOCK, TWO_BY_ONE_BLOCK}
 
     // Mapping to track used signatures
     mapping(bytes32 => bool) public usedSignatures;
@@ -273,7 +273,7 @@ contract Huego {
         gameSessions[sessionId].initialStacks[game].push(stack3);
         gameSessions[sessionId].initialStacks[game].push(stack4);
 
-        emit BlockPlaced(sessionId, uint8(game), gameSessions[sessionId].turn, PieceType.FOUR_BY_ONE_BLOCK, x, z, Rotation.X);
+        emit BlockPlaced(sessionId, uint8(game), gameSessions[sessionId].turn, PieceType.TWO_BY_TWO_BLOCK, x, z, Rotation.X);
     }
 
     function getSessionMessageHash(address player1, address player2, uint256 timestamp) public view returns (bytes32) {
