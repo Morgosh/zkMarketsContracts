@@ -462,6 +462,7 @@ contract Huego {
         // if forfeited
         if(session.forfeitedBy != address(0)) {
             winner = session.forfeitedBy == session.player1 ? session.player2 : session.player1;
+            emit GameEnded(sessionId, winner, session.forfeitedBy, session.wager.amount * 2);
         } else if(session.game == 1 && session.turn == 29 && session.gameEnded) {
             uint256 totalPlayer1Points = 0;
             uint256 totalPlayer2Points = 0;
