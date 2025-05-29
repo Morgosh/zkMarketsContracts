@@ -29,8 +29,8 @@ contract Huego {
     uint256 public constant SIGNATURE_VALIDITY_PERIOD = 60; // 60 seconds = 1 minute
 
     // Predefined offsets for the 8 unique neighboring positions
-    int8[8] private DX;
-    int8[8] private DZ;
+    int8[GRID_SIZE] private DX;
+    int8[GRID_SIZE] private DZ;
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Not the owner");
@@ -93,7 +93,7 @@ contract Huego {
     mapping(address => uint256) public withdrawableBalance;
 
     struct GameGrid {
-        topStack[8][8] grid;
+        topStack[GRID_SIZE][GRID_SIZE] grid;
     }
     // GameSession ID -> GameRound -> 8x8 grid
     mapping(uint256 => mapping(GameRound => GameGrid)) private stacksGrid;
@@ -120,7 +120,7 @@ contract Huego {
     function getInitialStacks(uint256 sessionId, GameRound game) external view validGameSession(sessionId) returns (topStack[] memory) {
         return gameSessions[sessionId].initialStacks[game];
     }
-    function getStacksGrid(uint256 sessionId, GameRound game) external view validGameSession(sessionId) returns (topStack[8][8] memory) {
+    function getStacksGrid(uint256 sessionId, GameRound game) external view validGameSession(sessionId) returns (topStack[GRID_SIZE][GRID_SIZE] memory) {
         return stacksGrid[sessionId][game].grid;
     }
 
@@ -245,7 +245,7 @@ contract Huego {
         // If it's not the first placement, check for a valid neighbor
         if (gameSessions[sessionId].turn > 1) {
             bool found = false;
-            for (uint8 i = 0; i < 8; i++) {
+            for (uint8 i = 0; i < GRID_SIZE; i++) {
                 int8 nx = int8(x) + DX[i];
                 int8 nz = int8(z) + DZ[i];
 

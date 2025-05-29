@@ -566,8 +566,10 @@ it("blocks fall down correctly", async () => {
     signature
   )
   
-  // lets make the default grid
-  const sessionId = 4
+  // Get the actual active session ID instead of hardcoding
+  const sessionId = await player1Contract.userGameSession(richWalletsAddresses[1])
+  console.log("New session ID:", sessionId.toString())
+  
   const legitMoveTx1 = await player1Contract.play(sessionId, 0, 0, 0)
   await legitMoveTx1.wait()
   const legitMoveTx2 = await player2Contract.play(sessionId, 2, 0, 0)
