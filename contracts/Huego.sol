@@ -577,9 +577,9 @@ contract Huego {
         
         uint256 reward = pot - fee;
         (bool success4,) = payable(winner).call{value: reward}("");
-        require(success4, "Transfer failed");
+        require(success4, "Winner transfer failed");
         (bool success5,) = payable(owner).call{value: fee}("");
-        require(success5, "Transfer failed");
+        require(success5, "Owner transfer failed");
     }
 
     function claimRewards() external {
