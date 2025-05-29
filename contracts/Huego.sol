@@ -479,7 +479,7 @@ contract Huego {
                 require(msg.sender == session.player1 || msg.sender == session.player2, "Not a player of this game");
                 // Tie case, refund wager to both players
                 uint256 feeEach;
-                if (address(nftContract) != address(0) && nftContract.balanceOf(msg.sender) > 0) {
+                if (address(nftContract) != address(0) && (nftContract.balanceOf(session.player1) > 0 || nftContract.balanceOf(session.player2) > 0)) {
                     feeEach = session.wager.amount * discountedFeePercentage / 10000;
                 } else {
                     feeEach = session.wager.amount * feePercentage / 10000;
