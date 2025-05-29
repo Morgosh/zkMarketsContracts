@@ -101,7 +101,7 @@ contract Huego {
         gameSessions.push();
         
         // Initialize the array variables
-        DX = [int8(-1), int8(-1), int8(0), int8(0), int8(2), int8(2), int8(0), int8(1)];
+        DX = [int8(-1), int8(-1), int8(0), int8(1), int8(2), int8(2), int8(0), int8(1)];
         DZ = [int8(0), int8(1), int8(2), int8(2), int8(0), int8(1), int8(-1), int8(-1)];
     }
 
