@@ -42,7 +42,7 @@ contract Huego {
         _;
     }
 
-    event BlockPlaced(uint256 indexed sessionId, uint8 indexed game, uint8 turn, uint8 pieceType, uint8 x, uint8 z, Rotation rotation);
+    event BlockPlaced(uint256 indexed sessionId, uint8 indexed game, uint8 turn, PieceType pieceType, uint8 x, uint8 z, Rotation rotation);
     event GameSessionCreated(uint256 indexed sessionId, address indexed player1, address indexed player2, uint256 wagerAmount);
     event WagerProposed(address indexed proposer, uint256 indexed sessionId, uint256 amount);
     event WagerAccepted(uint256 indexed sessionId, address indexed player1, address indexed player2, uint256 amount);
@@ -102,6 +102,7 @@ contract Huego {
     // Colors: 0 = empty, 1 = yellow, 2 = purple, 3 = orange, 4 = green
     enum Rotation {X, Z, Y}
     enum GameRound {FIRST, SECOND}
+    enum PieceType {FOUR_BY_ONE_BLOCK, TWO_BY_ONE_BLOCK}
 
     // Mapping to track used signatures
     mapping(bytes32 => bool) public usedSignatures;
@@ -272,7 +273,7 @@ contract Huego {
         gameSessions[sessionId].initialStacks[game].push(stack3);
         gameSessions[sessionId].initialStacks[game].push(stack4);
 
-        emit BlockPlaced(sessionId, uint8(game), gameSessions[sessionId].turn, 1, x, z, Rotation.X);
+        emit BlockPlaced(sessionId, uint8(game), gameSessions[sessionId].turn, PieceType.FOUR_BY_ONE_BLOCK, x, z, Rotation.X);
     }
 
     function getSessionMessageHash(address player1, address player2, uint256 timestamp) public view returns (bytes32) {
@@ -380,7 +381,7 @@ contract Huego {
                     session.gameEnded = true;
                 }
             }
-            emit BlockPlaced(sessionId, uint8(session.game), session.turn, 2, x, z, rotation);
+            emit BlockPlaced(sessionId, uint8(session.game), session.turn, PieceType.TWO_BY_ONE_BLOCK, x, z, rotation);
         }
         session.lastMoveTime = block.timestamp;
         session.turn += 1;
