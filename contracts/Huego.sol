@@ -1,8 +1,8 @@
 // there are 2 gameSessions played per session
-// first 4 turns are placing 4x1 blocks flat
+// first 4 turns are placing 2x2 blocks flat
 // next 24 turns are placing 2x1 blocks any rotation
 // at this point game starts another game
-// first 4 turns are placing 4x1 blocks flat
+// first 4 turns are placing 2x2 blocks flat
 // next 24 turns are placing 2x1 blocks any rotation
 
 // SPDX-License-Identifier: MIT
@@ -24,6 +24,19 @@ contract Huego {
     IERC721 public nftContract;
     uint256 public constant DISCOUNTED_FEE_PERCENTAGE = 200; // 2% for NFT holders
     
+    // Game constants
+    uint8 constant FINAL_TURN = 28; // Last turn of each game round
+    uint8 constant INITIAL_TURNS = 4; // Number of turns for placing initial 2x2 blocks
+    uint8 constant BASE_POINTS = 1; // Base points for each block
+    uint8 constant BONUS_POINTS = 2; // Bonus points for highest/lowest stacks
+    uint16 constant BASIS_POINTS = 10000; // 100% in basis points
+    uint16 constant MAX_FEE_PERCENTAGE = 1000; // Maximum fee: 10% in basis points
+    uint8 constant MAX_EXTRA_TIME = 60; // Maximum extra time for player 1 in seconds
+    
+    // Player colors (yellow=1, orange=3 belong to starter; purple=2, green=4 belong to non-starter)
+    uint8 constant PLAYER_COLOR_1 = 1; // Yellow
+    uint8 constant PLAYER_COLOR_2 = 3; // Orange
+
     // Maximum time window for a player to use a signature after it's created
     // Player2 must create the game within 1 minute of player1 signing the message
     uint256 public constant SIGNATURE_VALIDITY_PERIOD = 60; // 60 seconds = 1 minute
@@ -229,7 +242,7 @@ contract Huego {
         emit WagerCancelled(msg.sender, sessionId);
     }
     
-    function _placeInitial4x1Stack(uint256 sessionId, GameRound game, uint8 x, uint8 z, uint8 color) internal {
+    function _placeInitial2x2Stack(uint256 sessionId, GameRound game, uint8 x, uint8 z, uint8 color) internal {
         require(x + 1 < GRID_SIZE && z + 1 < GRID_SIZE, "Invalid coordinates");
 
         require(stacksGrid[sessionId][game].grid[x][z].color == 0, "Grid has a stack");
@@ -359,8 +372,8 @@ contract Huego {
         }
 
         // we are placing initial stacks
-        if(session.turn <= 4) {
-            _placeInitial4x1Stack(sessionId, session.game, x, z, currentColor);
+        if(session.turn <= INITIAL_TURNS) {
+            _placeInitial2x2Stack(sessionId, session.game, x, z, currentColor);
         } else {
             if (rotation == Rotation.X) {
                 require(_checkStackWithColorExists(sessionId, session.game, currentColor), "No stack with color exists");
@@ -372,8 +385,8 @@ contract Huego {
                 _placeBlock(sessionId, session.game, x, z, currentColor);
             }
             _placeBlock(sessionId, session.game, x, z, currentColor); // place initial block must be done last due to stack color check
-            // game ends on turn 28
-            if (session.turn == 28) {
+            // game ends on final turn
+            if (session.turn == FINAL_TURN) {
                 if(session.game == GameRound.FIRST) {
                     session.game = GameRound.SECOND;
                     session.turn = 0;
@@ -463,16 +476,16 @@ contract Huego {
             // Match original logic: check high/low first, then default
             if (stack.y == highestStack || stack.y == lowestStack) {
                 // color 1 and color 3 belong to player 1
-                if (stack.color == 1 || stack.color == 3) {
-                    starterPoints += 2;
+                if (stack.color == PLAYER_COLOR_1 || stack.color == PLAYER_COLOR_2) {
+                    starterPoints += BONUS_POINTS;
                 } else {
-                    nonStarterPoints += 2;
+                    nonStarterPoints += BONUS_POINTS;
                 }
             } else {
-                if (stack.color == 1 || stack.color == 3) {
-                    starterPoints += 1;
+                if (stack.color == PLAYER_COLOR_1 || stack.color == PLAYER_COLOR_2) {
+                    starterPoints += BASE_POINTS;
                 } else {
-                    nonStarterPoints += 1;
+                    nonStarterPoints += BASE_POINTS;
                 }
             }
         }
@@ -490,7 +503,7 @@ contract Huego {
         if(session.forfeitedBy != address(0)) {
             winner = session.forfeitedBy == session.player1 ? session.player2 : session.player1;
             emit GameEnded(sessionId, winner, session.forfeitedBy, session.wager.amount * 2);
-        } else if(session.game == GameRound.SECOND && session.turn == 29 && session.gameEnded) {
+        } else if(session.game == GameRound.SECOND && session.turn > FINAL_TURN && session.gameEnded) {
             uint256 totalPlayer1Points = 0;
             uint256 totalPlayer2Points = 0;
 
@@ -512,9 +525,9 @@ contract Huego {
                 // Tie case, refund wager to both players
                 uint256 feeEach;
                 if (address(nftContract) != address(0) && (nftContract.balanceOf(session.player1) > 0 || nftContract.balanceOf(session.player2) > 0)) {
-                    feeEach = session.wager.amount * DISCOUNTED_FEE_PERCENTAGE / 10000;
+                    feeEach = session.wager.amount * DISCOUNTED_FEE_PERCENTAGE / BASIS_POINTS;
                 } else {
-                    feeEach = session.wager.amount * session.feePercentageAtCreation / 10000;
+                    feeEach = session.wager.amount * session.feePercentageAtCreation / BASIS_POINTS;
                 }
                 uint256 rewardSplit = session.wager.amount - feeEach;
                 
@@ -556,9 +569,9 @@ contract Huego {
         
         // Check if winner holds NFT and discount is enabled
         if (address(nftContract) != address(0) && nftContract.balanceOf(winner) > 0) {
-            fee = pot * DISCOUNTED_FEE_PERCENTAGE / 10000;
+            fee = pot * DISCOUNTED_FEE_PERCENTAGE / BASIS_POINTS;
         } else {
-            fee = pot * session.feePercentageAtCreation / 10000;
+            fee = pot * session.feePercentageAtCreation / BASIS_POINTS;
         }
         
         uint256 reward = pot - fee;
@@ -584,7 +597,7 @@ contract Huego {
 
     function setFeePercentage(uint256 _feePercentage) external onlyOwner {
         require(_feePercentage >= DISCOUNTED_FEE_PERCENTAGE, "Fee cannot be lower than NFT discount fee");
-        require(_feePercentage <= 1000, "Fee too high"); // Max 10%
+        require(_feePercentage <= MAX_FEE_PERCENTAGE, "Fee too high"); // Max 10%
         feePercentage = _feePercentage;
     }
 
@@ -603,7 +616,7 @@ contract Huego {
     }
 
     function setExtraTimeForPlayer1(uint256 _extraTime) external onlyOwner {
-        require(_extraTime <= 60, "Extra time too high"); // Max 60 seconds extra
+        require(_extraTime <= MAX_EXTRA_TIME, "Extra time too high"); // Max 60 seconds extra
         extraTimeForPlayer1 = _extraTime;
     }
 
