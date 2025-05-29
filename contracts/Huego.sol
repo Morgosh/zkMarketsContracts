@@ -22,7 +22,7 @@ contract Huego {
     uint256 public feePercentage = 500; // 5%
     uint256 public extraTimeForPlayer1 = 5; // Extra seconds for player 1
     IERC721 public nftContract;
-    uint256 public discountedFeePercentage = 200; // 2% for NFT holders
+    uint256 public constant DISCOUNTED_FEE_PERCENTAGE = 200; // 2% for NFT holders
     
     // Maximum time window for a player to use a signature after it's created
     // Player2 must create the game within 1 minute of player1 signing the message
@@ -68,6 +68,7 @@ contract Huego {
         // forfeited
         address forfeitedBy;
         topStack[][] initialStacks; // basically [2][16]
+        uint256 feePercentageAtCreation;
     }
 
     struct topStack {
@@ -312,6 +313,9 @@ contract Huego {
         session.timeRemainingP1 = timeLimit + extraTimeForPlayer1; // Use the variable instead of hardcoded 5
         session.timeRemainingP2 = timeLimit;
         session.gameEnded = false;
+        
+        // Store the fee percentages that were active when the session was created
+        session.feePercentageAtCreation = feePercentage;
 
         // **Fix:** Initialize `initialStacks` before adding elements
         session.initialStacks.push(); // First game session
@@ -480,9 +484,9 @@ contract Huego {
                 // Tie case, refund wager to both players
                 uint256 feeEach;
                 if (address(nftContract) != address(0) && (nftContract.balanceOf(session.player1) > 0 || nftContract.balanceOf(session.player2) > 0)) {
-                    feeEach = session.wager.amount * discountedFeePercentage / 10000;
+                    feeEach = session.wager.amount * DISCOUNTED_FEE_PERCENTAGE / 10000;
                 } else {
-                    feeEach = session.wager.amount * feePercentage / 10000;
+                    feeEach = session.wager.amount * session.feePercentageAtCreation / 10000;
                 }
                 uint256 rewardSplit = session.wager.amount - feeEach;
                 (bool success1,) = payable(session.player1).call{value: rewardSplit}("");
@@ -515,9 +519,9 @@ contract Huego {
         
         // Check if winner holds NFT and discount is enabled
         if (address(nftContract) != address(0) && nftContract.balanceOf(winner) > 0) {
-            fee = pot * discountedFeePercentage / 10000;
+            fee = pot * DISCOUNTED_FEE_PERCENTAGE / 10000;
         } else {
-            fee = pot * feePercentage / 10000;
+            fee = pot * session.feePercentageAtCreation / 10000;
         }
         
         uint256 reward = pot - fee;
