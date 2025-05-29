@@ -40,14 +40,15 @@ function stringifyBigInts(o: any): string {
 }
 
 // Helper function to generate a signature for session creation
-async function generateSessionSignature(player1Wallet: Signer, player1Address: string, player2Address: string, timestamp: number): Promise<string> {
+async function generateSessionSignature(player1Wallet: Signer, player1Address: string, player2Address: string, timestamp: number, player1Contract: Contract): Promise<string> {
   // Create message hash that matches the contract's getSessionMessageHash function
-  const messageHash = ethers.keccak256(
-    ethers.solidityPacked(
-      ["string", "address", "address", "uint256"],
-      ["Create Huego Game Session", player1Address, player2Address, timestamp]
-    )
-  );
+  const messageHash = await player1Contract.getSessionMessageHash(player1Address, player2Address, timestamp)
+  // const messageHash = ethers.keccak256(
+  //   ethers.solidityPacked(
+  //     ["string", "address", "address", "uint256"],
+  //     ["Create Huego Game Session", player1Address, player2Address, timestamp]
+  //   )
+  // );
   
   // Sign the message hash with player1's wallet
   return player1Wallet.signMessage(ethers.getBytes(messageHash));
@@ -103,7 +104,7 @@ describe("deploying", function () {
     const timestamp = await getBlockchainTimestamp();
     
     // Generate signature from player1
-    const signature = await generateSessionSignature(richWallets[1], player1, player2, timestamp)
+    const signature = await generateSessionSignature(richWallets[1], player1, player2, timestamp, player1Contract)
     
     // Player1 cannot create the session (only player2 can)
     await expectRejectedWithMessage(player1Contract.createSession(player1, player2, timestamp, signature), "Not player 2")
@@ -120,7 +121,7 @@ describe("deploying", function () {
     
     // Try to create another session while players have an active one
     const newTimestamp = await getBlockchainTimestamp();
-    const newSignature = await generateSessionSignature(richWallets[1], player1, player2, newTimestamp)
+    const newSignature = await generateSessionSignature(richWallets[1], player1, player2, newTimestamp, player1Contract)
     await expectRejectedWithMessage(
       player2Contract.createSession(player1, player2, newTimestamp, newSignature),
       "Player 1 has an active session",
@@ -360,7 +361,8 @@ describe("deploying", function () {
       richWallets[1], 
       richWalletsAddresses[1], 
       richWalletsAddresses[2], 
-      currentTimestamp
+      currentTimestamp,
+      player1Contract
     )
     await player2Contract.createSession(richWalletsAddresses[1], richWalletsAddresses[2], currentTimestamp, signature2)
     
@@ -370,7 +372,8 @@ describe("deploying", function () {
       richWallets[1], 
       richWalletsAddresses[1], 
       richWalletsAddresses[2], 
-      timestamp3
+      timestamp3,
+      player1Contract
     )
     await expectRejectedWithMessage(
       player2Contract.createSession(richWalletsAddresses[1], richWalletsAddresses[2], timestamp3, signature3), 
@@ -389,7 +392,8 @@ describe("deploying", function () {
       richWallets[1], 
       richWalletsAddresses[1], 
       richWalletsAddresses[2], 
-      timestamp4
+      timestamp4,
+      player1Contract
     )
     const createSessionTx = await player2Contract.createSession(
       richWalletsAddresses[1], 
@@ -415,7 +419,8 @@ describe("deploying", function () {
       richWallets[1], 
       richWalletsAddresses[1], 
       richWalletsAddresses[2], 
-      timestamp5
+      timestamp5,
+      player1Contract
     )
     await player2Contract.createSession(
       richWalletsAddresses[1], 
@@ -549,7 +554,8 @@ it("blocks fall down correctly", async () => {
     richWallets[1], 
     richWalletsAddresses[1], 
     richWalletsAddresses[2], 
-    timestamp
+    timestamp,
+    player1Contract
   )
   
   // lets start another game

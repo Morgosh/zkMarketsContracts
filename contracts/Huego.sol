@@ -273,8 +273,15 @@ contract Huego {
         emit BlockPlaced(sessionId, uint8(game), gameSessions[sessionId].turn, 1, x, z, Rotation.X);
     }
 
-    function getSessionMessageHash(address player1, address player2, uint256 timestamp) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked("Create Huego Game Session", player1, player2, timestamp));
+    function getSessionMessageHash(address player1, address player2, uint256 timestamp) public view returns (bytes32) {
+        return keccak256(abi.encodePacked(
+            "Create Huego Game Session", 
+            player1, 
+            player2, 
+            timestamp,
+            address(this),  // Contract address to prevent cross-contract replay
+            block.chainid   // Chain ID to prevent cross-chain replay
+        ));
     }
 
     function createSession(address player1, address player2, uint256 timestamp, bytes memory signature) external {
