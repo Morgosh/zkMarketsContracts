@@ -383,7 +383,8 @@ contract Huego {
     }
 
     function _checkStackWithColorExists(uint256 sessionId, GameRound game, uint8 color) internal view returns (bool) {
-        for (uint8 i = 0; i < 16; i++) {
+        uint256 stackCount = gameSessions[sessionId].initialStacks[game].length;
+        for (uint256 i = 0; i < stackCount; i++) {
             if (stacksGrid[sessionId][game].grid[gameSessions[sessionId].initialStacks[game][i].x][gameSessions[sessionId].initialStacks[game][i].z].color == color) {
                 return true;
             }
@@ -411,23 +412,31 @@ contract Huego {
         }
     }
 
-    // SCORING
-    // • Base Points: 1 point for each cube on top of any stack
-    // • Bonus Points: +1 point for cubes on the highest and lowest VISIBLE stacks
-    // • GameSession ends when all cubes are placed or when a player runs out of time
     function calculateGamePoints(uint256 sessionId, GameRound game) external view validGameSession(sessionId) returns (uint256, uint256) {
         return _calculateGamePoints(sessionId, game);
     }
 
+    // SCORING
+    // • Base Points: 1 point for each cube on top of any stack
+    // • Bonus Points: +1 point for cubes on the highest and lowest VISIBLE stacks
+    // • GameSession ends when all cubes are placed or when a player runs out of time
     function _calculateGamePoints(uint256 sessionId, GameRound game) internal view returns (uint256, uint256) {
         uint256 starterPoints = 0;
         uint256 nonStarterPoints = 0;
 
+        // Get the actual number of placed stacks (may be less than 16 during first 4 turns)
+        uint256 stackCount = gameSessions[sessionId].initialStacks[game].length;
+        
+        // If no stacks placed yet, return zero points
+        if (stackCount == 0) {
+            return (0, 0);
+        }
+
         uint8 highestStack = 0;
         uint8 lowestStack = type(uint8).max; // Initialize to maximum possible value
 
-        // Single loop to find both highest and lowest stacks
-        for (uint8 i = 0; i < 16; i++) {
+        // Single loop to find both highest and lowest stacks - use actual stack count
+        for (uint256 i = 0; i < stackCount; i++) {
             topStack memory stack = stacksGrid[sessionId][game].grid[gameSessions[sessionId].initialStacks[game][i].x][gameSessions[sessionId].initialStacks[game][i].z];
             
             // Find highest stack
@@ -441,8 +450,8 @@ contract Huego {
             }
         }
 
-        // Calculate points based on highest and lowest stacks
-        for (uint8 i = 0; i < 16; i++) {
+        // Calculate points based on highest and lowest stacks - use actual stack count
+        for (uint256 i = 0; i < stackCount; i++) {
             topStack memory stack = stacksGrid[sessionId][game].grid[gameSessions[sessionId].initialStacks[game][i].x][gameSessions[sessionId].initialStacks[game][i].z];
             
             // Match original logic: check high/low first, then default
