@@ -43,7 +43,7 @@ contract Huego {
     }
 
     event BlockPlaced(uint256 indexed sessionId, uint8 indexed game, uint8 turn, PieceType pieceType, uint8 x, uint8 z, Rotation rotation);
-    event GameSessionCreated(uint256 indexed sessionId, address indexed player1, address indexed player2, uint256 wagerAmount);
+    event GameSessionCreated(uint256 indexed sessionId, address indexed player1, address indexed player2);
     event WagerProposed(address indexed proposer, uint256 indexed sessionId, uint256 amount);
     event WagerAccepted(uint256 indexed sessionId, address indexed player1, address indexed player2, uint256 amount);
     event WagerCancelled(address indexed proposer, uint256 indexed sessionId);
@@ -336,7 +336,7 @@ contract Huego {
         userGameSession[player2] = sessionId;
         session.turn = 1;
         
-        emit GameSessionCreated(sessionId, player1, player2, 0);
+        emit GameSessionCreated(sessionId, player1, player2);
     }
 
     function play(uint256 sessionId, uint8 x, uint8 z, Rotation rotation) external validGameSession(sessionId) {
