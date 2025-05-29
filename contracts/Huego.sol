@@ -44,6 +44,7 @@ contract Huego {
     event WagerCancelled(address indexed proposer, uint256 indexed sessionId);
     event GameEnded(uint256 indexed sessionId, address indexed winner, address indexed loser, uint256 amount);
     event RewardsClaimed(address indexed user, uint256 amount);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     struct WagerInfo {
         uint256 amount;
@@ -571,6 +572,12 @@ contract Huego {
     function setExtraTimeForPlayer1(uint256 _extraTime) external onlyOwner {
         require(_extraTime <= 60, "Extra time too high"); // Max 60 seconds extra
         extraTimeForPlayer1 = _extraTime;
+    }
+
+    function transferOwnership(address newOwner) external onlyOwner {
+        address previousOwner = owner;
+        owner = newOwner;
+        emit OwnershipTransferred(previousOwner, newOwner);
     }
 
     // if funds are stuck on contract for some reason
