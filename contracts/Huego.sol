@@ -190,6 +190,7 @@ contract Huego {
     }
 
     function proposeWager(uint256 sessionId) external payable validGameSession(sessionId) {
+        require(msg.value > 0, "Wager amount must be greater than 0");
         require(getPlayerActiveSession(msg.sender) == sessionId, "Game has already ended");
         require(msg.sender == gameSessions[sessionId].player1 || msg.sender == gameSessions[sessionId].player2, "Not a player of this game");
         address otherPlayer = (msg.sender == gameSessions[sessionId].player1) ? gameSessions[sessionId].player2 : gameSessions[sessionId].player1;
