@@ -156,9 +156,9 @@ contract Huego {
         address playerOnTurn = _getPlayerOnTurn(sessionId);
 
         if (player == playerOnTurn) {
-            return (player == session.player1)
-                ? session.timeRemainingP1 - (block.timestamp - session.lastMoveTime)
-                : session.timeRemainingP2 - (block.timestamp - session.lastMoveTime);
+            uint256 elapsedTime = block.timestamp - session.lastMoveTime;
+            uint256 remainingTime = (player == session.player1) ? session.timeRemainingP1 : session.timeRemainingP2;
+            return (remainingTime > elapsedTime) ? remainingTime - elapsedTime : 0;
         } else {
             return (player == session.player1) ? session.timeRemainingP1 : session.timeRemainingP2;
         }
