@@ -176,6 +176,7 @@ contract Huego {
     }
 
     function proposeWager(uint256 sessionId) external payable validGameSession(sessionId) {
+        require(getPlayerActiveSession(msg.sender) == sessionId, "Game has already ended");
         require(msg.sender == gameSessions[sessionId].player1 || msg.sender == gameSessions[sessionId].player2, "Not a player of this game");
         address otherPlayer = (msg.sender == gameSessions[sessionId].player1) ? gameSessions[sessionId].player2 : gameSessions[sessionId].player1;
         
@@ -204,6 +205,7 @@ contract Huego {
     }
 
     function acceptWagerProposal(uint256 sessionId) external payable validGameSession(sessionId) {
+        require(getPlayerActiveSession(msg.sender) == sessionId, "Game has already ended");
         require(msg.sender == gameSessions[sessionId].player1 || msg.sender == gameSessions[sessionId].player2, "Not a player of this game");
         address proposer = (msg.sender == gameSessions[sessionId].player1) ? gameSessions[sessionId].player2 : gameSessions[sessionId].player1;
         require(msg.value == wagerProposals[proposer][sessionId].amount, "Wager amount mismatch");
