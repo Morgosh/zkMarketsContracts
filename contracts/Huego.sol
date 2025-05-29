@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 // there are 2 gameSessions played per session
 // first 4 turns are placing 2x2 blocks flat
 // next 24 turns are placing 2x1 blocks any rotation
@@ -5,7 +7,6 @@
 // first 4 turns are placing 2x2 blocks flat
 // next 24 turns are placing 2x1 blocks any rotation
 
-// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -279,9 +280,6 @@ contract Huego {
         stacksGrid[sessionId][game].grid[x][z + 1] = stack3;
         stacksGrid[sessionId][game].grid[x + 1][z + 1] = stack4;
 
-        // Calculate the correct index in initialStacks based on turn
-        // uint8 turnIndex = (gameSessions[sessionId].turn - 1) * 4; // Each turn places 4 blocks
-
         gameSessions[sessionId].initialStacks[game].push(stack1);
         gameSessions[sessionId].initialStacks[game].push(stack2);
         gameSessions[sessionId].initialStacks[game].push(stack3);
@@ -338,7 +336,7 @@ contract Huego {
         session.game = GameRound.FIRST;
         session.gameStartTime = block.timestamp;
         session.lastMoveTime = block.timestamp;
-        session.timeRemainingP1 = timeLimit + extraTimeForPlayer1; // Use the variable instead of hardcoded 5
+        session.timeRemainingP1 = timeLimit + extraTimeForPlayer1;
         session.timeRemainingP2 = timeLimit;
         session.gameEnded = false;
         
@@ -550,7 +548,6 @@ contract Huego {
                 return;
             }
         } else {
-            // lets throw require current turn is 29
             address onTurn = _getPlayerOnTurn(sessionId);
             // if not turn 28, game has not ended, we can calculate the winner one player runs out of time
             if (onTurn == session.player1) {
