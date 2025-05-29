@@ -66,7 +66,7 @@ contract Huego {
         address player2;
         WagerInfo wager;
         uint8 turn;
-        uint8 game; // either 0 or 1
+        GameRound game; // either FIRST or SECOND
         uint256 gameStartTime;
         uint256 lastMoveTime;
         uint256 timeRemainingP1;
@@ -74,7 +74,7 @@ contract Huego {
         bool gameEnded;
         // forfeited
         address forfeitedBy;
-        topStack[][] initialStacks; // basically [2][16]
+        mapping(GameRound => topStack[]) initialStacks;
         uint256 feePercentageAtCreation;
     }
 
@@ -95,12 +95,13 @@ contract Huego {
     struct GameGrid {
         topStack[8][8] grid;
     }
-    // GameSession ID -> [game0, game1] -> 8x8 grid
-    mapping(uint256 => GameGrid[2]) private stacksGrid;
+    // GameSession ID -> GameRound -> 8x8 grid
+    mapping(uint256 => mapping(GameRound => GameGrid)) private stacksGrid;
     GameSession[] public gameSessions; // List of gameSessions
 
     // Colors: 0 = empty, 1 = yellow, 2 = purple, 3 = orange, 4 = green
     enum Rotation {X, Z, Y}
+    enum GameRound {FIRST, SECOND}
 
     // Mapping to track used signatures
     mapping(bytes32 => bool) public usedSignatures;
@@ -115,10 +116,10 @@ contract Huego {
         DZ = [int8(0), int8(1), int8(2), int8(2), int8(0), int8(1), int8(-1), int8(-1)];
     }
 
-    function getInitialStacks(uint256 sessionId, uint8 game) external view validGameSession(sessionId) returns (topStack[] memory) {
+    function getInitialStacks(uint256 sessionId, GameRound game) external view validGameSession(sessionId) returns (topStack[] memory) {
         return gameSessions[sessionId].initialStacks[game];
     }
-    function getStacksGrid(uint256 sessionId, uint8 game) external view validGameSession(sessionId) returns (topStack[8][8] memory) {
+    function getStacksGrid(uint256 sessionId, GameRound game) external view validGameSession(sessionId) returns (topStack[8][8] memory) {
         return stacksGrid[sessionId][game].grid;
     }
 
@@ -169,8 +170,8 @@ contract Huego {
 
     function _getPlayerOnTurn(uint256 sessionId) internal view returns (address) {
         GameSession storage session = gameSessions[sessionId];
-        address starter = session.game == 0 ? session.player1 : session.player2;
-        address nonStarter = session.game == 0 ? session.player2 : session.player1;
+        address starter = session.game == GameRound.FIRST ? session.player1 : session.player2;
+        address nonStarter = session.game == GameRound.FIRST ? session.player2 : session.player1;
         return session.turn % 2 == 1 ? starter : nonStarter;
     }
 
@@ -225,8 +226,7 @@ contract Huego {
         emit WagerCancelled(msg.sender, sessionId);
     }
     
-    function _placeInitial4x1Stack(uint256 sessionId, uint8 game, uint8 x, uint8 z, uint8 color) internal {
-        require(game < 2, "Invalid game index");
+    function _placeInitial4x1Stack(uint256 sessionId, GameRound game, uint8 x, uint8 z, uint8 color) internal {
         require(x + 1 < GRID_SIZE && z + 1 < GRID_SIZE, "Invalid coordinates");
 
         require(stacksGrid[sessionId][game].grid[x][z].color == 0, "Grid has a stack");
@@ -270,7 +270,7 @@ contract Huego {
         gameSessions[sessionId].initialStacks[game].push(stack3);
         gameSessions[sessionId].initialStacks[game].push(stack4);
 
-        emit BlockPlaced(sessionId, game, gameSessions[sessionId].turn, 1, x, z, Rotation.X);
+        emit BlockPlaced(sessionId, uint8(game), gameSessions[sessionId].turn, 1, x, z, Rotation.X);
     }
 
     function getSessionMessageHash(address player1, address player2, uint256 timestamp) public pure returns (bytes32) {
@@ -311,7 +311,7 @@ contract Huego {
         session.player1 = player1;
         session.player2 = player2;
         session.wager = WagerInfo(0, false);
-        session.game = 0;
+        session.game = GameRound.FIRST;
         session.gameStartTime = block.timestamp;
         session.lastMoveTime = block.timestamp;
         session.timeRemainingP1 = timeLimit + extraTimeForPlayer1; // Use the variable instead of hardcoded 5
@@ -321,9 +321,6 @@ contract Huego {
         // Store the fee percentages that were active when the session was created
         session.feePercentageAtCreation = feePercentage;
 
-        // **Fix:** Initialize `initialStacks` before adding elements
-        session.initialStacks.push(); // First game session
-        session.initialStacks.push(); // Second game session
 
         userGameSession[player1] = sessionId;
         userGameSession[player2] = sessionId;
@@ -365,20 +362,20 @@ contract Huego {
             }
             // game ends on turn 28
             if (session.turn == 28) {
-                if(session.game == 0) {
-                    session.game = 1;
+                if(session.game == GameRound.FIRST) {
+                    session.game = GameRound.SECOND;
                     session.turn = 0;
                 } else {
                     session.gameEnded = true;
                 }
             }
-            emit BlockPlaced(sessionId, session.game, session.turn, 2, x, z, rotation);
+            emit BlockPlaced(sessionId, uint8(session.game), session.turn, 2, x, z, rotation);
         }
         session.lastMoveTime = block.timestamp;
         session.turn += 1;
     }
 
-    function _checkStackWithColorExists(uint256 sessionId, uint8 game, uint8 color) internal view returns (bool) {
+    function _checkStackWithColorExists(uint256 sessionId, GameRound game, uint8 color) internal view returns (bool) {
         for (uint8 i = 0; i < 16; i++) {
             if (stacksGrid[sessionId][game].grid[gameSessions[sessionId].initialStacks[game][i].x][gameSessions[sessionId].initialStacks[game][i].z].color == color) {
                 return true;
@@ -387,7 +384,7 @@ contract Huego {
         return false;
     }
 
-    function _placeBlock(uint256 sessionId, uint8 game, uint8 x, uint8 z, uint8 currentColor) internal {
+    function _placeBlock(uint256 sessionId, GameRound game, uint8 x, uint8 z, uint8 currentColor) internal {
         require(stacksGrid[sessionId][game].grid[x][z].color != 0, "Stack does not exist");
 
         stacksGrid[sessionId][game].grid[x][z].y += 1;
@@ -411,11 +408,11 @@ contract Huego {
     // • Base Points: 1 point for each cube on top of any stack
     // • Bonus Points: +1 point for cubes on the highest and lowest VISIBLE stacks
     // • GameSession ends when all cubes are placed or when a player runs out of time
-    function calculateGamePoints(uint256 sessionId, uint8 game) external view validGameSession(sessionId) returns (uint256, uint256) {
+    function calculateGamePoints(uint256 sessionId, GameRound game) external view validGameSession(sessionId) returns (uint256, uint256) {
         return _calculateGamePoints(sessionId, game);
     }
 
-    function _calculateGamePoints(uint256 sessionId, uint8 game) internal view returns (uint256, uint256) {
+    function _calculateGamePoints(uint256 sessionId, GameRound game) internal view returns (uint256, uint256) {
         uint256 starterPoints = 0;
         uint256 nonStarterPoints = 0;
 
@@ -471,12 +468,12 @@ contract Huego {
         if(session.forfeitedBy != address(0)) {
             winner = session.forfeitedBy == session.player1 ? session.player2 : session.player1;
             emit GameEnded(sessionId, winner, session.forfeitedBy, session.wager.amount * 2);
-        } else if(session.game == 1 && session.turn == 29 && session.gameEnded) {
+        } else if(session.game == GameRound.SECOND && session.turn == 29 && session.gameEnded) {
             uint256 totalPlayer1Points = 0;
             uint256 totalPlayer2Points = 0;
 
-            (uint256 starterPoints0, uint256 nonStarterPoints0) = _calculateGamePoints(sessionId, 0);
-            (uint256 starterPoints1, uint256 nonStarterPoints1) = _calculateGamePoints(sessionId, 1);
+            (uint256 starterPoints0, uint256 nonStarterPoints0) = _calculateGamePoints(sessionId, GameRound.FIRST);
+            (uint256 starterPoints1, uint256 nonStarterPoints1) = _calculateGamePoints(sessionId, GameRound.SECOND);
             totalPlayer1Points += starterPoints0;
             totalPlayer2Points += nonStarterPoints0;
             totalPlayer1Points += nonStarterPoints1;
