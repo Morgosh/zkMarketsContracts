@@ -82,7 +82,7 @@ contract NootCards {
     // Track used sponsorship nonces
     mapping(bytes32 => bool) public usedSponsorshipNonces;
     
-    event GameStarted(address indexed player, uint256 gameId, uint256 wager, uint8 turns, bytes32 commitment, PaymentType paymentType, bytes32 sponsorshipNonce);
+    event GameStarted(address indexed player, uint256 gameId, uint256 wager, uint8 turns, bytes32 commitment, PaymentType paymentType, bytes32 userRandomNonce, bytes32 sponsorshipNonce);
     event GuessMade(address indexed player, uint256 gameId, uint8 turn, Guess guess);
     event GameLost(address indexed player, uint256 gameId, Card previousCard, Card newCard, Guess guess, bytes32 currentHash);
     event GameWon(address indexed player, uint256 gameId, uint256 prize, PaymentType paymentType);
@@ -271,7 +271,7 @@ contract NootCards {
         });
         
         // Emit appropriate event
-        emit GameStarted(player, gameId, wagerAmount, GAME_MAX_TURNS, dealerCommitment, paymentType, isSponsored ? sponsorshipNonce : bytes32(0));
+        emit GameStarted(player, gameId, wagerAmount, GAME_MAX_TURNS, dealerCommitment, paymentType, userRandomNonce, isSponsored ? sponsorshipNonce : bytes32(0));
     }
 
     /**

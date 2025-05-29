@@ -158,6 +158,12 @@
       {
         "indexed": false,
         "internalType": "bytes32",
+        "name": "userRandomNonce",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
         "name": "sponsorshipNonce",
         "type": "bytes32"
       }
