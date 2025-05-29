@@ -37,6 +37,11 @@ contract Huego {
         _;
     }
 
+    modifier validGameSession(uint256 sessionId) {
+        require(sessionId > 0 && sessionId < gameSessions.length, "Invalid session ID");
+        _;
+    }
+
     event BlockPlaced(uint256 indexed sessionId, uint8 indexed game, uint8 turn, uint8 pieceType, uint8 x, uint8 z, Rotation rotation);
     event GameSessionCreated(uint256 indexed sessionId, address indexed player1, address indexed player2, uint256 wagerAmount);
     event WagerProposed(address indexed proposer, uint256 indexed sessionId, uint256 amount);
@@ -110,10 +115,10 @@ contract Huego {
         DZ = [int8(0), int8(1), int8(2), int8(2), int8(0), int8(1), int8(-1), int8(-1)];
     }
 
-    function getInitialStacks(uint256 sessionId, uint8 game) public view returns (topStack[] memory) {
+    function getInitialStacks(uint256 sessionId, uint8 game) external view validGameSession(sessionId) returns (topStack[] memory) {
         return gameSessions[sessionId].initialStacks[game];
     }
-    function getStacksGrid(uint256 sessionId, uint8 game) public view returns (topStack[8][8] memory) {
+    function getStacksGrid(uint256 sessionId, uint8 game) external view validGameSession(sessionId) returns (topStack[8][8] memory) {
         return stacksGrid[sessionId][game].grid;
     }
 
@@ -134,7 +139,7 @@ contract Huego {
             return 0;
         }
 
-        address playerOnTurn = getPlayerOnTurn(sessionId);
+        address playerOnTurn = _getPlayerOnTurn(sessionId);
 
         uint256 currentPlayerTimeRemaining = (playerOnTurn == session.player1)
             ? session.timeRemainingP1
@@ -145,9 +150,9 @@ contract Huego {
         return currentPlayerHasTime ? sessionId : 0;
     }
 
-    function getPlayerTimeLeft(uint256 sessionId, address player) public view returns (uint256) {
+    function getPlayerTimeLeft(uint256 sessionId, address player) external view validGameSession(sessionId) returns (uint256) {
         GameSession storage session = gameSessions[sessionId];
-        address playerOnTurn = getPlayerOnTurn(sessionId);
+        address playerOnTurn = _getPlayerOnTurn(sessionId);
 
         if (player == playerOnTurn) {
             return (player == session.player1)
@@ -158,14 +163,18 @@ contract Huego {
         }
     }
 
-    function getPlayerOnTurn(uint256 sessionId) public view returns (address) {
+    function getPlayerOnTurn(uint256 sessionId) external view validGameSession(sessionId) returns (address) {
+        return _getPlayerOnTurn(sessionId);
+    }
+
+    function _getPlayerOnTurn(uint256 sessionId) internal view returns (address) {
         GameSession storage session = gameSessions[sessionId];
         address starter = session.game == 0 ? session.player1 : session.player2;
         address nonStarter = session.game == 0 ? session.player2 : session.player1;
         return session.turn % 2 == 1 ? starter : nonStarter;
     }
 
-    function proposeWager(uint256 sessionId) external payable {
+    function proposeWager(uint256 sessionId) external payable validGameSession(sessionId) {
         require(msg.sender == gameSessions[sessionId].player1 || msg.sender == gameSessions[sessionId].player2, "Not a player of this game");
         address otherPlayer = (msg.sender == gameSessions[sessionId].player1) ? gameSessions[sessionId].player2 : gameSessions[sessionId].player1;
         
@@ -193,7 +202,7 @@ contract Huego {
         }
     }
 
-    function acceptWagerProposal(uint256 sessionId) external payable {
+    function acceptWagerProposal(uint256 sessionId) external payable validGameSession(sessionId) {
         require(msg.sender == gameSessions[sessionId].player1 || msg.sender == gameSessions[sessionId].player2, "Not a player of this game");
         address proposer = (msg.sender == gameSessions[sessionId].player1) ? gameSessions[sessionId].player2 : gameSessions[sessionId].player1;
         require(msg.value == wagerProposals[proposer][sessionId].amount, "Wager amount mismatch");
@@ -206,7 +215,7 @@ contract Huego {
         emit WagerAccepted(sessionId, gameSessions[sessionId].player1, gameSessions[sessionId].player2, msg.value);
     }
 
-    function cancelWagerProposal(uint256 sessionId) external {
+    function cancelWagerProposal(uint256 sessionId) external validGameSession(sessionId) {
         require(wagerProposals[msg.sender][sessionId].amount != 0, "No wager proposal exists");
         uint256 amountToRefund = wagerProposals[msg.sender][sessionId].amount;
         delete wagerProposals[msg.sender][sessionId];
@@ -323,12 +332,12 @@ contract Huego {
         emit GameSessionCreated(sessionId, player1, player2, 0);
     }
 
-    function play(uint256 sessionId, uint8 x, uint8 z, Rotation rotation) external {
+    function play(uint256 sessionId, uint8 x, uint8 z, Rotation rotation) external validGameSession(sessionId) {
         GameSession storage session = gameSessions[sessionId];
         // game must not have ended
         require(!session.gameEnded, "GameSession has ended");
         // only player on turn can play
-        address onTurn = getPlayerOnTurn(sessionId);
+        address onTurn = _getPlayerOnTurn(sessionId);
         require(msg.sender == onTurn, "Not your turn");
         uint8 currentColor = ((session.turn - 1) % 4) + 1;
         // requirement that the player still has time
@@ -385,7 +394,7 @@ contract Huego {
         stacksGrid[sessionId][game].grid[x][z].color = currentColor;
     }
 
-    function forfeit(uint256 sessionId) external {
+    function forfeit(uint256 sessionId) external validGameSession(sessionId) {
         GameSession storage session = gameSessions[sessionId];
         // you can only forfeit an active session
         require(getPlayerActiveSession(msg.sender) == sessionId, "Not an active session");
@@ -402,7 +411,11 @@ contract Huego {
     // • Base Points: 1 point for each cube on top of any stack
     // • Bonus Points: +1 point for cubes on the highest and lowest VISIBLE stacks
     // • GameSession ends when all cubes are placed or when a player runs out of time
-    function calculateGamePoints(uint256 sessionId, uint8 game) public view returns (uint256, uint256) {
+    function calculateGamePoints(uint256 sessionId, uint8 game) external view validGameSession(sessionId) returns (uint256, uint256) {
+        return _calculateGamePoints(sessionId, game);
+    }
+
+    function _calculateGamePoints(uint256 sessionId, uint8 game) internal view returns (uint256, uint256) {
         uint256 starterPoints = 0;
         uint256 nonStarterPoints = 0;
 
@@ -449,7 +462,7 @@ contract Huego {
     }
 
     // receive reward
-    function acceptRewards(uint256 sessionId) external {
+    function acceptRewards(uint256 sessionId) external validGameSession(sessionId) {
         GameSession storage session = gameSessions[sessionId];
         require(!session.wager.processed, "Wager already processed");
         session.wager.processed = true;
@@ -462,8 +475,8 @@ contract Huego {
             uint256 totalPlayer1Points = 0;
             uint256 totalPlayer2Points = 0;
 
-            (uint256 starterPoints0, uint256 nonStarterPoints0) = calculateGamePoints(sessionId, 0);
-            (uint256 starterPoints1, uint256 nonStarterPoints1) = calculateGamePoints(sessionId, 1);
+            (uint256 starterPoints0, uint256 nonStarterPoints0) = _calculateGamePoints(sessionId, 0);
+            (uint256 starterPoints1, uint256 nonStarterPoints1) = _calculateGamePoints(sessionId, 1);
             totalPlayer1Points += starterPoints0;
             totalPlayer2Points += nonStarterPoints0;
             totalPlayer1Points += nonStarterPoints1;
@@ -505,7 +518,7 @@ contract Huego {
             }
         } else {
             // lets throw require current turn is 29
-            address onTurn = getPlayerOnTurn(sessionId);
+            address onTurn = _getPlayerOnTurn(sessionId);
             // if not turn 28, game has not ended, we can calculate the winner one player runs out of time
             if (onTurn == session.player1) {
                 require(block.timestamp - session.lastMoveTime > session.timeRemainingP1, "Player 1 still has time");

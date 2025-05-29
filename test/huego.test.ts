@@ -193,11 +193,10 @@ describe("deploying", function () {
 
     // now they place bets 1 eth
     // function proposeWager(uint256 sessionId, uint256 _amount) external payable {
-    await expectRejectedWithMessage(player1Contract.proposeWager(1, ethers.parseEther("2"), { value: ethers.parseEther("1") }), "Wager amount mismatch")
-    let proposeWagerTx = await player1Contract.proposeWager(1, ethers.parseEther("1"), { value: ethers.parseEther("1") })
+    let proposeWagerTx = await player1Contract.proposeWager(1, { value: ethers.parseEther("1") })
     await proposeWagerTx.wait()
     // if he makes another proposal he can just override it
-    proposeWagerTx = await player1Contract.proposeWager(1, ethers.parseEther("2"), { value: ethers.parseEther("2") })
+    proposeWagerTx = await player1Contract.proposeWager(1, { value: ethers.parseEther("2") })
     await proposeWagerTx.wait()
     // balance should be 2 eth
     let contractBalance = await provider.getBalance(contractAddress)
@@ -206,12 +205,11 @@ describe("deploying", function () {
     // function cancelWagerProposal(uint256 sessionId) external {
     await player1Contract.cancelWagerProposal(1)
     // now he can make a new proposal
-    proposeWagerTx = await player1Contract.proposeWager(1, ethers.parseEther("2"), { value: ethers.parseEther("2") })
+    proposeWagerTx = await player1Contract.proposeWager(1, { value: ethers.parseEther("2") })
     await proposeWagerTx.wait()
     // now player 2 should accept it or make a counter offer
     // function acceptWagerProposal(uint256 sessionId, uint256 _amount) external payable {
-    await expectRejectedWithMessage(player2Contract.acceptWagerProposal(1, ethers.parseEther("1"), { value: ethers.parseEther("1") }), "Wager amount mismatch")
-    const acceptWagerProposalTx = await player2Contract.acceptWagerProposal(1, ethers.parseEther("2"), { value: ethers.parseEther("2") })
+    const acceptWagerProposalTx = await player2Contract.acceptWagerProposal(1, { value: ethers.parseEther("2") })
     await acceptWagerProposalTx.wait()
 
     // now balance on contract should be 4 eth
@@ -296,8 +294,8 @@ describe("deploying", function () {
     await legitMoveTx4.wait()
 
     // they make new wagers
-    await player2Contract.proposeWager(1, ethers.parseEther("3"), { value: ethers.parseEther("3") })
-    await player1Contract.acceptWagerProposal(1, ethers.parseEther("3"), { value: ethers.parseEther("3") })
+    await player2Contract.proposeWager(1, { value: ethers.parseEther("3") })
+    await player1Contract.acceptWagerProposal(1, { value: ethers.parseEther("3") })
     // now lets check balance on contract should be 10 eth
     const contractBalance = await provider.getBalance(contractAddress)
     expect(contractBalance).to.eq(ethers.parseEther("10"))
