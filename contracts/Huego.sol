@@ -393,6 +393,7 @@ contract Huego {
     }
 
     function _placeBlock(uint256 sessionId, GameRound game, uint8 x, uint8 z, uint8 currentColor) internal {
+        require(x < GRID_SIZE && z < GRID_SIZE, "Invalid coordinates");
         require(stacksGrid[sessionId][game].grid[x][z].color != 0, "Stack does not exist");
 
         stacksGrid[sessionId][game].grid[x][z].y += 1;
