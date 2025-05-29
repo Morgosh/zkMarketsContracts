@@ -342,6 +342,8 @@ contract Huego {
         GameSession storage session = gameSessions[sessionId];
         // game must not have ended
         require(!session.gameEnded, "GameSession has ended");
+        // game must not have been forfeited
+        require(session.forfeitedBy == address(0), "Game has been forfeited");
         // only player on turn can play
         address onTurn = _getPlayerOnTurn(sessionId);
         require(msg.sender == onTurn, "Not your turn");
