@@ -161,35 +161,25 @@ contract Huego {
         return session.turn % 2 == 1 ? starter : nonStarter;
     }
 
-    function proposeWager(uint256 sessionId, uint256 _amount) external payable {
-        require(msg.value == _amount, "Wager amount mismatch");
-        _proposeWager(sessionId, _amount, msg.sender);
-    }
-
-    function acceptWagerProposal(uint256 sessionId, uint256 _amount) external payable {
-        require(msg.value == _amount, "Wager amount mismatch");
-        _acceptWager(sessionId, _amount, msg.sender);
-    }
-
-    function _proposeWager(uint256 sessionId, uint256 _amount, address sender) internal {
-        require(sender == gameSessions[sessionId].player1 || sender == gameSessions[sessionId].player2, "Not a player of this game");
-        address otherPlayer = (sender == gameSessions[sessionId].player1) ? gameSessions[sessionId].player2 : gameSessions[sessionId].player1;
+    function proposeWager(uint256 sessionId) external payable {
+        require(msg.sender == gameSessions[sessionId].player1 || msg.sender == gameSessions[sessionId].player2, "Not a player of this game");
+        address otherPlayer = (msg.sender == gameSessions[sessionId].player1) ? gameSessions[sessionId].player2 : gameSessions[sessionId].player1;
         
-        uint256 currentWagerAmount = wagerProposals[sender][sessionId].amount;
+        uint256 currentWagerAmount = wagerProposals[msg.sender][sessionId].amount;
         uint256 otherPlayerWagerAmount = wagerProposals[otherPlayer][sessionId].amount;
         
         // Update state before external calls
         delete wagerProposals[otherPlayer][sessionId];
-        wagerProposals[sender][sessionId] = WagerProposal({
+        wagerProposals[msg.sender][sessionId] = WagerProposal({
             sessionId: sessionId,
-            amount: _amount
+            amount: msg.value
         });
         
-        emit WagerProposed(sender, sessionId, _amount);
+        emit WagerProposed(msg.sender, sessionId, msg.value);
         
         // INTERACTIONS - Perform external calls last to prevent reentrancy
         if (currentWagerAmount != 0) {
-            (bool success,) = payable(sender).call{value: currentWagerAmount}("");
+            (bool success,) = payable(msg.sender).call{value: currentWagerAmount}("");
             require(success, "Refund failed");
         }
         
@@ -199,16 +189,17 @@ contract Huego {
         }
     }
 
-    function _acceptWager(uint256 sessionId, uint256 _amount, address sender) internal {
-        address proposer = (sender == gameSessions[sessionId].player1) ? gameSessions[sessionId].player2 : gameSessions[sessionId].player1;
-        require(_amount == wagerProposals[proposer][sessionId].amount, "Wager amount mismatch");
+    function acceptWagerProposal(uint256 sessionId) external payable {
+        require(msg.sender == gameSessions[sessionId].player1 || msg.sender == gameSessions[sessionId].player2, "Not a player of this game");
+        address proposer = (msg.sender == gameSessions[sessionId].player1) ? gameSessions[sessionId].player2 : gameSessions[sessionId].player1;
+        require(msg.value == wagerProposals[proposer][sessionId].amount, "Wager amount mismatch");
         require(wagerProposals[proposer][sessionId].amount != 0, "No wager proposal");
         require(!gameSessions[sessionId].wager.processed, "Wager already processed");
 
         gameSessions[sessionId].wager.amount += wagerProposals[proposer][sessionId].amount;
         delete wagerProposals[proposer][sessionId];
         
-        emit WagerAccepted(sessionId, gameSessions[sessionId].player1, gameSessions[sessionId].player2, _amount);
+        emit WagerAccepted(sessionId, gameSessions[sessionId].player1, gameSessions[sessionId].player2, msg.value);
     }
 
     function cancelWagerProposal(uint256 sessionId) external {
