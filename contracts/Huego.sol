@@ -43,6 +43,7 @@ contract Huego {
     event WagerAccepted(uint256 indexed sessionId, address indexed player1, address indexed player2, uint256 amount);
     event WagerCancelled(address indexed proposer, uint256 indexed sessionId);
     event GameEnded(uint256 indexed sessionId, address indexed winner, address indexed loser, uint256 amount);
+    event RewardsClaimed(address indexed user, uint256 amount);
 
     struct WagerInfo {
         uint256 amount;
@@ -82,6 +83,8 @@ contract Huego {
     mapping(address => mapping(uint256 => WagerProposal)) public wagerProposals;
     // lets map user to their gameSession
     mapping(address => uint256) public userGameSession;
+    // mapping to track withdrawable funds for each user (for failed transfers)
+    mapping(address => uint256) public withdrawableBalance;
 
     struct GameGrid {
         topStack[8][8] grid;
@@ -481,12 +484,21 @@ contract Huego {
                     feeEach = session.wager.amount * session.feePercentageAtCreation / 10000;
                 }
                 uint256 rewardSplit = session.wager.amount - feeEach;
+                
+                // Try direct transfers to players, fallback to withdrawable balance on failure
                 (bool success1,) = payable(session.player1).call{value: rewardSplit}("");
-                require(success1, "Transfer failed");
+                if (!success1) {
+                    withdrawableBalance[session.player1] += rewardSplit;
+                }
+                
                 (bool success2,) = payable(session.player2).call{value: rewardSplit}("");
-                require(success2, "Transfer failed");
+                if (!success2) {
+                    withdrawableBalance[session.player2] += rewardSplit;
+                }
+                
+                // Always transfer directly to owner (no fallback)
                 (bool success3,) = payable(owner).call{value: 2 * feeEach}("");
-                require(success3, "Transfer failed");
+                require(success3, "Owner transfer failed");
                 emit GameEnded(sessionId, address(0), address(0), session.wager.amount * 2); // address(0) indicates a tie
                 return;
             }
@@ -521,6 +533,20 @@ contract Huego {
         require(success4, "Transfer failed");
         (bool success5,) = payable(owner).call{value: fee}("");
         require(success5, "Transfer failed");
+    }
+
+    function claimRewards() external {
+        uint256 amount = withdrawableBalance[msg.sender];
+        require(amount > 0, "No rewards to claim");
+        
+        // Update state before external call to prevent reentrancy
+        withdrawableBalance[msg.sender] = 0;
+        
+        // Transfer the funds
+        (bool success,) = payable(msg.sender).call{value: amount}("");
+        require(success, "Transfer failed");
+        
+        emit RewardsClaimed(msg.sender, amount);
     }
 
     function setFeePercentage(uint256 _feePercentage) external onlyOwner {
