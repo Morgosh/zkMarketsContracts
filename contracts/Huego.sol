@@ -361,7 +361,6 @@ contract Huego {
         if(session.turn <= 4) {
             _placeInitial4x1Stack(sessionId, session.game, x, z, currentColor);
         } else {
-            _placeBlock(sessionId, session.game, x, z, currentColor);
             if (rotation == Rotation.X) {
                 require(_checkStackWithColorExists(sessionId, session.game, currentColor), "No stack with color exists");
                 _placeBlock(sessionId, session.game, x + 1, z, currentColor);
@@ -371,6 +370,7 @@ contract Huego {
             } else {
                 _placeBlock(sessionId, session.game, x, z, currentColor);
             }
+            _placeBlock(sessionId, session.game, x, z, currentColor); // place initial block must be done last due to stack color check
             // game ends on turn 28
             if (session.turn == 28) {
                 if(session.game == GameRound.FIRST) {
