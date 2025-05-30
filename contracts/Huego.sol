@@ -302,6 +302,8 @@ contract Huego {
     function createSession(address player1, address player2, uint256 timestamp, bytes memory signature) external {
         // only player 2 can create a session
         require(msg.sender == player2, "Not player 2");
+        // player 1 and 2 must be different
+        require(player1 != player2, "Players must be different");
         // player 1 and 2 must not have an active game
         require(getPlayerActiveSession(player1) == 0, "Player 1 has an active session");
         require(getPlayerActiveSession(player2) == 0, "Player 2 has an active session");
