@@ -21,9 +21,9 @@ contract Huego {
     uint256 public timeLimit = 600; // 10 minutes per player
     address public owner;
     uint256 public feePercentage = 500; // 5%
+    uint256 public discountedFeePercentage = 200; // 2% for NFT holders
     uint256 public extraTimeForPlayer1 = 5; // Extra seconds for player 1
     IERC721 public nftContract;
-    uint256 public constant DISCOUNTED_FEE_PERCENTAGE = 200; // 2% for NFT holders
     
     // Game constants
     uint8 constant FINAL_TURN = 28; // Last turn of each game round
@@ -342,9 +342,13 @@ contract Huego {
         session.timeRemainingP2 = timeLimit;
         session.gameEnded = false;
         
-        // Store the fee percentages that were active when the session was created
-        session.feePercentageAtCreation = feePercentage;
-
+        // Store the fee percentage based on NFT ownership at creation time
+        if (address(nftContract) != address(0) && 
+            (nftContract.balanceOf(player1) > 0 || nftContract.balanceOf(player2) > 0)) {
+            session.feePercentageAtCreation = discountedFeePercentage;
+        } else {
+            session.feePercentageAtCreation = feePercentage;
+        }
 
         userGameSession[player1] = sessionId;
         userGameSession[player2] = sessionId;
@@ -527,12 +531,7 @@ contract Huego {
                 // require either player1, player2 
                 require(msg.sender == session.player1 || msg.sender == session.player2, "Not a player of this game");
                 // Tie case, refund wager to both players
-                uint256 feeEach;
-                if (address(nftContract) != address(0) && (nftContract.balanceOf(session.player1) > 0 || nftContract.balanceOf(session.player2) > 0)) {
-                    feeEach = session.wager.amount * DISCOUNTED_FEE_PERCENTAGE / BASIS_POINTS;
-                } else {
-                    feeEach = session.wager.amount * session.feePercentageAtCreation / BASIS_POINTS;
-                }
+                uint256 feeEach = session.wager.amount * session.feePercentageAtCreation / BASIS_POINTS;
                 uint256 rewardSplit = session.wager.amount - feeEach;
                 
                 // Try direct transfers to players, fallback to withdrawable balance on failure
@@ -568,15 +567,7 @@ contract Huego {
         // caller has to be the winner
         require(msg.sender == winner, "Not the winner");
         uint256 pot = session.wager.amount * 2;
-        uint256 fee;
-        
-        // Check if winner holds NFT and discount is enabled
-        if (address(nftContract) != address(0) && nftContract.balanceOf(winner) > 0) {
-            fee = pot * DISCOUNTED_FEE_PERCENTAGE / BASIS_POINTS;
-        } else {
-            fee = pot * session.feePercentageAtCreation / BASIS_POINTS;
-        }
-        
+        uint256 fee = pot * session.feePercentageAtCreation / BASIS_POINTS;
         uint256 reward = pot - fee;
         (bool success4,) = payable(winner).call{value: reward}("");
         require(success4, "Winner transfer failed");
@@ -598,10 +589,11 @@ contract Huego {
         emit RewardsClaimed(msg.sender, amount);
     }
 
-    function setFeePercentage(uint256 _feePercentage) external onlyOwner {
-        require(_feePercentage >= DISCOUNTED_FEE_PERCENTAGE, "Fee cannot be lower than NFT discount fee");
+    function setFeePercentages(uint256 _feePercentage, uint256 _discountedFeePercentage) external onlyOwner {
         require(_feePercentage <= MAX_FEE_PERCENTAGE, "Fee too high"); // Max 10%
+        require(_discountedFeePercentage <= _feePercentage, "Discounted fee must be lower or equal to normal fee");
         feePercentage = _feePercentage;
+        discountedFeePercentage = _discountedFeePercentage;
     }
 
     function setGameTimeLimit(uint256 _timeLimit) external onlyOwner {
@@ -609,8 +601,6 @@ contract Huego {
     }
 
     function setNftContract(address _nftContract) external onlyOwner {
-        require(address(nftContract) == address(0), "NFT contract already set");
-        require(_nftContract != address(0), "Invalid NFT contract address");
         nftContract = IERC721(_nftContract);
     }
 
