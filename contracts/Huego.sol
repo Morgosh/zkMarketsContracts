@@ -386,6 +386,10 @@ contract Huego {
                 _placeBlock(sessionId, session.game, x, z, currentColor);
             }
             _placeBlock(sessionId, session.game, x, z, currentColor); // place initial block must be done last due to stack color check
+            
+            // Emit event before state changes to ensure correct values
+            emit BlockPlaced(sessionId, uint8(session.game), session.turn, PieceType.TWO_BY_ONE_BLOCK, x, z, rotation);
+            
             // game ends on final turn
             if (session.turn == FINAL_TURN) {
                 if(session.game == GameRound.FIRST) {
@@ -395,7 +399,6 @@ contract Huego {
                     session.gameEnded = true;
                 }
             }
-            emit BlockPlaced(sessionId, uint8(session.game), session.turn, PieceType.TWO_BY_ONE_BLOCK, x, z, rotation);
         }
         session.lastMoveTime = block.timestamp;
         session.turn += 1;
