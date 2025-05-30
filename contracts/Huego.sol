@@ -100,6 +100,8 @@ contract Huego {
         address forfeitedBy;
         mapping(GameRound => topStack[]) initialStacks;
         uint256 feePercentageAtCreation;
+        uint256 discountedFeePercentageAtCreation;
+        IERC721 nftContractAtCreation;
     }
 
     struct topStack {
@@ -352,13 +354,10 @@ contract Huego {
         session.timeRemainingP2 = timeLimit;
         session.gameEnded = false;
         
-        // Store the fee percentage based on NFT ownership at creation time
-        if (address(nftContract) != address(0) && 
-            (nftContract.balanceOf(player1) > 0 || nftContract.balanceOf(player2) > 0)) {
-            session.feePercentageAtCreation = discountedFeePercentage;
-        } else {
-            session.feePercentageAtCreation = feePercentage;
-        }
+        // Store the fee percentages and NFT contract that were active when the session was created
+        session.feePercentageAtCreation = feePercentage;
+        session.discountedFeePercentageAtCreation = discountedFeePercentage;
+        session.nftContractAtCreation = nftContract;
 
         userGameSession[player1] = sessionId;
         userGameSession[player2] = sessionId;
@@ -541,22 +540,28 @@ contract Huego {
                 // require either player1, player2 
                 require(msg.sender == session.player1 || msg.sender == session.player2, "Not a player of this game");
                 // Tie case, refund wager to both players
-                uint256 feeEach = session.wager.amount * session.feePercentageAtCreation / BASIS_POINTS;
-                uint256 rewardSplit = session.wager.amount - feeEach;
+                bool player1HasNFT = address(session.nftContractAtCreation) != address(0) && session.nftContractAtCreation.balanceOf(session.player1) > 0;
+                bool player2HasNFT = address(session.nftContractAtCreation) != address(0) && session.nftContractAtCreation.balanceOf(session.player2) > 0;
+                
+                uint256 fee1 = session.wager.amount * (player1HasNFT ? session.discountedFeePercentageAtCreation : session.feePercentageAtCreation) / BASIS_POINTS;
+                uint256 fee2 = session.wager.amount * (player2HasNFT ? session.discountedFeePercentageAtCreation : session.feePercentageAtCreation) / BASIS_POINTS;
+                
+                uint256 reward1 = session.wager.amount - fee1;
+                uint256 reward2 = session.wager.amount - fee2;
                 
                 // Try direct transfers to players, fallback to withdrawable balance on failure
-                (bool success1,) = payable(session.player1).call{value: rewardSplit}("");
+                (bool success1,) = payable(session.player1).call{value: reward1}("");
                 if (!success1) {
-                    withdrawableBalance[session.player1] += rewardSplit;
+                    withdrawableBalance[session.player1] += reward1;
                 }
                 
-                (bool success2,) = payable(session.player2).call{value: rewardSplit}("");
+                (bool success2,) = payable(session.player2).call{value: reward2}("");
                 if (!success2) {
-                    withdrawableBalance[session.player2] += rewardSplit;
+                    withdrawableBalance[session.player2] += reward2;
                 }
                 
                 // Always transfer directly to owner (no fallback)
-                (bool success3,) = payable(owner).call{value: 2 * feeEach}("");
+                (bool success3,) = payable(owner).call{value: fee1 + fee2}("");
                 require(success3, "Owner transfer failed");
                 emit GameEnded(sessionId, address(0), address(0), session.wager.amount * 2); // address(0) indicates a tie
                 return;
@@ -577,7 +582,11 @@ contract Huego {
         // caller has to be the winner
         require(msg.sender == winner, "Not the winner");
         uint256 pot = session.wager.amount * 2;
-        uint256 fee = pot * session.feePercentageAtCreation / BASIS_POINTS;
+        
+        // Check if winner holds NFT using the contract stored at session creation
+        bool winnerHasNFT = address(session.nftContractAtCreation) != address(0) && session.nftContractAtCreation.balanceOf(winner) > 0;
+        uint256 fee = pot * (winnerHasNFT ? session.discountedFeePercentageAtCreation : session.feePercentageAtCreation) / BASIS_POINTS;
+        
         uint256 reward = pot - fee;
         (bool success4,) = payable(winner).call{value: reward}("");
         require(success4, "Winner transfer failed");
