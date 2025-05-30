@@ -92,7 +92,7 @@
       },
       {
         "indexed": false,
-        "internalType": "uint8",
+        "internalType": "enum Huego.PieceType",
         "name": "pieceType",
         "type": "uint8"
       },
@@ -116,6 +116,70 @@
       }
     ],
     "name": "BlockPlaced",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "token",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "ERC20Withdrawn",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      }
+    ],
+    "name": "ETHWithdrawn",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "extraTime",
+        "type": "uint256"
+      }
+    ],
+    "name": "ExtraTimeForPlayer1Updated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "feePercentage",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "discountedFeePercentage",
+        "type": "uint256"
+      }
+    ],
+    "name": "FeePercentagesUpdated",
     "type": "event"
   },
   {
@@ -169,15 +233,35 @@
         "internalType": "address",
         "name": "player2",
         "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "wagerAmount",
-        "type": "uint256"
       }
     ],
     "name": "GameSessionCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "timeLimit",
+        "type": "uint256"
+      }
+    ],
+    "name": "GameTimeLimitUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "nftContract",
+        "type": "address"
+      }
+    ],
+    "name": "NftContractUpdated",
     "type": "event"
   },
   {
@@ -292,19 +376,6 @@
     ],
     "name": "WagerProposed",
     "type": "event"
-  },
-  {
-    "inputs": [],
-    "name": "DISCOUNTED_FEE_PERCENTAGE",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
   },
   {
     "inputs": [],
@@ -424,9 +495,15 @@
   },
   {
     "inputs": [],
-    "name": "disableNftDiscount",
-    "outputs": [],
-    "stateMutability": "nonpayable",
+    "name": "discountedFeePercentage",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -688,7 +765,7 @@
         "type": "bytes32"
       }
     ],
-    "stateMutability": "pure",
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -823,9 +900,14 @@
         "internalType": "uint256",
         "name": "_feePercentage",
         "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_discountedFeePercentage",
+        "type": "uint256"
       }
     ],
-    "name": "setFeePercentage",
+    "name": "setFeePercentages",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

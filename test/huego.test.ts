@@ -87,12 +87,12 @@ describe("deploying", function () {
   })
   it("setting fee and time works", async () => {
     adminContract = new Contract(contractAddress, huegoABI, richWallets[0])
-    await adminContract.setFeePercentage(600n)
+    await adminContract.setFeePercentages(600n, 200n)
     await adminContract.setGameTimeLimit(800n)
     expect(await adminContract.feePercentage()).to.eq(600n)
     expect(await adminContract.timeLimit()).to.eq(800n)
     // lets set them back
-    await adminContract.setFeePercentage(500n)
+    await adminContract.setFeePercentages(500n, 200n)
     await adminContract.setGameTimeLimit(600n)
   })
 
