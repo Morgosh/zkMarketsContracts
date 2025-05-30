@@ -379,10 +379,10 @@ contract Huego {
         uint8 currentColor = ((session.turn - 1) % 4) + 1;
         // requirement that the player still has time
         if (onTurn == session.player1) {
-            require(block.timestamp - session.lastMoveTime < session.timeRemainingP1, "Player 1 ran out of time");
+            require(block.timestamp - session.lastMoveTime <= session.timeRemainingP1, "Player 1 ran out of time");
             session.timeRemainingP1 -= block.timestamp - session.lastMoveTime;
         } else {
-            require(block.timestamp - session.lastMoveTime < session.timeRemainingP2, "Player 2 ran out of time");
+            require(block.timestamp - session.lastMoveTime <= session.timeRemainingP2, "Player 2 ran out of time");
             session.timeRemainingP2 -= block.timestamp - session.lastMoveTime;
         }
 
