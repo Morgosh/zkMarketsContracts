@@ -1,5 +1,9 @@
 // SPDX-License-Identifier: MIT
 
+/// @custom:security-contact huego.xyz@gmail.com
+/// @custom:security-contact X (Project): @huege_io
+/// @custom:security-contact X (Dev): @0xmorgosh
+
 // there are 2 gameSessions played per session
 // first 4 turns are placing 2x2 blocks flat
 // next 24 turns are placing 2x1 blocks any rotation
