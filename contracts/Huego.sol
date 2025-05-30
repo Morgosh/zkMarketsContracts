@@ -68,6 +68,12 @@ contract Huego {
     event GameEnded(uint256 indexed sessionId, address indexed winner, address indexed loser, uint256 amount);
     event RewardsClaimed(address indexed user, uint256 amount);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event FeePercentagesUpdated(uint256 feePercentage, uint256 discountedFeePercentage);
+    event GameTimeLimitUpdated(uint256 timeLimit);
+    event NftContractUpdated(address indexed nftContract);
+    event ExtraTimeForPlayer1Updated(uint256 extraTime);
+    event ERC20Withdrawn(address indexed token, uint256 amount);
+    event ETHWithdrawn(uint256 amount);
 
     struct WagerInfo {
         uint256 amount;
@@ -598,23 +604,22 @@ contract Huego {
         require(_discountedFeePercentage <= _feePercentage, "Discounted fee must be lower or equal to normal fee");
         feePercentage = _feePercentage;
         discountedFeePercentage = _discountedFeePercentage;
+        emit FeePercentagesUpdated(feePercentage, discountedFeePercentage);
     }
 
     function setGameTimeLimit(uint256 _timeLimit) external onlyOwner {
         timeLimit = _timeLimit;
+        emit GameTimeLimitUpdated(timeLimit);
     }
 
     function setNftContract(address _nftContract) external onlyOwner {
         nftContract = IERC721(_nftContract);
+        emit NftContractUpdated(_nftContract);
     }
-
-    function disableNftDiscount() external onlyOwner {
-        nftContract = IERC721(address(0));
-    }
-
     function setExtraTimeForPlayer1(uint256 _extraTime) external onlyOwner {
         require(_extraTime <= MAX_EXTRA_TIME, "Extra time too high"); // Max 60 seconds extra
         extraTimeForPlayer1 = _extraTime;
+        emit ExtraTimeForPlayer1Updated(extraTimeForPlayer1);
     }
 
     function transferOwnership(address newOwner) external onlyOwner {
@@ -627,11 +632,13 @@ contract Huego {
     function withdrawERC20(IERC20 erc20Token) external onlyOwner {
         uint256 erc20Balance = erc20Token.balanceOf(address(this));
         erc20Token.safeTransfer(msg.sender, erc20Balance);
+        emit ERC20Withdrawn(address(erc20Token), erc20Balance);
     }
 
     // if funds are stuck on contract for some reason
     function withdraw(uint256 amount) external onlyOwner {
         (bool success,) = payable(msg.sender).call{value: amount}("");
         require(success, "Transfer failed");
+        emit ETHWithdrawn(amount);
     }
 }
