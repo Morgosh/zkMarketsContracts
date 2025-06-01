@@ -264,10 +264,10 @@ contract Huego {
         require(stacksGrid[sessionId][game].grid[x][z + 1].color == 0, "Grid has a stack");
         require(stacksGrid[sessionId][game].grid[x + 1][z + 1].color == 0, "Grid has a stack");
 
-        topStack memory stack1 = topStack(x, z, 0, color);
-        topStack memory stack2 = topStack(x + 1, z, 0, color);
-        topStack memory stack3 = topStack(x, z + 1, 0, color);
-        topStack memory stack4 = topStack(x + 1, z + 1, 0, color);
+        topStack memory stack1 = topStack(x, z, 1, color);
+        topStack memory stack2 = topStack(x + 1, z, 1, color);
+        topStack memory stack3 = topStack(x, z + 1, 1, color);
+        topStack memory stack4 = topStack(x + 1, z + 1, 1, color);
 
         // If it's not the first placement, check for a valid neighbor
         if (gameSessions[sessionId].turn > 1) {

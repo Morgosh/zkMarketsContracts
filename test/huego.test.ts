@@ -169,10 +169,10 @@ describe("deploying", function () {
     //     uint8 y;
     //     uint8 color;
     // }
-    expect(stringifyBigInts(initialStacks[0])).to.eq(stringifyBigInts([0n, 0n, 0n, 1n]))
-    expect(stringifyBigInts(initialStacks[1])).to.eq(stringifyBigInts([1n, 0n, 0n, 1n]))
-    expect(stringifyBigInts(initialStacks[2])).to.eq(stringifyBigInts([0n, 1n, 0n, 1n]))
-    expect(stringifyBigInts(initialStacks[3])).to.eq(stringifyBigInts([1n, 1n, 0n, 1n]))
+    expect(stringifyBigInts(initialStacks[0])).to.eq(stringifyBigInts([0n, 0n, 1n, 1n]))
+    expect(stringifyBigInts(initialStacks[1])).to.eq(stringifyBigInts([1n, 0n, 1n, 1n]))
+    expect(stringifyBigInts(initialStacks[2])).to.eq(stringifyBigInts([0n, 1n, 1n, 1n]))
+    expect(stringifyBigInts(initialStacks[3])).to.eq(stringifyBigInts([1n, 1n, 1n, 1n]))
 
     await expectRejectedWithMessage(player1Contract.play(1, 0, 0, 0), "Not your turn")
     await expectRejectedWithMessage(player2Contract.play(1, 0, 0, 0), "Grid has a stack")
@@ -220,25 +220,25 @@ describe("deploying", function () {
     expect(session2[2][0].toString()).to.eq(ethers.parseEther("2").toString()) //balance on wager to be 2
 
     initialStacks = await player1Contract.getInitialStacks(1,0) // session 1, game 0
-    expect(stringifyBigInts(initialStacks[0])).to.eq(stringifyBigInts([0n, 0n, 0n, 1n]))
-    expect(stringifyBigInts(initialStacks[1])).to.eq(stringifyBigInts([1n, 0n, 0n, 1n]))
-    expect(stringifyBigInts(initialStacks[2])).to.eq(stringifyBigInts([0n, 1n, 0n, 1n]))
-    expect(stringifyBigInts(initialStacks[3])).to.eq(stringifyBigInts([1n, 1n, 0n, 1n]))
+    expect(stringifyBigInts(initialStacks[0])).to.eq(stringifyBigInts([0n, 0n, 1n, 1n]))
+    expect(stringifyBigInts(initialStacks[1])).to.eq(stringifyBigInts([1n, 0n, 1n, 1n]))
+    expect(stringifyBigInts(initialStacks[2])).to.eq(stringifyBigInts([0n, 1n, 1n, 1n]))
+    expect(stringifyBigInts(initialStacks[3])).to.eq(stringifyBigInts([1n, 1n, 1n, 1n]))
     
-    expect(stringifyBigInts(initialStacks[4])).to.eq(stringifyBigInts([2n, 0n, 0n, 2n]))
-    expect(stringifyBigInts(initialStacks[5])).to.eq(stringifyBigInts([3n, 0n, 0n, 2n]))
-    expect(stringifyBigInts(initialStacks[6])).to.eq(stringifyBigInts([2n, 1n, 0n, 2n]))
-    expect(stringifyBigInts(initialStacks[7])).to.eq(stringifyBigInts([3n, 1n, 0n, 2n]))
+    expect(stringifyBigInts(initialStacks[4])).to.eq(stringifyBigInts([2n, 0n, 1n, 2n]))
+    expect(stringifyBigInts(initialStacks[5])).to.eq(stringifyBigInts([3n, 0n, 1n, 2n]))
+    expect(stringifyBigInts(initialStacks[6])).to.eq(stringifyBigInts([2n, 1n, 1n, 2n]))
+    expect(stringifyBigInts(initialStacks[7])).to.eq(stringifyBigInts([3n, 1n, 1n, 2n]))
     
-    expect(stringifyBigInts(initialStacks[8])).to.eq(stringifyBigInts([4n, 0n, 0n, 3n]))
-    expect(stringifyBigInts(initialStacks[9])).to.eq(stringifyBigInts([5n, 0n, 0n, 3n]))
-    expect(stringifyBigInts(initialStacks[10])).to.eq(stringifyBigInts([4n, 1n, 0n, 3n]))
-    expect(stringifyBigInts(initialStacks[11])).to.eq(stringifyBigInts([5n, 1n, 0n, 3n]))
+    expect(stringifyBigInts(initialStacks[8])).to.eq(stringifyBigInts([4n, 0n, 1n, 3n]))
+    expect(stringifyBigInts(initialStacks[9])).to.eq(stringifyBigInts([5n, 0n, 1n, 3n]))
+    expect(stringifyBigInts(initialStacks[10])).to.eq(stringifyBigInts([4n, 1n, 1n, 3n]))
+    expect(stringifyBigInts(initialStacks[11])).to.eq(stringifyBigInts([5n, 1n, 1n, 3n]))
 
-    expect(stringifyBigInts(initialStacks[12])).to.eq(stringifyBigInts([0n, 2n, 0n, 4n]))
-    expect(stringifyBigInts(initialStacks[13])).to.eq(stringifyBigInts([1n, 2n, 0n, 4n]))
-    expect(stringifyBigInts(initialStacks[14])).to.eq(stringifyBigInts([0n, 3n, 0n, 4n]))
-    expect(stringifyBigInts(initialStacks[15])).to.eq(stringifyBigInts([1n, 3n, 0n, 4n]))
+    expect(stringifyBigInts(initialStacks[12])).to.eq(stringifyBigInts([0n, 2n, 1n, 4n]))
+    expect(stringifyBigInts(initialStacks[13])).to.eq(stringifyBigInts([1n, 2n, 1n, 4n]))
+    expect(stringifyBigInts(initialStacks[14])).to.eq(stringifyBigInts([0n, 3n, 1n, 4n]))
+    expect(stringifyBigInts(initialStacks[15])).to.eq(stringifyBigInts([1n, 3n, 1n, 4n]))
 
     // lets fetch points
     // function calculateGamePoints(uint256 sessionId, uint8 game) public view returns (uint256, uint256) {
@@ -502,7 +502,7 @@ async function reconstructGrid(sessionId: number, game: number): Promise<Grid> {
               //console.log(`Processing block: x=${x}, z=${z}, y=${y}, pieceType=${pieceType}, color=${color}, rotation=${rotation}`);
               
               if (pieceType === 1) { // 4x1 block
-                  const y = 0
+                  const y = 1
                   grid[x][z][y] = color;
                   grid[x+1][z][y] = color;
                   grid[x][z+1][y] = color;
@@ -584,23 +584,23 @@ it("blocks fall down correctly", async () => {
   const legitMoveTx5 = await player1Contract.play(sessionId, 0, 0, 0)
   await legitMoveTx5.wait()
   stacksGrid = await player1Contract.getStacksGrid(sessionId, 0)
-  expect(stacksGrid[0][0][2]).to.eq(1n)
-  expect(stacksGrid[1][0][2]).to.eq(1n)
-  expect(stacksGrid[2][0][2]).to.eq(0n)
+  expect(stacksGrid[0][0][2]).to.eq(2n)
+  expect(stacksGrid[1][0][2]).to.eq(2n)
+  expect(stacksGrid[2][0][2]).to.eq(1n)
   // lets place another block
   const legitMoveTx6 = await player2Contract.play(sessionId, 1, 0, 0)
   await legitMoveTx6.wait()
   stacksGrid = await player1Contract.getStacksGrid(sessionId, 0)
-  expect(stacksGrid[0][0][2]).to.eq(1n)
-  expect(stacksGrid[1][0][2]).to.eq(2n)
-  expect(stacksGrid[2][0][2]).to.eq(1n)
+  expect(stacksGrid[0][0][2]).to.eq(2n)
+  expect(stacksGrid[1][0][2]).to.eq(3n)
+  expect(stacksGrid[2][0][2]).to.eq(2n)
 
   const legitMoveTx7 = await player1Contract.play(sessionId, 0, 0, 0)
   await legitMoveTx7.wait()
   stacksGrid = await player1Contract.getStacksGrid(sessionId, 0)
-  expect(stacksGrid[0][0][2]).to.eq(2n)
-  expect(stacksGrid[1][0][2]).to.eq(3n)
-  expect(stacksGrid[2][0][2]).to.eq(1n)
+  expect(stacksGrid[0][0][2]).to.eq(3n)
+  expect(stacksGrid[1][0][2]).to.eq(4n)
+  expect(stacksGrid[2][0][2]).to.eq(2n)
 })
 
 // lets make a function that converts stacks grid to 2d grid with height
