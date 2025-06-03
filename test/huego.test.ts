@@ -41,17 +41,36 @@ function stringifyBigInts(o: any): string {
 
 // Helper function to generate a signature for session creation
 async function generateSessionSignature(player1Wallet: Signer, player1Address: string, player2Address: string, timestamp: number, player1Contract: Contract): Promise<string> {
-  // Create message hash that matches the contract's getSessionMessageHash function
-  const messageHash = await player1Contract.getSessionMessageHash(player1Address, player2Address, timestamp)
-  // const messageHash = ethers.keccak256(
-  //   ethers.solidityPacked(
-  //     ["string", "address", "address", "uint256"],
-  //     ["Create Huego Game Session", player1Address, player2Address, timestamp]
-  //   )
-  // );
+  // Get the contract address and chain ID for the domain
+  const contractAddress = await player1Contract.getAddress();
+  const chainId = (await provider.getNetwork()).chainId;
   
-  // Sign the message hash with player1's wallet
-  return player1Wallet.signMessage(ethers.getBytes(messageHash));
+  // EIP-712 domain
+  const domain = {
+    name: "Huego",
+    version: "1",
+    chainId: chainId,
+    verifyingContract: contractAddress
+  };
+  
+  // EIP-712 types
+  const types = {
+    CreateSession: [
+      { name: "player1", type: "address" },
+      { name: "player2", type: "address" },
+      { name: "timestamp", type: "uint256" }
+    ]
+  };
+  
+  // EIP-712 message
+  const message = {
+    player1: player1Address,
+    player2: player2Address,
+    timestamp: timestamp
+  };
+  
+  // Sign the structured data
+  return player1Wallet.signTypedData(domain, types, message);
 }
 
 // Helper function to get the blockchain's current timestamp
