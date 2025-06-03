@@ -18,6 +18,8 @@
     "upgrade-diamond-main": "yarn hardhat deploy-zksync --script update_diamond.ts --network zksync-era",
     "upgrade-diamond-fully-test": "yarn hardhat deploy-zksync --script update_diamond_fully.ts --network zksync-era-testnet",
     "upgrade-diamond-fully-main": "yarn hardhat deploy-zksync --script update_diamond_fully.ts --network zksync-era",
+    "deploy-huego-test": "yarn hardhat deploy-zksync --script deploy_huego.ts --network abstract-testnet",
+    "deploy-huego-main": "yarn hardhat deploy-zksync --script deploy_huego.ts --network abstract",
     "deploy-erc721-test": "hardhat deploy-zksync --script deploy_erc721_example.ts --network zksync-era-testnet"
   },
   "devDependencies": {
