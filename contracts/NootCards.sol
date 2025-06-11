@@ -2,16 +2,16 @@
 pragma solidity ^0.8.23;
 
 /**
- * @title NootCards - High/Low Card Game (Trustless Version)
+ * @title NootCards - High/Low Card Game (Offchain Gameplay Version)
  * @notice This version implements a provably fair and verifiable card sequence
  * using deterministic cryptographic randomness, user-side entropy, and hash chaining.
  * 
  * Implementation features:
  * - Dealer commits to a hash chain (final hash of a sequence of hashes)
- * - Each round, dealer reveals the next hash in reverse order from the chain
+ * - Gameplay happens offchain with backend providing hashes as player wins rounds
  * - Contract verifies each revealed hash is part of the original committed chain
  * - Card for each round is determined by combining the verified hash with user entropy
- * - Dispute resolution if dealer acts maliciously (eg. doesn't reveal hashes)
+ * - Players can cash out anytime or request withdrawal if backend becomes unresponsive
  * 
  * Card Generation:
  * - Card value is derived from: keccak256(hash + userRandomNonce + playerAddress + gameId)
@@ -35,62 +35,65 @@ contract NootCards {
     enum GameStatus { Inactive, Active, Completed }
     enum PaymentType { Token, ETH }
     
-    // Add constant for maximum turns
     uint8 constant public GAME_MAX_TURNS = 10;
     
     struct Game {
         address player;
         uint256 wager;
-        Card currentCard;
-        Guess currentGuess;
         GameStatus status;
-        uint8 turn;
         uint256 gameId;
         bytes32 commitment;     // Dealer's commitment (hash of the final hash in the chain)
         bytes32 userRandomNonce; // Player's random nonce
         PaymentType paymentType; // Whether the game uses Token or ETH
     }
     
-    address public admin;
-    address public immutable dealer;      // The dealer address (replaces trusted signer)
-    IERC20 public nootToken;
-    uint256 public minWager;
-    uint256 public maxWager;
-    uint256 public minEthWager; // Minimum wager for ETH games
-    uint256 public maxEthWager; // Maximum wager for ETH games
+    // Withdrawal request data
+    struct WithdrawalRequest {
+        uint256 timestamp;
+        Guess lastGuess;
+        bytes32 previousHash;
+        uint8 finalTurn;
+    }
     
-    // Add withdrawal timelock duration
-    uint256 public immutable withdrawalTimelock = 48 hours;
-    
-    // Add player-specific game counter
-    mapping(address => uint256) public playerGameCounters;
-    
-    // Add withdrawal request timestamps
-    mapping(address => uint256) public withdrawalRequests;
-    
-    // Admin's pending withdrawal request
-    struct AdminWithdrawalRequest {
-        uint256 tokenAmount;
-        uint256 ethAmount;
+    // Pending wager limit update
+    struct PendingWagerUpdate {
+        uint256 minWager;
+        uint256 maxWager;
+        uint256 minEthWager;
+        uint256 maxEthWager;
         uint256 timestamp;
     }
-    AdminWithdrawalRequest public adminRequest;
     
-    // Store all games per player by gameId
+    address public admin;
+    address public immutable dealer;
+    IERC20 public erc20Token;
+    uint256 public minWager;
+    uint256 public maxWager;
+    uint256 public minEthWager;
+    uint256 public maxEthWager;
+    uint256 public immutable withdrawalTimelock = 48 hours;
+    uint256 public immutable wagerLimitUpdateDelay = 24 hours;
+    
+    // Active games tracking
+    uint256 public activeGameCount;
+    uint256 public totalActiveTokenWagers;
+    uint256 public totalActiveEthWagers;
+    
+    mapping(address => uint256) public playerGameCounters;
+    mapping(address => WithdrawalRequest) public withdrawalRequests;
     mapping(address => mapping(uint256 => Game)) public playerGames;
-    
-    // Track used sponsorship nonces
     mapping(bytes32 => bool) public usedSponsorshipNonces;
     
+    PendingWagerUpdate public pendingWagerUpdate;
+    
     event GameStarted(address indexed player, uint256 gameId, uint256 wager, uint8 turns, bytes32 commitment, PaymentType paymentType, bytes32 userRandomNonce, bytes32 sponsorshipNonce);
-    event GuessMade(address indexed player, uint256 gameId, uint8 turn, Guess guess);
-    event GameLost(address indexed player, uint256 gameId, Card previousCard, Card newCard, Guess guess, bytes32 currentHash);
-    event GameWon(address indexed player, uint256 gameId, uint256 prize, PaymentType paymentType);
+    event GameEnded(address indexed player, uint256 gameId, uint8 turn, bool won, uint256 prize, PaymentType paymentType);
     event WithdrawalRequested(address indexed player, uint256 timestamp);
-    event WithdrawalProcessed(address indexed player, uint256 amount, PaymentType paymentType);
     event WithdrawalCancelled(address indexed player);
     event AdminTransferred(address indexed previousAdmin, address indexed newAdmin);
     event AdminDirectWithdrawal(uint256 amount, PaymentType paymentType);
+    event WagerLimitUpdateRequested(uint256 minWager, uint256 maxWager, uint256 minEthWager, uint256 maxEthWager, uint256 timestamp);
+    event WagerLimitUpdateExecuted(uint256 minWager, uint256 maxWager, uint256 minEthWager, uint256 maxEthWager);
     
     modifier onlyAdmin() {
         require(msg.sender == admin, "NootCards: caller is not the admin");
@@ -102,13 +105,13 @@ contract NootCards {
         _;
     }
     
-    constructor(address _nootToken, address _dealer, uint256 _minWager, uint256 _maxWager, uint256 _minEthWager, uint256 _maxEthWager) {
-        require(_nootToken != address(0), "NootCards: token address cannot be zero");
+    constructor(address _erc20Token, address _dealer, uint256 _minWager, uint256 _maxWager, uint256 _minEthWager, uint256 _maxEthWager) {
+        require(_erc20Token != address(0), "NootCards: token address cannot be zero");
         require(_dealer != address(0), "NootCards: dealer address cannot be zero");
         
-        admin = msg.sender; // Deployer is the default admin
-        dealer = _dealer;   // Set the dealer address
-        nootToken = IERC20(_nootToken);
+        admin = msg.sender;
+        dealer = _dealer;
+        erc20Token = IERC20(_erc20Token);
         minWager = _minWager;
         maxWager = _maxWager;
         minEthWager = _minEthWager;
@@ -116,19 +119,57 @@ contract NootCards {
     }
     
     function transferAdmin(address newAdmin) external onlyAdmin {
-        require(newAdmin != address(0), "NootCards: new admin is the zero address");
         emit AdminTransferred(admin, newAdmin);
         admin = newAdmin;
     }
     
-    function updateWagerLimits(uint256 _minWager, uint256 _maxWager) external onlyAdmin {
-        minWager = _minWager;
-        maxWager = _maxWager;
+    /**
+     * @notice Request a wager limit update with 24-hour delay
+     * @param _minWager New minimum token wager
+     * @param _maxWager New maximum token wager
+     * @param _minEthWager New minimum ETH wager
+     * @param _maxEthWager New maximum ETH wager
+     */
+    function requestWagerLimitUpdate(uint256 _minWager, uint256 _maxWager, uint256 _minEthWager, uint256 _maxEthWager) external onlyAdmin {
+        require(_minWager <= _maxWager, "Invalid token wager limits");
+        require(_minEthWager <= _maxEthWager, "Invalid ETH wager limits");
+        require(pendingWagerUpdate.timestamp == 0, "Pending wager update already exists");
+        
+        pendingWagerUpdate = PendingWagerUpdate({
+            minWager: _minWager,
+            maxWager: _maxWager,
+            minEthWager: _minEthWager,
+            maxEthWager: _maxEthWager,
+            timestamp: block.timestamp
+        });
+        
+        emit WagerLimitUpdateRequested(_minWager, _maxWager, _minEthWager, _maxEthWager, block.timestamp);
     }
     
-    function updateEthWagerLimits(uint256 _minEthWager, uint256 _maxEthWager) external onlyAdmin {
-        minEthWager = _minEthWager;
-        maxEthWager = _maxEthWager;
+    /**
+     * @notice Execute the pending wager limit update after delay
+     */
+    function executeWagerLimitUpdate() external onlyAdmin {
+        require(pendingWagerUpdate.timestamp > 0, "No pending wager update");
+        require(block.timestamp >= pendingWagerUpdate.timestamp + wagerLimitUpdateDelay, "Update delay not expired");
+        
+        minWager = pendingWagerUpdate.minWager;
+        maxWager = pendingWagerUpdate.maxWager;
+        minEthWager = pendingWagerUpdate.minEthWager;
+        maxEthWager = pendingWagerUpdate.maxEthWager;
+        
+        emit WagerLimitUpdateExecuted(minWager, maxWager, minEthWager, maxEthWager);
+        
+        // Clear pending update
+        delete pendingWagerUpdate;
+    }
+    
+    /**
+     * @notice Cancel a pending wager limit update
+     */
+    function cancelWagerLimitUpdate() external onlyAdmin {
+        require(pendingWagerUpdate.timestamp > 0, "No pending wager update");
+        delete pendingWagerUpdate;
     }
     
     /**
@@ -149,9 +190,9 @@ contract NootCards {
     }
     
     // Helper to derive a card from a hash with user entropy
-    function _getCardFromHash(bytes32 hash, bytes32 userRandomNonce, address player, uint256 gameId) internal pure returns (Card) {
+    function _getCardFromHash(bytes32 turnHash, bytes32 userRandomNonce, address player, uint256 gameId) internal pure returns (Card) {
         // Combine hash with user entropy
-        bytes32 combinedHash = keccak256(abi.encodePacked(hash, userRandomNonce, player, gameId));
+        bytes32 combinedHash = keccak256(abi.encodePacked(turnHash, userRandomNonce, player, gameId));
         
         // Use the combined hash to determine the card
         return Card(uint8(uint256(combinedHash) % 13));
@@ -166,7 +207,7 @@ contract NootCards {
         }
     }
     
-    // Verify a commitment signature from the dealer, now includes userAddress and gameId
+    // Verify a commitment signature from the dealer
     function _verifyCommitmentSignature(bytes32 commitment, bytes memory signature, address userAddress, uint256 gameId) internal view returns (bool) {
         // Create message hash including user address and game ID
         bytes32 messageHash = keccak256(abi.encodePacked(
@@ -179,6 +220,21 @@ contract NootCards {
         address recoveredSigner = ecrecover(messageHash, v, r, s);
         
         return recoveredSigner == dealer;
+    }
+    
+    // Verify a player's guess signature
+    function _verifyGuessSignature(bytes memory signature, uint256 gameId, uint8 turn, Guess guess, address player) internal pure returns (bool) {
+        // Create message hash for the guess
+        bytes32 messageHash = keccak256(abi.encodePacked(
+            "\x19Ethereum Signed Message:\n32",
+            keccak256(abi.encodePacked(gameId, turn, uint8(guess)))
+        ));
+        
+        // Recover signer from signature
+        (bytes32 r, bytes32 s, uint8 v) = _splitSignature(signature);
+        address recoveredSigner = ecrecover(messageHash, v, r, s);
+        
+        return recoveredSigner == player;
     }
     
     // Helper function to split signature into r, s, v components
@@ -200,16 +256,17 @@ contract NootCards {
     /**
      * @notice Calculate the current pot for a game based on wager and completed turns
      * @param game The game to calculate the pot for
+     * @param turn The number of completed turns
      * @return The calculated current pot value
      */
-    function calculateCurrentPot(Game memory game) public pure returns (uint256) {
-        if (game.status != GameStatus.Active || game.turn == 0) {
+    function calculateCurrentPot(Game memory game, uint8 turn) public pure returns (uint256) {
+        if (game.status != GameStatus.Active || turn == 0) {
             return 0;
         }
         
         uint256 pot = game.wager;
         // Apply multipliers for each completed turn (up to current turn)
-        for (uint8 i = 1; i <= game.turn; i++) {
+        for (uint8 i = 1; i <= turn; i++) {
             pot = (pot * calculateTurnMultiplier(i)) / 100;
         }
         
@@ -224,7 +281,7 @@ contract NootCards {
     function calculateMaxPot(uint256 wager) public pure returns (uint256) {
         uint256 pot = wager;
         
-        for (uint8 i = 1; i <= GAME_MAX_TURNS; i++) { // Use constant
+        for (uint8 i = 1; i <= GAME_MAX_TURNS; i++) {
             pot = (pot * calculateTurnMultiplier(i)) / 100;
         }
         
@@ -237,7 +294,7 @@ contract NootCards {
     function _startGame(address player, uint256 wagerAmount, bytes32 userRandomNonce, bytes32 dealerCommitment,
      bytes memory commitmentSignature, PaymentType paymentType, bool isSponsored, bytes32 sponsorshipNonce) internal {
         // Check if the player has a pending withdrawal request
-        require(withdrawalRequests[player] == 0, "Pending withdrawal request exists");
+        require(withdrawalRequests[player].timestamp == 0, "Pending withdrawal request exists");
         
         // Ensure wager is within limits
         if (paymentType == PaymentType.Token) {
@@ -260,15 +317,15 @@ contract NootCards {
         playerGames[player][gameId] = Game({
             player: player,
             wager: wagerAmount,
-            currentCard: Card.Two, // Default starting card
-            currentGuess: Guess.Higher, // Default starting guess
             status: GameStatus.Active,
-            turn: 0,
             gameId: gameId,
             commitment: dealerCommitment,
             userRandomNonce: userRandomNonce,
             paymentType: paymentType
         });
+        
+        // Track active game
+        _updateActiveGameCounters(wagerAmount, paymentType, true);
         
         // Emit appropriate event
         emit GameStarted(player, gameId, wagerAmount, GAME_MAX_TURNS, dealerCommitment, paymentType, userRandomNonce, isSponsored ? sponsorshipNonce : bytes32(0));
@@ -294,8 +351,8 @@ contract NootCards {
             // Using token payment
             actualWager = wagerAmount;
             
-            // Transfer NOOT tokens from player to contract
-            require(nootToken.transferFrom(msg.sender, address(this), actualWager), "Token transfer failed");
+            // Transfer tokens from player to contract
+            require(erc20Token.transferFrom(msg.sender, address(this), actualWager), "Token transfer failed");
         }
         
         // Start the game using common logic
@@ -346,153 +403,105 @@ contract NootCards {
     }
     
     /**
-     * @notice Player submits the next hash in the chain and makes a guess
+     * @notice Cash out winnings after completing turns offchain
      * @param nextHash The next hash in the chain
-     * @param newGuess The player's guess for the next round
+     * @param finalTurn The turn number this hash corresponds to
      */
-    function makeGuess(bytes32 nextHash, Guess newGuess) external {
+    function cashOut(bytes32 nextHash, uint8 finalTurn) external {
         // Get the active game (most recent game)
         uint256 activeGameId = playerGameCounters[msg.sender] - 1;
         Game storage game = playerGames[msg.sender][activeGameId];
-        
         require(game.status == GameStatus.Active, "Game is not active");
-        require(game.turn < GAME_MAX_TURNS, "No turns left");
-        
-        // verify the hash chain leads back to the commitment
-        // Hash should be hashed exactly game.turn times to match commitment
-        bytes32 currentHash = nextHash;
-        for (uint8 i = 0; i < game.turn + 1; i++) {
-            currentHash = keccak256(abi.encodePacked(currentHash));
-        }
-        require(currentHash == game.commitment, "Invalid hash chain");
-
-        // Get the new card from the next hash with added user entropy
-        Card newCard = _getCardFromHash(nextHash, game.userRandomNonce, msg.sender, game.gameId);
-
-
-        // First turn should always pass (no previous guess to check)
-        if (game.turn == 0) {
-            // Update card and guess
-            game.currentCard = newCard;
-            game.currentGuess = newGuess;
-            
-            emit GuessMade(msg.sender, game.gameId, game.turn, newGuess);
-            game.turn++;
-            
-            return;
-        }
-        
-        // Check if the previous guess was correct
-        bool roundWon = _checkWin(game.currentCard, newCard, game.currentGuess);
-
-        if (roundWon) {
-            // Update card and guess
-            game.currentCard = newCard;
-            game.currentGuess = newGuess;
-            emit GuessMade(msg.sender, game.gameId, game.turn, newGuess);
-            game.turn++;
-            
-            // If player has completed all rounds, they win the game
-            if (game.turn == GAME_MAX_TURNS) {
-                uint256 prize = calculateCurrentPot(game);
-                game.status = GameStatus.Completed;
-                
-                // Transfer prize based on payment type
-                if (game.paymentType == PaymentType.Token) {
-                    // Transfer NOOT tokens from contract to winner
-                    require(nootToken.transfer(msg.sender, prize), "Token transfer failed");
-                } else {
-                    // Transfer ETH from contract to winner
-                    (bool success, ) = payable(msg.sender).call{value: prize}("");
-                    require(success, "ETH transfer failed");
-                }
-                
-                emit GameWon(msg.sender, game.gameId, prize, game.paymentType);
-            }
-        } else {
-            // Player lost
-            game.status = GameStatus.Completed;
-            emit GameLost(msg.sender, game.gameId, game.currentCard, newCard, game.currentGuess, nextHash);
-            game.currentCard = newCard;
-        }
-    }
-    
-    /**
-     * @notice Allows a player to claim their current pot and end the game early
-     * @param nextHash The next hash in the chain (to verify the player did not lose the game)
-     */
-    function claimRewards(bytes32 nextHash) external {
-        // Get the active game (most recent game)
-        uint256 activeGameId = playerGameCounters[msg.sender] - 1;
-        Game storage game = playerGames[msg.sender][activeGameId];
-        
-        require(game.status == GameStatus.Active, "Game is not active");
-        require(game.turn > 0, "Must complete at least one round");
+        require(finalTurn > 0 && finalTurn <= GAME_MAX_TURNS, "Invalid turn number");
         
         // Verify the hash chain leads back to the commitment
-        // Hash should be hashed exactly game.turn times to match commitment
+        // Hash should be hashed exactly finalTurn times to match commitment
         bytes32 currentHash = nextHash;
-        for (uint8 i = 0; i < game.turn + 1; i++) {
+        for (uint8 i = 0; i < finalTurn; i++) {
             currentHash = keccak256(abi.encodePacked(currentHash));
         }
         require(currentHash == game.commitment, "Invalid hash chain");
-        
-        // Get the next card from hash with added user entropy
-        Card nextCard = _getCardFromHash(nextHash, game.userRandomNonce, msg.sender, game.gameId);
-        
-        // Check if the player's guess would win
-        require(_checkWin(game.currentCard, nextCard, game.currentGuess),
-            "Current guess would not win next turn");
-        
-        uint256 prize = calculateCurrentPot(game);
+        _distributePrize(game, finalTurn, game.paymentType);
         game.status = GameStatus.Completed;
-        
-        // Transfer prize based on payment type
-        if (game.paymentType == PaymentType.Token) {
-            // Transfer NOOT tokens from contract to winner
-            require(nootToken.transfer(msg.sender, prize), "Token transfer failed");
+    }
+
+    /**
+     * @notice Update active game counters when games start or end
+     * @param wagerAmount The wager amount
+     * @param paymentType The payment type (Token or ETH)
+     * @param isStarting True if game is starting, false if ending
+     */
+    function _updateActiveGameCounters(uint256 wagerAmount, PaymentType paymentType, bool isStarting) internal {
+        if (isStarting) {
+            activeGameCount++;
+            if (paymentType == PaymentType.Token) {
+                totalActiveTokenWagers += wagerAmount;
+            } else {
+                totalActiveEthWagers += wagerAmount;
+            }
         } else {
-            // Transfer ETH from contract to winner
+            activeGameCount--;
+            if (paymentType == PaymentType.Token) {
+                totalActiveTokenWagers -= wagerAmount;
+            } else {
+                totalActiveEthWagers -= wagerAmount;
+            }
+        }
+    }
+
+    function _distributePrize(Game memory game, uint8 finalTurn, PaymentType paymentType) internal {
+        uint256 prize = calculateCurrentPot(game, finalTurn);
+        
+        // Update active game tracking
+        _updateActiveGameCounters(game.wager, game.paymentType, false);
+        
+        if (paymentType == PaymentType.Token) {
+            require(erc20Token.transfer(msg.sender, prize), "Token transfer failed");
+        } else {
             (bool success, ) = payable(msg.sender).call{value: prize}("");
             require(success, "ETH transfer failed");
         }
-        
-        emit GameWon(msg.sender, game.gameId, prize, game.paymentType);
+        emit GameEnded(msg.sender, game.gameId, finalTurn, true, prize, game.paymentType);
     }
-    
+
     // Get full game state
-    function getGameState(address player) external view returns (GameStatus status, uint256 wager, uint256 currentPot, Card previousCard,
-     Guess previousGuess, uint8 turn, uint256 gameId, bytes32 commitment, bytes32 userRandomNonce, PaymentType paymentType) {
-        // Get the active game (most recent game)
+    function getGameState(address player) external view returns (Game memory) {
         uint256 activeGameId = playerGameCounters[player] > 0 ? playerGameCounters[player] - 1 : 0;
         Game storage game = playerGames[player][activeGameId];
-        
-        return (game.status, game.wager, calculateCurrentPot(game), game.currentCard, game.currentGuess, game.turn, game.gameId, game.commitment, game.userRandomNonce, game.paymentType);
+        return game;
     }
     
     // Get specific game state by gameId
-    function getGameStateById(address player, uint256 gameId) external view returns (GameStatus status, uint256 wager, uint256 currentPot, Card previousCard,
-     Guess previousGuess, uint8 turn, uint256 gameIdReturn, bytes32 commitment, bytes32 userRandomNonce, PaymentType paymentType) {
+    function getGameStateById(address player, uint256 gameId) external view returns (Game memory) {
         Game storage game = playerGames[player][gameId];
-        
-        return (game.status, game.wager, calculateCurrentPot(game), game.currentCard, game.currentGuess, game.turn, game.gameId, game.commitment, game.userRandomNonce, game.paymentType);
+        return game;
     }
     
     /**
      * @notice Request a withdrawal due to backend inactivity
      * @dev Initiates a timelock period after which the player can withdraw if the backend doesn't respond
      */
-    function requestWithdrawal() external {
-        // Get the active game (most recent game)
+    function requestWithdrawal(Guess lastGuess, bytes32 previousHash, uint8 finalTurn) external {
         uint256 activeGameId = playerGameCounters[msg.sender] - 1;
         Game storage game = playerGames[msg.sender][activeGameId];
         
         require(game.status == GameStatus.Active, "Game is not active");
-        require(game.turn > 0, "Must have made at least one move");
-        require(withdrawalRequests[msg.sender] == 0, "Withdrawal already requested");
-        
-        // Set the withdrawal request timestamp
-        withdrawalRequests[msg.sender] = block.timestamp;
+        require(withdrawalRequests[msg.sender].timestamp == 0, "Withdrawal already requested");
+
+        // Verify the hash chain leads back to the commitment
+        bytes32 currentHash = previousHash;
+        for (uint8 i = 0; i < finalTurn + 1; i++) {
+            currentHash = keccak256(abi.encodePacked(currentHash));
+        }
+        require(currentHash == game.commitment, "Invalid hash chain");
+
+        // Set the withdrawal request data
+        withdrawalRequests[msg.sender] = WithdrawalRequest({
+            timestamp: block.timestamp,
+            lastGuess: lastGuess,
+            previousHash: previousHash,
+            finalTurn: finalTurn
+        });
         
         emit WithdrawalRequested(msg.sender, block.timestamp);
     }
@@ -502,11 +511,8 @@ contract NootCards {
      * @dev Allows players to cancel their withdrawal request if they change their mind
      */
     function cancelWithdrawalRequest() external {
-        require(withdrawalRequests[msg.sender] > 0, "No withdrawal request found");
-        
-        // Clear the withdrawal request
-        withdrawalRequests[msg.sender] = 0;
-        
+        require(withdrawalRequests[msg.sender].timestamp > 0, "No withdrawal request found");
+        delete withdrawalRequests[msg.sender];
         emit WithdrawalCancelled(msg.sender);
     }
     
@@ -514,9 +520,9 @@ contract NootCards {
      * @notice Process a withdrawal after the timelock has expired
      */
     function processWithdrawal() external {
-        uint256 requestTime = withdrawalRequests[msg.sender];
-        require(requestTime > 0, "No withdrawal request found");
-        require(block.timestamp >= requestTime + withdrawalTimelock, "Timelock period not yet expired");
+        WithdrawalRequest storage request = withdrawalRequests[msg.sender];
+        require(request.timestamp > 0, "No withdrawal request found");
+        require(block.timestamp >= request.timestamp + withdrawalTimelock, "Timelock period not yet expired");
         
         // Get the active game (most recent game)
         uint256 activeGameId = playerGameCounters[msg.sender] - 1;
@@ -524,63 +530,110 @@ contract NootCards {
         
         require(game.status == GameStatus.Active, "Game is not active");
         
-        // Calculate the current pot
-        uint256 prize = calculateCurrentPot(game);
-        PaymentType paymentType = game.paymentType;
-        
-        // Reset game and withdrawal request
-        game.status = GameStatus.Completed;
-        withdrawalRequests[msg.sender] = 0;
-        
-        // Transfer prize based on payment type
-        if (paymentType == PaymentType.Token) {
-            // Transfer NOOT tokens to player
-            require(nootToken.transfer(msg.sender, prize), "Token transfer failed");
-        } else {
-            // Transfer ETH to player
-            (bool success, ) = payable(msg.sender).call{value: prize}("");
-            require(success, "ETH transfer failed");
-        }
-        
-        emit WithdrawalProcessed(msg.sender, prize, paymentType);
-    }
-    
-    /**
-     * @notice Dealer can provide proof that the player would lose, cancelling the withdrawal
-     * @param player The player address
-     * @param nextHash The next hash in the chain
-     */
-    function proveLoss(address player, bytes32 nextHash) external onlyDealer {
-        require(withdrawalRequests[player] > 0, "No withdrawal request for this player");
-        
-        // Get the active game (most recent game)
-        uint256 activeGameId = playerGameCounters[player] - 1;
-        Game storage game = playerGames[player][activeGameId];
-        
-        require(game.status == GameStatus.Active, "Game is not active");
-        
-        // Verify the hash chain leads back to the commitment
-        // Hash should be hashed exactly game.turn times to match commitment
-        bytes32 currentHash = nextHash;
-        for (uint8 i = 0; i < game.turn + 1; i++) {
+        // Verify the hash chain leads back to the commitment using saved data
+        bytes32 currentHash = request.previousHash;
+        for (uint8 i = 0; i < request.finalTurn + 1; i++) {
             currentHash = keccak256(abi.encodePacked(currentHash));
         }
         require(currentHash == game.commitment, "Invalid hash chain");
         
-        // Get the new card from the hash with added user entropy
-        Card newCard = _getCardFromHash(nextHash, game.userRandomNonce, player, game.gameId);
+        _distributePrize(game, request.finalTurn, game.paymentType);
+        delete withdrawalRequests[msg.sender];
+    }
+
+    /**
+     * @notice Internal function to prove player loss and end game
+     * @param player The player address
+     * @param playerGuess The player's guess
+     * @param previousHash The hash for the previous card
+     * @param nextHash The next hash in the chain that results in loss
+     * @param finalTurn The turn number this hash corresponds to
+     */
+    function _provePlayerLossAndEndGame(address player, Guess playerGuess, bytes32 previousHash, bytes32 nextHash, uint8 finalTurn) internal {
+        // Get the active game
+        uint256 activeGameId = playerGameCounters[player] - 1;
+        Game storage game = playerGames[player][activeGameId];
         
-        // Check if the player's guess would lose
-        bool playerWouldWin = _checkWin(game.currentCard, newCard, game.currentGuess);
-        require(!playerWouldWin, "Player would win with this hash");
+        require(game.status == GameStatus.Active, "Game is not active");
+        require(finalTurn > 0 && finalTurn <= GAME_MAX_TURNS, "Invalid turn number");
+        
+        // Verify the hash chain leads back to the commitment
+        bytes32 currentHash = nextHash;
+        for (uint8 i = 0; i < finalTurn; i++) {
+            currentHash = keccak256(abi.encodePacked(currentHash));
+        }
+        require(currentHash == game.commitment, "Invalid hash chain");
+        
+        // Get the cards from the hash with added user entropy
+        Card newCard = _getCardFromHash(nextHash, game.userRandomNonce, player, game.gameId);
+        Card previousCard = _getCardFromHash(previousHash, game.userRandomNonce, player, game.gameId);
+        
+        // Verify player would lose with their guess
+        bool playerWouldWin = _checkWin(previousCard, newCard, playerGuess);
+        require(!playerWouldWin, "Player would win with this move");
         
         // Player lost, mark game as completed
         game.status = GameStatus.Completed;
         
-        // Reset withdrawal request
-        withdrawalRequests[player] = 0;
+        // Update active game tracking
+        _updateActiveGameCounters(game.wager, game.paymentType, false);
         
-        emit GameLost(player, game.gameId, game.currentCard, newCard, game.currentGuess, nextHash);
+        // If there's a pending withdrawal request, cancel it
+        if (withdrawalRequests[player].timestamp > 0) {
+            delete withdrawalRequests[player];
+        }
+        
+        emit GameEnded(player, game.gameId, finalTurn, false, 0, game.paymentType);
+    }
+
+    /**
+     * @notice Dealer can provide proof that the player would lose, cancelling the withdrawal
+     * @param player The player address
+     * @param nextHash The next hash in the chain
+     * @param finalTurn The turn number this hash corresponds to
+     */
+    function proveLoss(address player, bytes32 nextHash, uint8 finalTurn) external onlyDealer {
+        WithdrawalRequest storage request = withdrawalRequests[player];
+        require(request.timestamp > 0, "No withdrawal request for this player");
+        
+        // Use the common internal function with withdrawal request data
+        _provePlayerLossAndEndGame(player, request.lastGuess, request.previousHash, nextHash, finalTurn);
+    }
+    
+    /**
+     * @notice Dealer can end the game by proving a player's signed move would result in loss
+     * @param player The player address
+     * @param playerGuessSignature The player's signature of their guess
+     * @param playerGuess The player's guess
+     * @param nextHash The next hash in the chain that would result in loss
+     * @param finalTurn The turn number this hash corresponds to
+     */
+    function endGameWithProofOfLoss(address player, bytes memory playerGuessSignature, Guess playerGuess, bytes32 nextHash, uint8 finalTurn) external onlyDealer {
+        // Get the active game to verify signature
+        uint256 activeGameId = playerGameCounters[player] - 1;
+        Game storage game = playerGames[player][activeGameId];
+        
+        // Verify the player's guess signature
+        require(_verifyGuessSignature(playerGuessSignature, game.gameId, finalTurn, playerGuess, player), "Invalid player guess signature");
+        
+        // Calculate previous hash (one step back in the chain)
+        bytes32 previousHash = keccak256(abi.encodePacked(nextHash));
+        
+        // Use the common internal function
+        _provePlayerLossAndEndGame(player, playerGuess, previousHash, nextHash, finalTurn);
+    }
+    
+    /**
+     * @notice Calculate reserved funds for active games (max possible winnings)
+     * @param paymentType The payment type to calculate reserves for
+     * @return The amount reserved for active games
+     */
+    function calculateReservedFunds(PaymentType paymentType) public view returns (uint256) {
+        if (paymentType == PaymentType.Token) {
+            return calculateMaxPot(totalActiveTokenWagers);
+        } else {
+            return calculateMaxPot(totalActiveEthWagers);
+        }
     }
     
     /**
@@ -592,11 +645,14 @@ contract NootCards {
         require(amount > 0, "Amount must be greater than zero");
         
         if (paymentType == PaymentType.Token) {
-            uint256 tokenBalance = nootToken.balanceOf(address(this));
-            require(amount <= tokenBalance, "Insufficient token balance");
-            require(nootToken.transfer(admin, amount), "Token transfer failed");
+            uint256 tokenBalance = erc20Token.balanceOf(address(this));
+            uint256 reservedFunds = calculateReservedFunds(PaymentType.Token);
+            require(amount <= tokenBalance - reservedFunds, "Cannot withdraw reserved funds for active games");
+            require(erc20Token.transfer(admin, amount), "Token transfer failed");
         } else {
-            require(amount <= address(this).balance, "Insufficient ETH balance");
+            uint256 ethBalance = address(this).balance;
+            uint256 reservedFunds = calculateReservedFunds(PaymentType.ETH);
+            require(amount <= ethBalance - reservedFunds, "Cannot withdraw reserved funds for active games");
             (bool success, ) = payable(admin).call{value: amount}("");
             require(success, "ETH transfer failed");
         }
@@ -606,72 +662,4 @@ contract NootCards {
     
     // Required to receive ETH
     receive() external payable {}
-} 
-
-// could use this for admin withdrawals in future but we ultimately decided against delaying the withdrawal process for admin withdrawals
-
-// event AdminWithdrawalRequested(uint256 tokenAmount, uint256 ethAmount, uint256 timestamp);
-// event AdminWithdrawalProcessed(uint256 amount, PaymentType paymentType);
-// /**
-//  * @notice Request admin withdrawal with timelock for both token and ETH
-//  * @param tokenAmount The amount of tokens to withdraw
-//  * @param ethAmount The amount of ETH to withdraw
-//  */
-// function requestAdminWithdrawal(uint256 tokenAmount, uint256 ethAmount) external onlyAdmin {
-//     // Ensure there's no pending withdrawal request
-//     require(adminRequest.timestamp == 0, "Admin withdrawal already requested");
-    
-//     // Ensure at least one amount is greater than zero
-//     require(tokenAmount > 0 || ethAmount > 0, "At least one amount must be greater than zero");
-    
-//     // Ensure the requested amounts are available
-//     if (tokenAmount > 0) {
-//         uint256 tokenBalance = nootToken.balanceOf(address(this));
-//         require(tokenAmount <= tokenBalance, "Insufficient token balance");
-//     }
-    
-//     if (ethAmount > 0) {
-//         require(ethAmount <= address(this).balance, "Insufficient ETH balance");
-//     }
-    
-//     // Create withdrawal request
-//     adminRequest = AdminWithdrawalRequest({
-//         tokenAmount: tokenAmount,
-//         ethAmount: ethAmount,
-//         timestamp: block.timestamp
-//     });
-    
-//     emit AdminWithdrawalRequested(tokenAmount, ethAmount, block.timestamp);
-// }
-
-// /**
-//  * @notice Process admin withdrawal after timelock expires
-//  */
-// function processAdminWithdrawal() external onlyAdmin {
-//     // Verify there's a pending request
-//     require(adminRequest.timestamp > 0, "No admin withdrawal request");
-    
-//     // Verify timelock has expired
-//     require(block.timestamp >= adminRequest.timestamp + withdrawalTimelock, 
-//             "Withdrawal timelock not expired");
-    
-//     // Get amounts and reset request
-//     uint256 tokenAmount = adminRequest.tokenAmount;
-//     uint256 ethAmount = adminRequest.ethAmount;
-//     adminRequest.tokenAmount = 0;
-//     adminRequest.ethAmount = 0;
-//     adminRequest.timestamp = 0;
-    
-//     // Transfer tokens if requested
-//     if (tokenAmount > 0) {
-//         require(nootToken.transfer(admin, tokenAmount), "Token transfer failed");
-//         emit AdminWithdrawalProcessed(tokenAmount, PaymentType.Token);
-//     }
-    
-//     // Transfer ETH if requested
-//     if (ethAmount > 0) {
-//         (bool success, ) = payable(admin).call{value: ethAmount}("");
-//         require(success, "ETH transfer failed");
-//         emit AdminWithdrawalProcessed(ethAmount, PaymentType.ETH);
-//     }
-// }
+}
