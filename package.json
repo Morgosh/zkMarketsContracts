@@ -20,7 +20,7 @@
     "upgrade-diamond-fully-main": "yarn hardhat deploy-zksync --script update_diamond_fully.ts --network zksync-era",
     "deploy-erc721-test": "hardhat deploy-zksync --script deploy_erc721_example.ts --network zksync-era-testnet",
     "deploy-noottoken-test": "hardhat deploy-zksync --script deploy_noot.ts --network abstract-testnet",
-    "deploy-arcticcard-test": "hardhat deploy-zksync --script deploy_arctic_cards.ts --network abstract-testnet"
+    "deploy-arcticcards": "hardhat deploy-zksync --script deploy_arctic_cards.ts --network abstract-testnet"
   },
   "devDependencies": {
     "@chainlink/contracts": "^1.1.1",

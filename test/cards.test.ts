@@ -101,6 +101,7 @@ async function getGameState(contract: any, playerAddress: string) {
   
   return {
     player: gameData.player,
+    sessionWallet: gameData.sessionWallet,
     wager: gameData.wager,
     status: Number(gameData.status),
     gameId: gameData.gameId,
@@ -109,6 +110,11 @@ async function getGameState(contract: any, playerAddress: string) {
     paymentType: Number(gameData.paymentType),
     active: Number(gameData.status) === GameStatus.Active
   };
+}
+
+// Helper to create a session wallet for testing
+function createSessionWallet() {
+  return ethers.Wallet.createRandom();
 }
 
 describe("HigherOrLower", function () {
@@ -301,9 +307,10 @@ describe("HigherOrLower", function () {
       const wager = 1000n;
       const turn = 3;
       
-      // Create a mock game structure
+      // Create a mock game structure (including sessionWallet field)
       const mockGame = {
         player: await player1.getAddress(),
+        sessionWallet: await player2.getAddress(), // Add sessionWallet field
         wager: wager,
         status: GameStatus.Active,
         gameId: 0n,
@@ -330,6 +337,10 @@ describe("HigherOrLower", function () {
       const wagerAmount = 500n;
       const player1Address = await player1.getAddress();
       
+      // Create session wallet
+      const sessionWallet = createSessionWallet();
+      const sessionWalletAddress = sessionWallet.address;
+      
       // Generate a random private secret for the dealer
       const privateSecret = "dealer_secret_" + Math.floor(Math.random() * 1000000).toString();
       
@@ -348,6 +359,7 @@ describe("HigherOrLower", function () {
       
       // Start the game
       const tx = await higherOrLower.connect(player1).startGame(
+        sessionWalletAddress,
         wagerAmount,
         userRandomNonce,
         commitment,
@@ -363,6 +375,7 @@ describe("HigherOrLower", function () {
       // Check game state
       const gameState = await getGameState(higherOrLower, player1Address);
       expect(gameState.active).to.be.true;
+      expect(gameState.sessionWallet).to.equal(sessionWalletAddress);
       expect(gameState.wager).to.equal(wagerAmount);
       expect(gameState.commitment).to.equal(commitment);
       expect(gameState.userRandomNonce).to.equal(userRandomNonce);
@@ -374,6 +387,10 @@ describe("HigherOrLower", function () {
       const ethTestWallet = wallets[5];
       const ethTestAddress = await ethTestWallet.getAddress();
       const wagerAmount = ethers.parseEther("0.1");
+      
+      // Create session wallet
+      const sessionWallet = createSessionWallet();
+      const sessionWalletAddress = sessionWallet.address;
       
       // Generate commitment data
       const privateSecret = "dealer_secret_eth_" + Math.floor(Math.random() * 1000000).toString();
@@ -391,6 +408,7 @@ describe("HigherOrLower", function () {
       
       // Start game with ETH
       const tx = await higherOrLower.connect(ethTestWallet).startGame(
+        sessionWalletAddress,
         0, // wagerAmount should be 0 when using ETH
         userRandomNonce,
         commitment,
@@ -407,6 +425,7 @@ describe("HigherOrLower", function () {
       // Check game state
       const gameState = await getGameState(higherOrLower, ethTestAddress);
       expect(gameState.active).to.be.true;
+      expect(gameState.sessionWallet).to.equal(sessionWalletAddress);
       expect(gameState.wager).to.equal(wagerAmount);
       expect(gameState.paymentType).to.equal(PaymentType.ETH);
     });
@@ -416,6 +435,10 @@ describe("HigherOrLower", function () {
       const sponsorTestWallet = wallets[6];
       const sponsorTestAddress = await sponsorTestWallet.getAddress();
       const sponsoredAmount = 1000n;
+      
+      // Create session wallet
+      const sessionWallet = createSessionWallet();
+      const sessionWalletAddress = sessionWallet.address;
       
       // Generate commitment data
       const privateSecret = "dealer_secret_sponsor_" + Math.floor(Math.random() * 1000000).toString();
@@ -435,6 +458,7 @@ describe("HigherOrLower", function () {
       
       // Start sponsored game
       const tx = await higherOrLower.connect(sponsorTestWallet).startSponsoredGame(
+        sessionWalletAddress,
         userRandomNonce,
         commitment,
         commitmentSignature,
@@ -453,6 +477,7 @@ describe("HigherOrLower", function () {
       // Check game state
       const gameState = await getGameState(higherOrLower, sponsorTestAddress);
       expect(gameState.active).to.be.true;
+      expect(gameState.sessionWallet).to.equal(sessionWalletAddress);
       expect(gameState.wager).to.equal(sponsoredAmount);
       expect(gameState.paymentType).to.equal(PaymentType.Token);
     });
@@ -460,6 +485,10 @@ describe("HigherOrLower", function () {
     it("Should not start game when wager is below minimum", async function() {
       const player2Address = await player2.getAddress();
       const gameId = await higherOrLower.playerGameCounters(player2Address);
+      
+      // Create session wallet
+      const sessionWallet = createSessionWallet();
+      const sessionWalletAddress = sessionWallet.address;
       
       // Create a hash commitment
       const { commitment } = await createHashCommitment("test_secret");
@@ -472,6 +501,7 @@ describe("HigherOrLower", function () {
       
       await expectRejectedWithMessage(
         higherOrLower.connect(player2).startGame(
+          sessionWalletAddress,
           minWager - 1n,
           userRandomNonce,
           commitment,
@@ -485,6 +515,10 @@ describe("HigherOrLower", function () {
       const player2Address = await player2.getAddress();
       const gameId = await higherOrLower.playerGameCounters(player2Address);
       
+      // Create session wallet
+      const sessionWallet = createSessionWallet();
+      const sessionWalletAddress = sessionWallet.address;
+      
       // Create a hash commitment
       const { commitment } = await createHashCommitment("test_secret");
       
@@ -496,6 +530,7 @@ describe("HigherOrLower", function () {
       
       await expectRejectedWithMessage(
         higherOrLower.connect(player2).startGame(
+          sessionWalletAddress,
           maxWager + 1n,
           userRandomNonce,
           commitment,
@@ -510,6 +545,10 @@ describe("HigherOrLower", function () {
       const player2Address = await player2.getAddress();
       const gameId = await higherOrLower.playerGameCounters(player2Address);
       
+      // Create session wallet
+      const sessionWallet = createSessionWallet();
+      const sessionWalletAddress = sessionWallet.address;
+      
       // Create a hash commitment
       const { commitment } = await createHashCommitment("test_secret");
       
@@ -521,6 +560,7 @@ describe("HigherOrLower", function () {
       
       await expectRejectedWithMessage(
         higherOrLower.connect(player2).startGame(
+          sessionWalletAddress,
           wagerAmount,
           userRandomNonce,
           commitment,
@@ -549,8 +589,12 @@ describe("HigherOrLower", function () {
       const gameId = await higherOrLower.playerGameCounters(testAddress);
       const signature = await signCommitment(dealer, gameCommitment, testAddress, gameId);
       
+      // Create session wallet
+      const sessionWallet = createSessionWallet();
+      const sessionWalletAddress = sessionWallet.address;
+      
       // Start the game
-      await higherOrLower.connect(testWallet).startGame(500n, gameNonce, gameCommitment, signature);
+      await higherOrLower.connect(testWallet).startGame(sessionWalletAddress, 500n, gameNonce, gameCommitment, signature);
       
       // Request withdrawal with valid hash chain data
       const finalTurn = 2;
@@ -571,14 +615,45 @@ describe("HigherOrLower", function () {
       const newGameId = await higherOrLower.playerGameCounters(testAddress);
       const newSignature = await signCommitment(dealer, newCommitment, testAddress, newGameId);
       
+      // Create new session wallet for the rejected game
+      const newSessionWallet = createSessionWallet();
+      const newSessionWalletAddress = newSessionWallet.address;
+      
       await expectRejectedWithMessage(
         higherOrLower.connect(testWallet).startGame(
+          newSessionWalletAddress,
           500n,
           newNonce,
           newCommitment,
           newSignature
         ),
         "Pending withdrawal request exists"
+      );
+    });
+    
+    it("Should reject zero address as session wallet", async function() {
+      const wagerAmount = 500n;
+      const player2Address = await player2.getAddress();
+      const gameId = await higherOrLower.playerGameCounters(player2Address);
+      
+      // Create a hash commitment
+      const { commitment } = await createHashCommitment("test_secret");
+      
+      // Generate a random nonce
+      const userRandomNonce = ethers.id("test_nonce");
+      
+      // Sign the commitment
+      const commitmentSignature = await signCommitment(dealer, commitment, player2Address, gameId);
+      
+      await expectRejectedWithMessage(
+        higherOrLower.connect(player2).startGame(
+          ethers.ZeroAddress, // Invalid session wallet
+          wagerAmount,
+          userRandomNonce,
+          commitment,
+          commitmentSignature
+        ),
+        "Session wallet cannot be zero address"
       );
     });
   });
@@ -612,8 +687,13 @@ describe("HigherOrLower", function () {
         // Sign the commitment
         const commitmentSignature = await signCommitment(dealer, commitment, player2Address, gameId);
         
+        // Create session wallet
+        const sessionWallet = createSessionWallet();
+        const sessionWalletAddress = sessionWallet.address;
+        
         // Start the game
         await higherOrLower.connect(player2).startGame(
+            sessionWalletAddress,
             500n,
             userRandomNonce,
             commitment,
@@ -628,19 +708,19 @@ describe("HigherOrLower", function () {
       // Get player balance before cashing out
       const balanceBefore = await nootToken.balanceOf(player2Address);
       
-      // For cashing out, we need to provide a hash that when hashed finalTurn times equals the commitment
+      // For cashing out, we need to provide a hash that when hashed (cashoutTurn + 1) times equals the commitment
       // Let's cash out after 3 turns (example)
-      const finalTurn = 3;
+      const cashoutTurn = 3;
       
       // The commitment is created by hashing h10: commitment = hash(h10)
-      // For finalTurn = 3, contract does: hash(hash(hash(nextHash))) = commitment
-      // So we need: hash(hash(hash(nextHash))) = hash(h10)
-      // Working backwards: nextHash = h8 = hashChain[8]
-      // Formula: nextHash = hashChain[11 - finalTurn]
-      const nextHash = hashChain[11 - finalTurn]; // hashChain[8] for finalTurn = 3
+      // For cashoutTurn = 3, contract does: hash^4(cashoutHash) = commitment (hash 4 times)
+      // So we need: hash^4(cashoutHash) = hash(h10)
+      // Working backwards: cashoutHash = h7 = hashChain[7]
+      // Formula: cashoutHash = hashChain[11 - (cashoutTurn + 1)]
+      const cashoutHash = hashChain[11 - (cashoutTurn + 1)]; // hashChain[7] for cashoutTurn = 3
       
       // Cash out
-      const tx = await higherOrLower.connect(player2).cashOut(nextHash, finalTurn);
+      const tx = await higherOrLower.connect(player2).cashOut(cashoutHash, cashoutTurn);
       const receipt = await tx.wait();
       
       // Check that GameEnded event was emitted
@@ -662,10 +742,10 @@ describe("HigherOrLower", function () {
       
       // Use an invalid hash that doesn't match the commitment when hashed
       const invalidHash = ethers.keccak256(ethers.toUtf8Bytes("invalid_hash"));
-      const finalTurn = 3;
+      const cashoutTurn = 3;
       
       await expectRejectedWithMessage(
-        higherOrLower.connect(player2).cashOut(invalidHash, finalTurn),
+        higherOrLower.connect(player2).cashOut(invalidHash, cashoutTurn),
         "Invalid hash chain"
       );
     });
@@ -674,15 +754,15 @@ describe("HigherOrLower", function () {
       const player2Address = await player2.getAddress();
       
       // Use a valid hash but invalid turn number
-      const nextHash = hashChain[9]; // h9
+      const cashoutHash = hashChain[7]; // h7 (valid for some cashout turn)
       
       await expectRejectedWithMessage(
-        higherOrLower.connect(player2).cashOut(nextHash, 0),
+        higherOrLower.connect(player2).cashOut(cashoutHash, 0),
         "Invalid turn number"
       );
       
       await expectRejectedWithMessage(
-        higherOrLower.connect(player2).cashOut(nextHash, 11),
+        higherOrLower.connect(player2).cashOut(cashoutHash, 11),
         "Invalid turn number"
       );
     });
@@ -708,16 +788,20 @@ describe("HigherOrLower", function () {
       const gameId = await higherOrLower.playerGameCounters(withdrawalTestAddress);
       const signature = await signCommitment(dealer, gameCommitment, withdrawalTestAddress, gameId);
       
+      // Create session wallet
+      const sessionWallet = createSessionWallet();
+      const sessionWalletAddress = sessionWallet.address;
+      
       // Start the game
-      await higherOrLower.connect(withdrawalTestWallet).startGame(500n, gameNonce, gameCommitment, signature);
+      await higherOrLower.connect(withdrawalTestWallet).startGame(sessionWalletAddress, 500n, gameNonce, gameCommitment, signature);
       
       // Request withdrawal with valid hash chain data
-      const finalTurn = 2;
-      // For withdrawal: hash(previousHash) (finalTurn + 1) times = commitment
-      // So previousHash = hashChain[10 - finalTurn] for finalTurn = 2 → hashChain[8]
-      const previousHash = gameHashChain[10 - finalTurn]; // hashChain[8] for finalTurn = 2
+      const withdrawalTurn = 2;
+      // For withdrawal: hash(withdrawalHash) (withdrawalTurn + 1) times = commitment
+      // So withdrawalHash = hashChain[10 - withdrawalTurn] for withdrawalTurn = 2 → hashChain[8]
+      const withdrawalHash = gameHashChain[10 - withdrawalTurn]; // hashChain[8] for withdrawalTurn = 2
       
-      const tx = await higherOrLower.connect(withdrawalTestWallet).requestWithdrawal(Guess.Higher, previousHash, finalTurn);
+      const tx = await higherOrLower.connect(withdrawalTestWallet).requestWithdrawal(Guess.Higher, withdrawalHash, withdrawalTurn);
       const receipt = await tx.wait();
       
       // Check that WithdrawalRequested event was emitted
@@ -728,8 +812,8 @@ describe("HigherOrLower", function () {
       const withdrawalRequest = await higherOrLower.withdrawalRequests(withdrawalTestAddress);
       expect(withdrawalRequest.timestamp > 0n).to.be.true;
       expect(withdrawalRequest.lastGuess).to.equal(BigInt(Guess.Higher));
-      expect(withdrawalRequest.previousHash).to.equal(previousHash);
-      expect(withdrawalRequest.finalTurn).to.equal(BigInt(finalTurn));
+      expect(withdrawalRequest.previousHash).to.equal(withdrawalHash);
+      expect(withdrawalRequest.finalTurn).to.equal(BigInt(withdrawalTurn));
     });
     
     it("Should not allow withdrawal request if no active game", async function() {
@@ -737,11 +821,11 @@ describe("HigherOrLower", function () {
       const freshWallet = wallets[10];
       const freshAddress = await freshWallet.getAddress();
       
-      const previousHash = ethers.ZeroHash;
-      const finalTurn = 1;
+      const withdrawalHash = ethers.ZeroHash;
+      const withdrawalTurn = 1;
       
       await expectRejectedWithMessage(
-        higherOrLower.connect(freshWallet).requestWithdrawal(Guess.Higher, previousHash, finalTurn),
+        higherOrLower.connect(freshWallet).requestWithdrawal(Guess.Higher, withdrawalHash, withdrawalTurn),
         "panic code 0x11"
       );
     });
@@ -764,15 +848,19 @@ describe("HigherOrLower", function () {
       const gameId = await higherOrLower.playerGameCounters(testAddress);
       const signature = await signCommitment(dealer, gameCommitment, testAddress, gameId);
       
+      // Create session wallet
+      const sessionWallet = createSessionWallet();
+      const sessionWalletAddress = sessionWallet.address;
+      
       // Start the game
-      await higherOrLower.connect(testWallet).startGame(500n, gameNonce, gameCommitment, signature);
+      await higherOrLower.connect(testWallet).startGame(sessionWalletAddress, 500n, gameNonce, gameCommitment, signature);
       
       // Try to request withdrawal with invalid hash
       const invalidHash = ethers.keccak256(ethers.toUtf8Bytes("invalid"));
-      const finalTurn = 1;
+      const withdrawalTurn = 1;
       
       await expectRejectedWithMessage(
-        higherOrLower.connect(testWallet).requestWithdrawal(Guess.Higher, invalidHash, finalTurn),
+        higherOrLower.connect(testWallet).requestWithdrawal(Guess.Higher, invalidHash, withdrawalTurn),
         "Invalid hash chain"
       );
     });
@@ -796,13 +884,17 @@ describe("HigherOrLower", function () {
       const gameId = await higherOrLower.playerGameCounters(freshAddress);
       const signature = await signCommitment(dealer, gameCommitment, freshAddress, gameId);
       
+      // Create session wallet
+      const sessionWallet = createSessionWallet();
+      const sessionWalletAddress = sessionWallet.address;
+      
       // Start the game
-      await higherOrLower.connect(freshWallet).startGame(500n, gameNonce, gameCommitment, signature);
+      await higherOrLower.connect(freshWallet).startGame(sessionWalletAddress, 500n, gameNonce, gameCommitment, signature);
       
       // Request withdrawal
-      const finalTurn = 1;
-      const previousHash = gameHashChain[10 - finalTurn]; // hashChain[9] for finalTurn = 1
-      await higherOrLower.connect(freshWallet).requestWithdrawal(Guess.Higher, previousHash, finalTurn);
+      const withdrawalTurn = 1;
+      const withdrawalHash = gameHashChain[10 - withdrawalTurn]; // hashChain[9] for withdrawalTurn = 1
+      await higherOrLower.connect(freshWallet).requestWithdrawal(Guess.Higher, withdrawalHash, withdrawalTurn);
       
       // Try to process withdrawal immediately (should fail)
       await expectRejectedWithMessage(
@@ -830,8 +922,12 @@ describe("HigherOrLower", function () {
       const testGameId = await higherOrLower.playerGameCounters(testAddress);
       const testSignature = await signCommitment(dealer, testCommitment, testAddress, testGameId);
       
+      // Create session wallet
+      const sessionWallet = createSessionWallet();
+      const sessionWalletAddress = sessionWallet.address;
+      
       // Start the game
-      await higherOrLower.connect(testWallet).startGame(500n, testNonce, testCommitment, testSignature);
+      await higherOrLower.connect(testWallet).startGame(sessionWalletAddress, 500n, testNonce, testCommitment, testSignature);
       
       // Request withdrawal
       const finalTurn = 1;
@@ -891,8 +987,12 @@ describe("HigherOrLower", function () {
       const testGameId = await higherOrLower.playerGameCounters(testAddress);
       const testSignature = await signCommitment(dealer, testCommitment, testAddress, testGameId);
       
+      // Create session wallet  
+      const sessionWallet = createSessionWallet();
+      const sessionWalletAddress = sessionWallet.address;
+      
       // Start the game
-      await higherOrLower.connect(testWallet).startGame(500n, testNonce, testCommitment, testSignature);
+      await higherOrLower.connect(testWallet).startGame(sessionWalletAddress, 500n, testNonce, testCommitment, testSignature);
       
       // Request withdrawal
       const finalTurn = 1;
@@ -927,8 +1027,12 @@ describe("HigherOrLower", function () {
       const gameId = await higherOrLower.playerGameCounters(testAddress);
       const signature = await signCommitment(dealer, gameCommitment, testAddress, gameId);
       
+      // Create session wallet
+      const sessionWallet = createSessionWallet();
+      const sessionWalletAddress = sessionWallet.address;
+      
       // Start the game
-      await higherOrLower.connect(testWallet).startGame(500n, gameNonce, gameCommitment, signature);
+      await higherOrLower.connect(testWallet).startGame(sessionWalletAddress, 500n, gameNonce, gameCommitment, signature);
       
       // Request withdrawal
       const finalTurn = 1;
@@ -950,6 +1054,86 @@ describe("HigherOrLower", function () {
       // Verify withdrawal request was cleared
       const requestAfter = await higherOrLower.withdrawalRequests(testAddress);
       expect(requestAfter.timestamp).to.equal(0n);
+    });
+    
+    it("Should allow dealer to end game with session wallet signature", async function() {
+      // Setup a new isolated game for this test
+      const testWallet = wallets[16];
+      const testAddress = await testWallet.getAddress();
+      
+      // Fund the wallet
+      await nootToken.adminMint(testAddress, ethers.parseEther("10"));
+      const higherOrLowerAddress = await higherOrLower.getAddress();
+      await nootToken.connect(testWallet).approve(higherOrLowerAddress, ethers.parseEther("10"));
+      
+      // Create and start a game
+      const privateSecret = "dealer_secret_session_wallet_test";
+      const testData = await createHashCommitment(privateSecret);
+      const gameCommitment = testData.commitment;
+      const gameHashChain = testData.hashChain;
+      const gameNonce = ethers.id("session_wallet_test_nonce");
+      const gameId = await higherOrLower.playerGameCounters(testAddress);
+      const signature = await signCommitment(dealer, gameCommitment, testAddress, gameId);
+      
+      // Create session wallet
+      const sessionWallet = createSessionWallet();
+      const sessionWalletAddress = sessionWallet.address;
+      
+      // Start the game
+      await higherOrLower.connect(testWallet).startGame(sessionWalletAddress, 500n, gameNonce, gameCommitment, signature);
+      
+             // Create a guess signature with the session wallet instead of the player
+       // Player starts at turn 0, so losingTurn 1 means they lose on their second card
+       const losingTurn = 1;
+       const playerGuess = Guess.Higher;
+       
+       // Sign the guess with the session wallet
+       const messageToSign = ethers.keccak256(
+         ethers.solidityPacked(
+           ["uint256", "uint8", "uint8"],
+           [gameId, losingTurn, playerGuess]
+         )
+       );
+       const playerGuessSignature = await sessionWallet.signMessage(ethers.getBytes(messageToSign));
+       
+       // Get the next hash for the dealer to prove loss  
+       // For losingTurn 1: contract does previousHash = hash(nextHash), then hashes (losingTurn + 1) = 2 more times
+       // Total: hash(hash(hash(nextHash))) = commitment (hash 3 times total)
+       // So nextHash should be hashChain[8] (h8), because hash(hash(hash(h8))) = commitment
+       const nextHash = gameHashChain[8]; // h8, because hash^3(h8) = commitment
+       
+       // Dealer should be able to end game using session wallet signature
+       const tx = await higherOrLower.connect(dealer).endGameWithProofOfLoss(
+         testAddress,
+         playerGuessSignature,
+         playerGuess,
+         nextHash,
+         losingTurn
+       );
+        
+        const receipt = await tx.wait();
+        
+        // Check that GameEnded event was emitted
+        const gameEndedEvents = receipt.logs.filter((log: any) => log.fragment?.name === "GameEnded");
+        expect(gameEndedEvents.length).to.equal(1);
+        
+        // Check game is now inactive
+        const finalGameState = await getGameState(higherOrLower, testAddress);
+        expect(finalGameState.active).to.be.false;
+        expect(finalGameState.status).to.equal(GameStatus.Completed);
+        // try {
+      // } catch (error: any) {
+        // // If the specific hash combination would actually make the player win,
+        // // that's not an issue with the session wallet mechanics
+        // if (error.message.includes("Player would win with this move")) {
+        //   console.log("This particular hash would make player win - session wallet test passed");
+        //   // The important thing is that the signature was accepted (no "Invalid player guess signature" error)
+        //   expect(error.message).to.not.include("Invalid player guess signature");
+        // } else {
+        //   // Any other error is a real issue
+        //   throw error;
+        // }
+      // }
     });
   });
 }); 

@@ -126,6 +126,12 @@
         "type": "address"
       },
       {
+        "indexed": true,
+        "internalType": "address",
+        "name": "sessionWallet",
+        "type": "address"
+      },
+      {
         "indexed": false,
         "internalType": "uint256",
         "name": "gameId",
@@ -338,6 +344,11 @@
             "type": "address"
           },
           {
+            "internalType": "address",
+            "name": "sessionWallet",
+            "type": "address"
+          },
+          {
             "internalType": "uint256",
             "name": "wager",
             "type": "uint256"
@@ -515,7 +526,7 @@
       },
       {
         "internalType": "uint8",
-        "name": "finalTurn",
+        "name": "losingTurn",
         "type": "uint8"
       }
     ],
@@ -559,6 +570,11 @@
           {
             "internalType": "address",
             "name": "player",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "sessionWallet",
             "type": "address"
           },
           {
@@ -620,6 +636,11 @@
           {
             "internalType": "address",
             "name": "player",
+            "type": "address"
+          },
+          {
+            "internalType": "address",
+            "name": "sessionWallet",
             "type": "address"
           },
           {
@@ -786,6 +807,11 @@
         "type": "address"
       },
       {
+        "internalType": "address",
+        "name": "sessionWallet",
+        "type": "address"
+      },
+      {
         "internalType": "uint256",
         "name": "wager",
         "type": "uint256"
@@ -840,7 +866,7 @@
       },
       {
         "internalType": "uint8",
-        "name": "finalTurn",
+        "name": "losingTurn",
         "type": "uint8"
       }
     ],
@@ -903,6 +929,11 @@
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "sessionWallet",
+        "type": "address"
+      },
+      {
         "internalType": "uint256",
         "name": "wagerAmount",
         "type": "uint256"
@@ -930,6 +961,11 @@
   },
   {
     "inputs": [
+      {
+        "internalType": "address",
+        "name": "sessionWallet",
+        "type": "address"
+      },
       {
         "internalType": "bytes32",
         "name": "userRandomNonce",

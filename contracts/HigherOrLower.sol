@@ -39,6 +39,7 @@ contract HigherOrLower {
     
     struct Game {
         address player;
+        address sessionWallet;  // Session wallet that can sign moves for this game
         uint256 wager;
         GameStatus status;
         uint256 gameId;
@@ -86,7 +87,7 @@ contract HigherOrLower {
     
     PendingWagerUpdate public pendingWagerUpdate;
     
-    event GameStarted(address indexed player, uint256 gameId, uint256 wager, uint8 turns, bytes32 commitment, PaymentType paymentType, bytes32 userRandomNonce, bytes32 sponsorshipNonce);
+    event GameStarted(address indexed player, address indexed sessionWallet, uint256 gameId, uint256 wager, uint8 turns, bytes32 commitment, PaymentType paymentType, bytes32 userRandomNonce, bytes32 sponsorshipNonce);
     event GameEnded(address indexed player, uint256 gameId, uint8 turn, bool won, uint256 prize, PaymentType paymentType);
     event WithdrawalRequested(address indexed player, uint256 timestamp);
     event WithdrawalCancelled(address indexed player);
@@ -222,8 +223,8 @@ contract HigherOrLower {
         return recoveredSigner == dealer;
     }
     
-    // Verify a player's guess signature
-    function _verifyGuessSignature(bytes memory signature, uint256 gameId, uint8 turn, Guess guess, address player) internal pure returns (bool) {
+    // Verify a player's guess signature (can be signed by player or their session wallet)
+    function _verifyGuessSignature(bytes memory signature, uint256 gameId, uint8 turn, Guess guess, address player, address sessionWallet) internal pure returns (bool) {
         // Create message hash for the guess
         bytes32 messageHash = keccak256(abi.encodePacked(
             "\x19Ethereum Signed Message:\n32",
@@ -234,7 +235,8 @@ contract HigherOrLower {
         (bytes32 r, bytes32 s, uint8 v) = _splitSignature(signature);
         address recoveredSigner = ecrecover(messageHash, v, r, s);
         
-        return recoveredSigner == player;
+        // Accept signature from either the player or their session wallet
+        return recoveredSigner == player || recoveredSigner == sessionWallet;
     }
     
     // Helper function to split signature into r, s, v components
@@ -291,7 +293,7 @@ contract HigherOrLower {
     /**
      * @notice Internal function to start a game (common logic for both regular and sponsored games)
      */
-    function _startGame(address player, uint256 wagerAmount, bytes32 userRandomNonce, bytes32 dealerCommitment,
+    function _startGame(address player, address sessionWallet, uint256 wagerAmount, bytes32 userRandomNonce, bytes32 dealerCommitment,
      bytes memory commitmentSignature, PaymentType paymentType, bool isSponsored, bytes32 sponsorshipNonce) internal {
         // Check if the player has a pending withdrawal request
         require(withdrawalRequests[player].timestamp == 0, "Pending withdrawal request exists");
@@ -316,6 +318,7 @@ contract HigherOrLower {
         // Initialize the game
         playerGames[player][gameId] = Game({
             player: player,
+            sessionWallet: sessionWallet,
             wager: wagerAmount,
             status: GameStatus.Active,
             gameId: gameId,
@@ -328,17 +331,20 @@ contract HigherOrLower {
         _updateActiveGameCounters(wagerAmount, paymentType, true);
         
         // Emit appropriate event
-        emit GameStarted(player, gameId, wagerAmount, GAME_MAX_TURNS, dealerCommitment, paymentType, userRandomNonce, isSponsored ? sponsorshipNonce : bytes32(0));
+        emit GameStarted(player, sessionWallet, gameId, wagerAmount, GAME_MAX_TURNS, dealerCommitment, paymentType, userRandomNonce, isSponsored ? sponsorshipNonce : bytes32(0));
     }
 
     /**
      * @notice Start a new game with the dealer's commitment and player's random nonce
+     * @param sessionWallet The wallet address that can sign moves for this game session
      * @param wagerAmount The amount of tokens to wager (ignored if using ETH)
      * @param userRandomNonce The player's random nonce to be combined with the dealer's seed
      * @param dealerCommitment The dealer's commitment (hash of privateSecret)
      * @param commitmentSignature The dealer's signature of the commitment
      */
-    function startGame(uint256 wagerAmount, bytes32 userRandomNonce, bytes32 dealerCommitment, bytes memory commitmentSignature) external payable {
+    function startGame(address sessionWallet, uint256 wagerAmount, bytes32 userRandomNonce, bytes32 dealerCommitment, bytes memory commitmentSignature) external payable {
+        require(sessionWallet != address(0), "Session wallet cannot be zero address");
+        
         // Determine payment type based on whether ETH was sent
         PaymentType paymentType = msg.value > 0 ? PaymentType.ETH : PaymentType.Token;
         uint256 actualWager;
@@ -356,12 +362,13 @@ contract HigherOrLower {
         }
         
         // Start the game using common logic
-        _startGame(msg.sender, actualWager, userRandomNonce, dealerCommitment, 
+        _startGame(msg.sender, sessionWallet, actualWager, userRandomNonce, dealerCommitment, 
             commitmentSignature, paymentType, false, bytes32(0));
     }
 
     /**
      * @notice Start a sponsored game where the dealer covers the wager
+     * @param sessionWallet The wallet address that can sign moves for this game session
      * @param userRandomNonce The player's random nonce to be combined with the dealer's seed
      * @param dealerCommitment The dealer's commitment (hash of privateSecret)
      * @param commitmentSignature The dealer's signature of the commitment
@@ -370,8 +377,10 @@ contract HigherOrLower {
      * @param sponsorshipNonce A unique nonce for the sponsorship to prevent replay attacks
      * @param sponsorshipSignature The dealer's signature authorizing the sponsorship
      */
-    function startSponsoredGame(bytes32 userRandomNonce, bytes32 dealerCommitment, bytes memory commitmentSignature, uint256 sponsoredAmount, 
+    function startSponsoredGame(address sessionWallet, bytes32 userRandomNonce, bytes32 dealerCommitment, bytes memory commitmentSignature, uint256 sponsoredAmount, 
     PaymentType paymentType, bytes32 sponsorshipNonce, bytes memory sponsorshipSignature) external {
+        require(sessionWallet != address(0), "Session wallet cannot be zero address");
+        
         // Ensure the nonce hasn't been used before
         require(!usedSponsorshipNonces[sponsorshipNonce], "Sponsorship nonce already used");
         
@@ -383,7 +392,7 @@ contract HigherOrLower {
         usedSponsorshipNonces[sponsorshipNonce] = true;
         
         // Start the game using common logic
-        _startGame(msg.sender, sponsoredAmount, userRandomNonce, dealerCommitment,
+        _startGame(msg.sender, sessionWallet, sponsoredAmount, userRandomNonce, dealerCommitment,
             commitmentSignature, paymentType, true, sponsorshipNonce);
     }
     
@@ -404,25 +413,25 @@ contract HigherOrLower {
     
     /**
      * @notice Cash out winnings after completing turns offchain
-     * @param nextHash The next hash in the chain
-     * @param finalTurn The turn number this hash corresponds to
+     * @param cashoutHash The hash associated with the cashout turn
+     * @param cashoutTurn The turn number the player completed (1-indexed)
      */
-    function cashOut(bytes32 nextHash, uint8 finalTurn) external {
+    function cashOut(bytes32 cashoutHash, uint8 cashoutTurn) external {
         // Get the active game (most recent game)
         uint256 activeGameId = playerGameCounters[msg.sender] - 1;
         Game storage game = playerGames[msg.sender][activeGameId];
         require(game.status == GameStatus.Active, "Game is not active");
-        require(finalTurn > 0 && finalTurn <= GAME_MAX_TURNS, "Invalid turn number");
+        require(cashoutTurn > 0 && cashoutTurn <= GAME_MAX_TURNS, "Invalid turn number");
         
         // Verify the hash chain leads back to the commitment
-        // Hash should be hashed exactly finalTurn times to match commitment
-        bytes32 currentHash = nextHash;
-        for (uint8 i = 0; i < finalTurn; i++) {
+        // Hash should be hashed exactly (cashoutTurn + 1) times to match commitment
+        bytes32 currentHash = cashoutHash;
+        for (uint8 i = 0; i < cashoutTurn + 1; i++) {
             currentHash = keccak256(abi.encodePacked(currentHash));
         }
         require(currentHash == game.commitment, "Invalid hash chain");
-        _distributePrize(game, finalTurn, game.paymentType);
         game.status = GameStatus.Completed;
+        _distributePrize(game, cashoutTurn, game.paymentType);
     }
 
     /**
@@ -449,8 +458,8 @@ contract HigherOrLower {
         }
     }
 
-    function _distributePrize(Game memory game, uint8 finalTurn, PaymentType paymentType) internal {
-        uint256 prize = calculateCurrentPot(game, finalTurn);
+    function _distributePrize(Game memory game, uint8 completedTurn, PaymentType paymentType) internal {
+        uint256 prize = calculateCurrentPot(game, completedTurn);
         
         // Update active game tracking
         _updateActiveGameCounters(game.wager, game.paymentType, false);
@@ -461,7 +470,7 @@ contract HigherOrLower {
             (bool success, ) = payable(msg.sender).call{value: prize}("");
             require(success, "ETH transfer failed");
         }
-        emit GameEnded(msg.sender, game.gameId, finalTurn, true, prize, game.paymentType);
+        emit GameEnded(msg.sender, game.gameId, completedTurn, true, prize, game.paymentType);
     }
 
     // Get full game state
@@ -478,10 +487,10 @@ contract HigherOrLower {
     }
     
     /**
-     * @notice Request a withdrawal due to backend inactivity
+     * @notice Request a withdrawal for nextHash due to backend inactivity
      * @dev Initiates a timelock period after which the player can withdraw if the backend doesn't respond
      */
-    function requestWithdrawal(Guess lastGuess, bytes32 previousHash, uint8 finalTurn) external {
+    function requestWithdrawal(Guess lastGuess, bytes32 withdrawalHash, uint8 withdrawalTurn) external {
         uint256 activeGameId = playerGameCounters[msg.sender] - 1;
         Game storage game = playerGames[msg.sender][activeGameId];
         
@@ -489,8 +498,8 @@ contract HigherOrLower {
         require(withdrawalRequests[msg.sender].timestamp == 0, "Withdrawal already requested");
 
         // Verify the hash chain leads back to the commitment
-        bytes32 currentHash = previousHash;
-        for (uint8 i = 0; i < finalTurn + 1; i++) {
+        bytes32 currentHash = withdrawalHash;
+        for (uint8 i = 0; i < withdrawalTurn + 1; i++) {
             currentHash = keccak256(abi.encodePacked(currentHash));
         }
         require(currentHash == game.commitment, "Invalid hash chain");
@@ -499,8 +508,8 @@ contract HigherOrLower {
         withdrawalRequests[msg.sender] = WithdrawalRequest({
             timestamp: block.timestamp,
             lastGuess: lastGuess,
-            previousHash: previousHash,
-            finalTurn: finalTurn
+            previousHash: withdrawalHash,
+            finalTurn: withdrawalTurn
         });
         
         emit WithdrawalRequested(msg.sender, block.timestamp);
@@ -529,16 +538,8 @@ contract HigherOrLower {
         Game storage game = playerGames[msg.sender][activeGameId];
         
         require(game.status == GameStatus.Active, "Game is not active");
-        
-        // Verify the hash chain leads back to the commitment using saved data
-        bytes32 currentHash = request.previousHash;
-        for (uint8 i = 0; i < request.finalTurn + 1; i++) {
-            currentHash = keccak256(abi.encodePacked(currentHash));
-        }
-        require(currentHash == game.commitment, "Invalid hash chain");
-        
-        _distributePrize(game, request.finalTurn, game.paymentType);
         delete withdrawalRequests[msg.sender];
+        _distributePrize(game, request.finalTurn, game.paymentType);
     }
 
     /**
@@ -546,26 +547,26 @@ contract HigherOrLower {
      * @param player The player address
      * @param playerGuess The player's guess
      * @param previousHash The hash for the previous card
-     * @param nextHash The next hash in the chain that results in loss
-     * @param finalTurn The turn number this hash corresponds to
+     * @param lossHash The hash that results in the player's loss
+     * @param losingTurn The turn number where the player loses (0-indexed)
      */
-    function _provePlayerLossAndEndGame(address player, Guess playerGuess, bytes32 previousHash, bytes32 nextHash, uint8 finalTurn) internal {
+    function _provePlayerLossAndEndGame(address player, Guess playerGuess, bytes32 previousHash, bytes32 lossHash, uint8 losingTurn) internal {
         // Get the active game
         uint256 activeGameId = playerGameCounters[player] - 1;
         Game storage game = playerGames[player][activeGameId];
         
         require(game.status == GameStatus.Active, "Game is not active");
-        require(finalTurn > 0 && finalTurn <= GAME_MAX_TURNS, "Invalid turn number");
+        require(losingTurn <= GAME_MAX_TURNS, "Invalid turn number");
         
         // Verify the hash chain leads back to the commitment
-        bytes32 currentHash = nextHash;
-        for (uint8 i = 0; i < finalTurn; i++) {
+        bytes32 currentHash = previousHash;
+        for (uint8 i = 0; i < losingTurn + 1; i++) {
             currentHash = keccak256(abi.encodePacked(currentHash));
         }
         require(currentHash == game.commitment, "Invalid hash chain");
         
         // Get the cards from the hash with added user entropy
-        Card newCard = _getCardFromHash(nextHash, game.userRandomNonce, player, game.gameId);
+        Card newCard = _getCardFromHash(lossHash, game.userRandomNonce, player, game.gameId);
         Card previousCard = _getCardFromHash(previousHash, game.userRandomNonce, player, game.gameId);
         
         // Verify player would lose with their guess
@@ -583,21 +584,21 @@ contract HigherOrLower {
             delete withdrawalRequests[player];
         }
         
-        emit GameEnded(player, game.gameId, finalTurn, false, 0, game.paymentType);
+        emit GameEnded(player, game.gameId, losingTurn, false, 0, game.paymentType);
     }
 
     /**
      * @notice Dealer can provide proof that the player would lose, cancelling the withdrawal
      * @param player The player address
-     * @param nextHash The next hash in the chain
-     * @param finalTurn The turn number this hash corresponds to
+     * @param lossHash The hash that proves the player's loss
+     * @param losingTurn The turn number where the player loses (0-indexed)
      */
-    function proveLoss(address player, bytes32 nextHash, uint8 finalTurn) external onlyDealer {
+    function proveLoss(address player, bytes32 lossHash, uint8 losingTurn) external onlyDealer {
         WithdrawalRequest storage request = withdrawalRequests[player];
         require(request.timestamp > 0, "No withdrawal request for this player");
         
         // Use the common internal function with withdrawal request data
-        _provePlayerLossAndEndGame(player, request.lastGuess, request.previousHash, nextHash, finalTurn);
+        _provePlayerLossAndEndGame(player, request.lastGuess, request.previousHash, lossHash, losingTurn);
     }
     
     /**
@@ -605,22 +606,22 @@ contract HigherOrLower {
      * @param player The player address
      * @param playerGuessSignature The player's signature of their guess
      * @param playerGuess The player's guess
-     * @param nextHash The next hash in the chain that would result in loss
-     * @param finalTurn The turn number this hash corresponds to
+     * @param lossHash The hash that would result in the player's loss
+     * @param losingTurn The turn number where the player loses (0-indexed)
      */
-    function endGameWithProofOfLoss(address player, bytes memory playerGuessSignature, Guess playerGuess, bytes32 nextHash, uint8 finalTurn) external onlyDealer {
+    function endGameWithProofOfLoss(address player, bytes memory playerGuessSignature, Guess playerGuess, bytes32 lossHash, uint8 losingTurn) external onlyDealer {
         // Get the active game to verify signature
         uint256 activeGameId = playerGameCounters[player] - 1;
         Game storage game = playerGames[player][activeGameId];
         
-        // Verify the player's guess signature
-        require(_verifyGuessSignature(playerGuessSignature, game.gameId, finalTurn, playerGuess, player), "Invalid player guess signature");
+        // Verify the player's guess signature (can be signed by player or session wallet)
+        require(_verifyGuessSignature(playerGuessSignature, game.gameId, losingTurn, playerGuess, player, game.sessionWallet), "Invalid player guess signature");
         
         // Calculate previous hash (one step back in the chain)
-        bytes32 previousHash = keccak256(abi.encodePacked(nextHash));
+        bytes32 previousHash = keccak256(abi.encodePacked(lossHash));
         
         // Use the common internal function
-        _provePlayerLossAndEndGame(player, playerGuess, previousHash, nextHash, finalTurn);
+        _provePlayerLossAndEndGame(player, playerGuess, previousHash, lossHash, losingTurn);
     }
     
     /**
