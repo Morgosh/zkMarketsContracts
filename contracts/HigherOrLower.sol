@@ -2,7 +2,7 @@
 pragma solidity ^0.8.23;
 
 /**
- * @title NootCards - High/Low Card Game (Offchain Gameplay Version)
+ * @title HigherOrLower - High/Low Card Game (Offchain Gameplay Version)
  * @notice This version implements a provably fair and verifiable card sequence
  * using deterministic cryptographic randomness, user-side entropy, and hash chaining.
  * 
@@ -29,7 +29,7 @@ interface IERC20 {
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
 }
 
-contract NootCards {
+contract HigherOrLower {
     enum Card { Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King, Ace }
     enum Guess { Higher, Lower }
     enum GameStatus { Inactive, Active, Completed }
@@ -96,18 +96,18 @@ contract NootCards {
     event WagerLimitUpdateExecuted(uint256 minWager, uint256 maxWager, uint256 minEthWager, uint256 maxEthWager);
     
     modifier onlyAdmin() {
-        require(msg.sender == admin, "NootCards: caller is not the admin");
+        require(msg.sender == admin, "HigherOrLower: caller is not the admin");
         _;
     }
     
     modifier onlyDealer() {
-        require(msg.sender == dealer, "NootCards: caller is not the dealer");
+        require(msg.sender == dealer, "HigherOrLower: caller is not the dealer");
         _;
     }
     
     constructor(address _erc20Token, address _dealer, uint256 _minWager, uint256 _maxWager, uint256 _minEthWager, uint256 _maxEthWager) {
-        require(_erc20Token != address(0), "NootCards: token address cannot be zero");
-        require(_dealer != address(0), "NootCards: dealer address cannot be zero");
+        require(_erc20Token != address(0), "HigherOrLower: token address cannot be zero");
+        require(_dealer != address(0), "HigherOrLower: dealer address cannot be zero");
         
         admin = msg.sender;
         dealer = _dealer;
@@ -239,7 +239,7 @@ contract NootCards {
     
     // Helper function to split signature into r, s, v components
     function _splitSignature(bytes memory sig) internal pure returns (bytes32 r, bytes32 s, uint8 v) {
-        require(sig.length == 65, "NootCards: invalid signature length");
+        require(sig.length == 65, "HigherOrLower: invalid signature length");
         
         assembly {
             // first 32 bytes

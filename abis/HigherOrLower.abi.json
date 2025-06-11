@@ -3,7 +3,7 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "_nootToken",
+        "name": "_erc20Token",
         "type": "address"
       },
       {
@@ -46,7 +46,7 @@
       },
       {
         "indexed": false,
-        "internalType": "enum NootCards.PaymentType",
+        "internalType": "enum HigherOrLower.PaymentType",
         "name": "paymentType",
         "type": "uint8"
       }
@@ -90,30 +90,30 @@
       },
       {
         "indexed": false,
-        "internalType": "enum NootCards.Card",
-        "name": "previousCard",
+        "internalType": "uint8",
+        "name": "turn",
         "type": "uint8"
       },
       {
         "indexed": false,
-        "internalType": "enum NootCards.Card",
-        "name": "newCard",
-        "type": "uint8"
+        "internalType": "bool",
+        "name": "won",
+        "type": "bool"
       },
       {
         "indexed": false,
-        "internalType": "enum NootCards.Guess",
-        "name": "guess",
-        "type": "uint8"
+        "internalType": "uint256",
+        "name": "prize",
+        "type": "uint256"
       },
       {
         "indexed": false,
-        "internalType": "bytes32",
-        "name": "currentHash",
-        "type": "bytes32"
+        "internalType": "enum HigherOrLower.PaymentType",
+        "name": "paymentType",
+        "type": "uint8"
       }
     ],
-    "name": "GameLost",
+    "name": "GameEnded",
     "type": "event"
   },
   {
@@ -151,7 +151,7 @@
       },
       {
         "indexed": false,
-        "internalType": "enum NootCards.PaymentType",
+        "internalType": "enum HigherOrLower.PaymentType",
         "name": "paymentType",
         "type": "uint8"
       },
@@ -175,62 +175,68 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "player",
-        "type": "address"
-      },
-      {
         "indexed": false,
         "internalType": "uint256",
-        "name": "gameId",
+        "name": "minWager",
         "type": "uint256"
       },
       {
         "indexed": false,
         "internalType": "uint256",
-        "name": "prize",
+        "name": "maxWager",
         "type": "uint256"
       },
       {
         "indexed": false,
-        "internalType": "enum NootCards.PaymentType",
-        "name": "paymentType",
-        "type": "uint8"
+        "internalType": "uint256",
+        "name": "minEthWager",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "maxEthWager",
+        "type": "uint256"
       }
     ],
-    "name": "GameWon",
+    "name": "WagerLimitUpdateExecuted",
     "type": "event"
   },
   {
     "anonymous": false,
     "inputs": [
       {
-        "indexed": true,
-        "internalType": "address",
-        "name": "player",
-        "type": "address"
-      },
-      {
         "indexed": false,
         "internalType": "uint256",
-        "name": "gameId",
+        "name": "minWager",
         "type": "uint256"
       },
       {
         "indexed": false,
-        "internalType": "uint8",
-        "name": "turn",
-        "type": "uint8"
+        "internalType": "uint256",
+        "name": "maxWager",
+        "type": "uint256"
       },
       {
         "indexed": false,
-        "internalType": "enum NootCards.Guess",
-        "name": "guess",
-        "type": "uint8"
+        "internalType": "uint256",
+        "name": "minEthWager",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "maxEthWager",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
       }
     ],
-    "name": "GuessMade",
+    "name": "WagerLimitUpdateRequested",
     "type": "event"
   },
   {
@@ -244,31 +250,6 @@
       }
     ],
     "name": "WithdrawalCancelled",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "address",
-        "name": "player",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "amount",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "enum NootCards.PaymentType",
-        "name": "paymentType",
-        "type": "uint8"
-      }
-    ],
-    "name": "WithdrawalProcessed",
     "type": "event"
   },
   {
@@ -305,6 +286,19 @@
   },
   {
     "inputs": [],
+    "name": "activeGameCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "admin",
     "outputs": [
       {
@@ -324,7 +318,7 @@
         "type": "uint256"
       },
       {
-        "internalType": "enum NootCards.PaymentType",
+        "internalType": "enum HigherOrLower.PaymentType",
         "name": "paymentType",
         "type": "uint8"
       }
@@ -332,29 +326,6 @@
     "name": "adminDirectWithdraw",
     "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "adminRequest",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "tokenAmount",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "ethAmount",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "timestamp",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -372,23 +343,8 @@
             "type": "uint256"
           },
           {
-            "internalType": "enum NootCards.Card",
-            "name": "currentCard",
-            "type": "uint8"
-          },
-          {
-            "internalType": "enum NootCards.Guess",
-            "name": "currentGuess",
-            "type": "uint8"
-          },
-          {
-            "internalType": "enum NootCards.GameStatus",
+            "internalType": "enum HigherOrLower.GameStatus",
             "name": "status",
-            "type": "uint8"
-          },
-          {
-            "internalType": "uint8",
-            "name": "turn",
             "type": "uint8"
           },
           {
@@ -407,14 +363,19 @@
             "type": "bytes32"
           },
           {
-            "internalType": "enum NootCards.PaymentType",
+            "internalType": "enum HigherOrLower.PaymentType",
             "name": "paymentType",
             "type": "uint8"
           }
         ],
-        "internalType": "struct NootCards.Game",
+        "internalType": "struct HigherOrLower.Game",
         "name": "game",
         "type": "tuple"
+      },
+      {
+        "internalType": "uint8",
+        "name": "turn",
+        "type": "uint8"
       }
     ],
     "name": "calculateCurrentPot",
@@ -450,6 +411,25 @@
   {
     "inputs": [
       {
+        "internalType": "enum HigherOrLower.PaymentType",
+        "name": "paymentType",
+        "type": "uint8"
+      }
+    ],
+    "name": "calculateReservedFunds",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint8",
         "name": "turn",
         "type": "uint8"
@@ -468,6 +448,13 @@
   },
   {
     "inputs": [],
+    "name": "cancelWagerLimitUpdate",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "cancelWithdrawalRequest",
     "outputs": [],
     "stateMutability": "nonpayable",
@@ -479,9 +466,14 @@
         "internalType": "bytes32",
         "name": "nextHash",
         "type": "bytes32"
+      },
+      {
+        "internalType": "uint8",
+        "name": "finalTurn",
+        "type": "uint8"
       }
     ],
-    "name": "claimRewards",
+    "name": "cashOut",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -505,59 +497,104 @@
         "internalType": "address",
         "name": "player",
         "type": "address"
+      },
+      {
+        "internalType": "bytes",
+        "name": "playerGuessSignature",
+        "type": "bytes"
+      },
+      {
+        "internalType": "enum HigherOrLower.Guess",
+        "name": "playerGuess",
+        "type": "uint8"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "nextHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint8",
+        "name": "finalTurn",
+        "type": "uint8"
+      }
+    ],
+    "name": "endGameWithProofOfLoss",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "erc20Token",
+    "outputs": [
+      {
+        "internalType": "contract IERC20",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "executeWagerLimitUpdate",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "player",
+        "type": "address"
       }
     ],
     "name": "getGameState",
     "outputs": [
       {
-        "internalType": "enum NootCards.GameStatus",
-        "name": "status",
-        "type": "uint8"
-      },
-      {
-        "internalType": "uint256",
-        "name": "wager",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "currentPot",
-        "type": "uint256"
-      },
-      {
-        "internalType": "enum NootCards.Card",
-        "name": "previousCard",
-        "type": "uint8"
-      },
-      {
-        "internalType": "enum NootCards.Guess",
-        "name": "previousGuess",
-        "type": "uint8"
-      },
-      {
-        "internalType": "uint8",
-        "name": "turn",
-        "type": "uint8"
-      },
-      {
-        "internalType": "uint256",
-        "name": "gameId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "commitment",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "userRandomNonce",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "enum NootCards.PaymentType",
-        "name": "paymentType",
-        "type": "uint8"
+        "components": [
+          {
+            "internalType": "address",
+            "name": "player",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "wager",
+            "type": "uint256"
+          },
+          {
+            "internalType": "enum HigherOrLower.GameStatus",
+            "name": "status",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint256",
+            "name": "gameId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "commitment",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "userRandomNonce",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "enum HigherOrLower.PaymentType",
+            "name": "paymentType",
+            "type": "uint8"
+          }
+        ],
+        "internalType": "struct HigherOrLower.Game",
+        "name": "",
+        "type": "tuple"
       }
     ],
     "stateMutability": "view",
@@ -579,75 +616,49 @@
     "name": "getGameStateById",
     "outputs": [
       {
-        "internalType": "enum NootCards.GameStatus",
-        "name": "status",
-        "type": "uint8"
-      },
-      {
-        "internalType": "uint256",
-        "name": "wager",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "currentPot",
-        "type": "uint256"
-      },
-      {
-        "internalType": "enum NootCards.Card",
-        "name": "previousCard",
-        "type": "uint8"
-      },
-      {
-        "internalType": "enum NootCards.Guess",
-        "name": "previousGuess",
-        "type": "uint8"
-      },
-      {
-        "internalType": "uint8",
-        "name": "turn",
-        "type": "uint8"
-      },
-      {
-        "internalType": "uint256",
-        "name": "gameIdReturn",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "commitment",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "userRandomNonce",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "enum NootCards.PaymentType",
-        "name": "paymentType",
-        "type": "uint8"
+        "components": [
+          {
+            "internalType": "address",
+            "name": "player",
+            "type": "address"
+          },
+          {
+            "internalType": "uint256",
+            "name": "wager",
+            "type": "uint256"
+          },
+          {
+            "internalType": "enum HigherOrLower.GameStatus",
+            "name": "status",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint256",
+            "name": "gameId",
+            "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "commitment",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "userRandomNonce",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "enum HigherOrLower.PaymentType",
+            "name": "paymentType",
+            "type": "uint8"
+          }
+        ],
+        "internalType": "struct HigherOrLower.Game",
+        "name": "",
+        "type": "tuple"
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "nextHash",
-        "type": "bytes32"
-      },
-      {
-        "internalType": "enum NootCards.Guess",
-        "name": "newGuess",
-        "type": "uint8"
-      }
-    ],
-    "name": "makeGuess",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -704,12 +715,32 @@
   },
   {
     "inputs": [],
-    "name": "nootToken",
+    "name": "pendingWagerUpdate",
     "outputs": [
       {
-        "internalType": "contract IERC20",
-        "name": "",
-        "type": "address"
+        "internalType": "uint256",
+        "name": "minWager",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxWager",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "minEthWager",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxEthWager",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -760,23 +791,8 @@
         "type": "uint256"
       },
       {
-        "internalType": "enum NootCards.Card",
-        "name": "currentCard",
-        "type": "uint8"
-      },
-      {
-        "internalType": "enum NootCards.Guess",
-        "name": "currentGuess",
-        "type": "uint8"
-      },
-      {
-        "internalType": "enum NootCards.GameStatus",
+        "internalType": "enum HigherOrLower.GameStatus",
         "name": "status",
-        "type": "uint8"
-      },
-      {
-        "internalType": "uint8",
-        "name": "turn",
         "type": "uint8"
       },
       {
@@ -795,7 +811,7 @@
         "type": "bytes32"
       },
       {
-        "internalType": "enum NootCards.PaymentType",
+        "internalType": "enum HigherOrLower.PaymentType",
         "name": "paymentType",
         "type": "uint8"
       }
@@ -821,6 +837,11 @@
         "internalType": "bytes32",
         "name": "nextHash",
         "type": "bytes32"
+      },
+      {
+        "internalType": "uint8",
+        "name": "finalTurn",
+        "type": "uint8"
       }
     ],
     "name": "proveLoss",
@@ -829,7 +850,51 @@
     "type": "function"
   },
   {
-    "inputs": [],
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_minWager",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_maxWager",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_minEthWager",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_maxEthWager",
+        "type": "uint256"
+      }
+    ],
+    "name": "requestWagerLimitUpdate",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "enum HigherOrLower.Guess",
+        "name": "lastGuess",
+        "type": "uint8"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "previousHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint8",
+        "name": "finalTurn",
+        "type": "uint8"
+      }
+    ],
     "name": "requestWithdrawal",
     "outputs": [],
     "stateMutability": "nonpayable",
@@ -886,7 +951,7 @@
         "type": "uint256"
       },
       {
-        "internalType": "enum NootCards.PaymentType",
+        "internalType": "enum HigherOrLower.PaymentType",
         "name": "paymentType",
         "type": "uint8"
       },
@@ -907,6 +972,32 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "totalActiveEthWagers",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "totalActiveTokenWagers",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -915,42 +1006,6 @@
       }
     ],
     "name": "transferAdmin",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_minEthWager",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_maxEthWager",
-        "type": "uint256"
-      }
-    ],
-    "name": "updateEthWagerLimits",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_minWager",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_maxWager",
-        "type": "uint256"
-      }
-    ],
-    "name": "updateWagerLimits",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -975,6 +1030,19 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "wagerLimitUpdateDelay",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -986,8 +1054,23 @@
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "timestamp",
         "type": "uint256"
+      },
+      {
+        "internalType": "enum HigherOrLower.Guess",
+        "name": "lastGuess",
+        "type": "uint8"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "previousHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint8",
+        "name": "finalTurn",
+        "type": "uint8"
       }
     ],
     "stateMutability": "view",

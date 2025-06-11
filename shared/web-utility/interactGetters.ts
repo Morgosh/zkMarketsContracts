@@ -3,8 +3,8 @@
 // while avoiding web specific code
 
 import { TypedDataDomain, TypedDataEncoder, ethers } from "ethers"
-import marketplaceABI from "../../abis/Diamond.abi.json"
-import ERC721ABI from "../../abis/ERC721Template.abi.json"
+import marketplaceABI from "../../abis/Diamond.abi.json" with { type: "json" };
+import ERC721ABI from "../../abis/ERC721Template.abi.json" with { type: "json" };
 import { Contract } from "zksync-ethers"
 import { OrderParameters } from "../constants/enums"
 

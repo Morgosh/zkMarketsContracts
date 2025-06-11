@@ -1,8 +1,9 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types"
 import { updateFacetFully } from "./deploy_diamond_functions"
+import { Wallet } from "zksync-ethers"
 
-import oldTransactFacet from "../abis/old/TransactFacet.abi.json"
-import oldManagementFacet from "../abis/old/ManagementFacet.abi.json"
+import oldTransactFacet from "../abis/old/TransactFacet.abi.json" with { type: "json" }
+import oldManagementFacet from "../abis/old/ManagementFacet.abi.json" with { type: "json" }
 const updateFacetName = "TransactFacet"
 
 const address = process.env.MARKETPLACE_ADDRESS

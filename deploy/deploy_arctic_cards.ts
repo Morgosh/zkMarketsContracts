@@ -39,8 +39,8 @@ export default async function (hre: HardhatRuntimeEnvironment) {
   console.log(`Configured NOOT wager limits: Min=${hre.ethers.formatUnits(minWager, 18)} NOOT, Max=${hre.ethers.formatUnits(maxWager, 18)} NOOT`);
   console.log(`Configured ETH wager limits: Min=${hre.ethers.formatUnits(minEthWager, 18)} ETH, Max=${hre.ethers.formatUnits(maxEthWager, 18)} ETH`);
   
-  // Deploy NootCards
-  console.log("Deploying NootCards...");
+  // Deploy HigherOrLower
+  console.log("Deploying HigherOrLower...");
   const deployParams = [
     nootAddress,    // NOOT token address
     dealerAddress,  // Dealer address (previously trustedSigner)
@@ -50,15 +50,15 @@ export default async function (hre: HardhatRuntimeEnvironment) {
     maxEthWager     // Maximum ETH wager
   ];
 
-  const nootCardsContract = await deployContract("NootCards", deployParams, options);
-  const nootCardsAddress = await nootCardsContract.getAddress();
+  const higherOrLowerContract = await deployContract("HigherOrLower", deployParams, options);
+  const higherOrLowerAddress = await higherOrLowerContract.getAddress();
   
-  console.log(`NootCards deployed at: ${nootCardsAddress}`);
+  console.log(`HigherOrLower deployed at: ${higherOrLowerAddress}`);
   console.log("-----------------------------");
   console.log("Deployment Summary:");
   console.log(`Network: ${hre.network.name}`);
   console.log(`NOOT Token: ${nootAddress}`);
-  console.log(`NootCards: ${nootCardsAddress}`);
+  console.log(`HigherOrLower: ${higherOrLowerAddress}`);
   console.log(`Dealer Address: ${dealerAddress}`);
   console.log(`Min Token Wager: ${hre.ethers.formatUnits(minWager, 18)} NOOT`);
   console.log(`Max Token Wager: ${hre.ethers.formatUnits(maxWager, 18)} NOOT`);
@@ -67,7 +67,7 @@ export default async function (hre: HardhatRuntimeEnvironment) {
   console.log("-----------------------------");
   
   return {
-    nootCardsAddress,
+    higherOrLowerAddress,
     nootAddress
   };
 } 

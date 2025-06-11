@@ -1,6 +1,6 @@
 import { Provider, utils } from "zksync-ethers"
 import { Contract, ethers } from "ethers"
-import ERC20ABI from "../../abis/ERC20Template.abi.json"
+import ERC20ABI from "../../abis/ERC20Template.abi.json" with { type: "json" }
 import { PaymasterOptions } from "../constants/enums"
 
 export interface TxData {

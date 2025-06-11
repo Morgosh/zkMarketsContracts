@@ -1,6 +1,6 @@
 import { ethers } from 'ethers';
-import contractAbi from '../../src/contract/abis/NootCards.abi.json';
-import { NOOTCARDS_CONTRACT_ADDRESS, RPC_URL, WS_URL } from '../../src/contract/utils/consts';
+import contractAbi from "../abis/HigherOrLower.abi.json" with { type: "json" };
+import { GAME_CONTRACT_ADDRESS, RPC_URL, WS_URL } from '../utils/consts.js';
 
 // DEALER_SECRET should be stored in environment variables on server
 // This is the private secret used to generate the hash chain
@@ -10,7 +10,7 @@ const DEALER_SECRET_PREFIX = process.env.DEALER_SECRET_PREFIX || 'dealer_secret_
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 
 // Create contract instance to read game state
-const contract = new ethers.Contract(NOOTCARDS_CONTRACT_ADDRESS, contractAbi, provider);
+const contract = new ethers.Contract(GAME_CONTRACT_ADDRESS, contractAbi, provider);
 
 // Dealer wallet for signing commitments
 const DEALER_PRIVATE_KEY = process.env.DEALER_PRIVATE_KEY || '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
@@ -107,7 +107,7 @@ export default async function handler(req, res) {
       try {
         // Initialize WebSocket provider
         wsProvider = new ethers.WebSocketProvider(WS_URL);
-        wsContract = new ethers.Contract(NOOTCARDS_CONTRACT_ADDRESS, contractAbi, wsProvider);
+        wsContract = new ethers.Contract(GAME_CONTRACT_ADDRESS, contractAbi, wsProvider);
         
         // Set up error handler for WebSocket provider
         wsProvider.on('error', (error) => {
