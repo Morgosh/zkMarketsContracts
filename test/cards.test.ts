@@ -719,9 +719,28 @@ describe("HigherOrLower", function () {
       // Formula: cashoutHash = hashChain[11 - (cashoutTurn + 1)]
       const cashoutHash = hashChain[11 - (cashoutTurn + 1)]; // hashChain[7] for cashoutTurn = 3
       
+      // Check game state before cashing out
+      const gameStateBefore = await getGameState(higherOrLower, player2Address);
+      console.log("Game state before cashout:");
+      console.log("- active:", gameStateBefore.active);
+      console.log("- status:", gameStateBefore.status);
+      console.log("- wager:", gameStateBefore.wager.toString());
+      
       // Cash out
-      const tx = await higherOrLower.connect(player2).cashOut(cashoutHash, cashoutTurn);
-      const receipt = await tx.wait();
+      console.log("About to cash out with:");
+      console.log("- cashoutHash:", cashoutHash);
+      console.log("- cashoutTurn:", cashoutTurn);
+      console.log("- commitment:", commitment);
+      
+      let receipt;
+      try {
+        const tx = await higherOrLower.connect(player2).cashOut(cashoutHash, cashoutTurn);
+        receipt = await tx.wait();
+        console.log("Cash out successful");
+      } catch (error: any) {
+        console.log("Cash out failed:", error.message);
+        throw error;
+      }
       
       // Check that GameEnded event was emitted
       const gameEndedEvents = receipt.logs.filter((log: any) => log.fragment?.name === "GameEnded");
@@ -729,6 +748,9 @@ describe("HigherOrLower", function () {
       
       // Check balance increased
       const balanceAfter = await nootToken.balanceOf(player2Address);
+      console.log("Balance before:", balanceBefore.toString());
+      console.log("Balance after:", balanceAfter.toString());
+      console.log("Balance increased?", balanceAfter > balanceBefore);
       expect(balanceAfter > balanceBefore).to.be.true;
       
       // Check game is now inactive

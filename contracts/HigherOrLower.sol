@@ -262,16 +262,11 @@ contract HigherOrLower {
      * @return The calculated current pot value
      */
     function calculateCurrentPot(Game memory game, uint8 turn) public pure returns (uint256) {
-        if (game.status != GameStatus.Active || turn == 0) {
-            return 0;
-        }
-        
         uint256 pot = game.wager;
         // Apply multipliers for each completed turn (up to current turn)
         for (uint8 i = 1; i <= turn; i++) {
             pot = (pot * calculateTurnMultiplier(i)) / 100;
-        }
-        
+        }    
         return pot;
     }
     
@@ -606,7 +601,7 @@ contract HigherOrLower {
      * @param player The player address
      * @param playerGuessSignature The player's signature of their guess
      * @param playerGuess The player's guess
-     * @param lossHash The hash that would result in the player's loss
+     * @param lossHash The hash or card that would result in the player's loss
      * @param losingTurn The turn number where the player loses (0-indexed)
      */
     function endGameWithProofOfLoss(address player, bytes memory playerGuessSignature, Guess playerGuess, bytes32 lossHash, uint8 losingTurn) external onlyDealer {

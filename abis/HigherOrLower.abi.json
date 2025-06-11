@@ -475,12 +475,12 @@
     "inputs": [
       {
         "internalType": "bytes32",
-        "name": "nextHash",
+        "name": "cashoutHash",
         "type": "bytes32"
       },
       {
         "internalType": "uint8",
-        "name": "finalTurn",
+        "name": "cashoutTurn",
         "type": "uint8"
       }
     ],
@@ -521,7 +521,7 @@
       },
       {
         "internalType": "bytes32",
-        "name": "nextHash",
+        "name": "lossHash",
         "type": "bytes32"
       },
       {
@@ -861,7 +861,7 @@
       },
       {
         "internalType": "bytes32",
-        "name": "nextHash",
+        "name": "lossHash",
         "type": "bytes32"
       },
       {
@@ -912,12 +912,12 @@
       },
       {
         "internalType": "bytes32",
-        "name": "previousHash",
+        "name": "withdrawalHash",
         "type": "bytes32"
       },
       {
         "internalType": "uint8",
-        "name": "finalTurn",
+        "name": "withdrawalTurn",
         "type": "uint8"
       }
     ],
