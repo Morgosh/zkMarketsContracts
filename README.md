@@ -46,6 +46,13 @@ Important: zkSync In-memory Node currently supports only the L2 node. If contrac
 - [Twitter](https://twitter.com/zksync)
 - [Discord](https://join.zksync.dev/)
 
+## Development Guidelines
+
+This project follows **Test-Driven Development (TDD)**:
+- Write tests first, then implement
+- All functions must have tests
+- Cover edge cases and error conditions
+
 ## License
 
 This project is under the business license

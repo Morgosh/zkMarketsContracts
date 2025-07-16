@@ -1,0 +1,55 @@
+666 Prophets NFT - Dynamic Market Oracle Collection
+
+Tech: ERC-721A, Chainlink ETH/USD Price Feed, Abstract Chain
+Supply: 666 NFTs
+
+Core: ALL NFTs change state simultaneously based on ETH price vs 24h ago
+
+States (Global):
+- Bullish: ETH ≥ +5% from 24h ago
+- Neutral: ETH between -5% and +5% from 24h ago
+- Bearish: ETH between -10% and -5% from 24h ago
+- Bones and Ashes: ETH ≤ -10% from 24h ago
+
+Dynamic tokenURI() - Calculated in Real-Time:
+{
+  "name": "Prophet #{tokenId}",
+  "description": "Story text for current state",
+  "attributes": [
+    {"trait_type": "State", "value": "bullish/neutral/bearish/bones_and_ashes"},
+    {"trait_type": "ETH Change", "value": "±X.XX%"}
+  ],
+  "image": "data:image/png;base64,{state_pixel_art}"
+}
+
+Key Functions:
+- tokenURI(): Returns dynamic metadata by calling getCurrentState()
+- getCurrentState(): Calculates current state vs 24h ago price
+- getPriceFromHoursAgo(): Searches Chainlink historical rounds
+- mint(): Mint NFTs with configurable price
+- withdraw(): Owner can withdraw funds
+
+Images: 4 base64 pixel art variants in contract
+- Bullish: Glowing prophet
+- Neutral: Balanced prophet  
+- Bearish: Shadowy prophet
+- Bones and Ashes: Skeletal/decay prophet
+
+Price Logic: 
+- Uses Chainlink historical data to compare current ETH price vs 24h ago
+- getPriceFromHoursAgo() searches backwards through Chainlink rounds
+- Falls back to oldest available price if 24h data not found
+- Fully dynamic - no stored state, calculated in real-time via tokenURI()
+
+Constructor Parameters:
+- name: Contract name
+- symbol: Contract symbol  
+- priceFeed: Chainlink ETH/USD price feed address
+- mintPrice: Price per NFT in wei (e.g., 0.02 ETH)
+
+## Development Rules
+- Test-driven development: Write tests first, then implement
+- All functions must have corresponding tests
+- Tests must cover edge cases and error conditions
+- Use descriptive test names and organize by feature
+
