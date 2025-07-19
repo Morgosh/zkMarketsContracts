@@ -1,8 +1,7 @@
-const hre = require("hardhat");
+import { HardhatRuntimeEnvironment } from "hardhat/types"
 import { deployContract } from "../utils/utils"
 
-
-async function main() {
+export default async function (hre: HardhatRuntimeEnvironment) {
   try {
     const options = {
       verify: true,
@@ -40,11 +39,4 @@ async function main() {
     console.error("❌ Deployment failed:", error)
     throw error
   }
-}
-
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+} 

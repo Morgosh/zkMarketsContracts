@@ -23,7 +23,7 @@ interface GasEstimate {
   costAt100Gwei: number;
 }
 
-const contractAddress = "0x0000000000000000000000000000000000000001";
+const contractAddress = "0xBcC4eCDe889D8a31E7De6927F04A6D4DEE7a9b63";
 
 const MAX_GAS_PER_CHUNK = BigInt(29000000); // Stay under block limit (~30M)
 

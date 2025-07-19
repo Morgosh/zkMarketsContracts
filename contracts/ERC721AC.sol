@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
 import "@limitbreak/creator-token-standards/src/access/OwnableBasic.sol";
@@ -5,7 +6,14 @@ import "@limitbreak/creator-token-standards/src/erc721c/ERC721AC.sol";
 import "@limitbreak/creator-token-standards/src/programmable-royalties/BasicRoyalties.sol";
 
 
-contract ERC721ACWithBasicRoyalties is OwnableBasic, ERC721AC, BasicRoyalties {
+contract ERC721ACWithBasicRoyalties is ERC721AC, BasicRoyalties {
+    
+    address private _owner;
+    
+    modifier onlyOwner() {
+        require(msg.sender == _owner, "Not owner");
+        _;
+    }
 
     constructor(
         address royaltyReceiver_,
@@ -14,6 +22,11 @@ contract ERC721ACWithBasicRoyalties is OwnableBasic, ERC721AC, BasicRoyalties {
         string memory symbol_)
         ERC721AC(name_, symbol_) 
         BasicRoyalties(royaltyReceiver_, royaltyFeeNumerator_) {
+        _owner = msg.sender;
+    }
+    
+    function _requireCallerIsContractOwner() internal view override {
+        require(msg.sender == _owner, "Not owner");
     }
 
     function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721AC, ERC2981) returns (bool) {

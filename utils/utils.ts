@@ -133,6 +133,34 @@ export const deployContract = async (contractArtifactName: string, constructorAr
     }
     const contract = await factory.deploy(...constructorArguments)
     await contract.waitForDeployment()
+    
+    const address = await contract.getAddress()
+    if (options?.doLog) {
+      console.log(`\n"${contractArtifactName}" was successfully deployed:`)
+      console.log(`Deployed ${contractArtifactName} address: ${address.toLowerCase()}`)
+    }
+    
+    // Add verification for regular Ethereum networks
+    if (options?.verify && hre.network.name !== "hardhat" && hre.network.name !== "localhost") {
+      if (options?.doLog) console.log("Requesting contract verification...")
+      try {
+        await new Promise(resolve => setTimeout(resolve, 10000)) // Wait 10s for contract to be indexed
+        
+        await hre.run("verify:verify", {
+          address: address,
+          constructorArguments: constructorArguments,
+        })
+        
+        if (options?.doLog) console.log(`✅ Contract verified successfully!`)
+      } catch (error: any) {
+        console.error(`⛔️ Contract verification failed: ${error.message}`)
+        if (error.message.includes("Already Verified")) {
+          console.log(`✅ Contract was already verified`)
+        }
+        console.log("continuing...")
+      }
+    }
+    
     return contract
   }
 }
