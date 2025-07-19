@@ -33,6 +33,16 @@ const config: HardhatUserConfig = {
       url: "https://rpc.scroll.io/",
       accounts: [deployerKey!],
     },
+    "sepolia": {
+      chainId: 11155111,
+      url: "https://sepolia.infura.io/v3/" + (process.env.INFURA_API_KEY || ""),
+      accounts: [deployerKey!],
+    },
+    "mainnet": {
+      chainId: 1,
+      url: "https://mainnet.infura.io/v3/" + (process.env.INFURA_API_KEY || ""),
+      accounts: [deployerKey!],
+    },
     "zkHardhat": {
       url: "http://localhost:3050",
       ethNetwork: "http://localhost:8545",

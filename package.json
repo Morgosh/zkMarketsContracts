@@ -11,7 +11,7 @@
     "test": "cross-env NODE_ENV=test hardhat test --network hardhat",
     "testGas": "cross-env REPORT_GAS=true NODE_ENV=test hardhat test --network hardhat",
     "testzk": "cross-env NODE_ENV=test hardhat test --network zkHardhat",
-    "verify":  "hardhat deploy-zksync --script verify.ts --network abstract",
+    "verify": "hardhat deploy-zksync --script verify.ts --network abstract",
     "deploy-diamond-test": "hardhat deploy-zksync --script deploy_diamond.ts --network zksync-era-testnet",
     "deploy-diamond-main": "hardhat deploy-zksync --script deploy_diamond.ts --network zksync-era",
     "upgrade-diamond-test": "yarn hardhat deploy-zksync --script update_diamond.ts --network zksync-era-testnet",
@@ -29,7 +29,7 @@
     "@matterlabs/zksync-contracts": "^0.6.1",
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.7",
     "@nomiclabs/hardhat-etherscan": "^3.1.7",
-    "@openzeppelin/contracts": "^5.0.2",
+    "@openzeppelin/contracts": "^5.4.0",
     "@types/chai": "^4.3.4",
     "@types/mocha": "^10.0.1",
     "chai": "^4.3.7",
@@ -44,8 +44,11 @@
     "zksync-ethers": "6"
   },
   "dependencies": {
+    "@limitbreak/creator-token-standards": "^5.0.0",
+    "@noble/hashes": "1.3.0",
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
     "cross-env": "^7.0.3",
+    "erc721a": "^4.3.0",
     "hardhat-gas-reporter": "^2.2.0",
     "i": "^0.3.7",
     "npm": "^10.8.2"
