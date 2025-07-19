@@ -402,25 +402,6 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "hoursAgo",
-        "type": "uint256"
-      }
-    ],
-    "name": "getPriceFromHoursAgo",
-    "outputs": [
-      {
-        "internalType": "int256",
-        "name": "",
-        "type": "int256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "address",
         "name": "owner",
         "type": "address"

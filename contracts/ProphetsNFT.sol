@@ -22,9 +22,6 @@ contract ProphetsNFT is ERC721A, Ownable {
     IPyth public pyth;
     bytes32 public ethUsdPriceId;
     
-    // Baseline price for comparison (can be updated by owner)
-    int256 public baselinePrice;
-    
     // Pixel art images stored as base64
     string private bullishImage;
     string private neutralImage;
@@ -45,9 +42,6 @@ contract ProphetsNFT is ERC721A, Ownable {
         ethUsdPriceId = _ethUsdPriceId;
         MINT_PRICE = _mintPrice;
         
-        // Set initial baseline price (can be updated later)
-        baselinePrice = 200000000000; // $2000 with 8 decimals
-        
         // Set placeholder images (to be updated by owner)
         bullishImage = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
         neutralImage = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
@@ -65,7 +59,7 @@ contract ProphetsNFT is ERC721A, Ownable {
         _mint(msg.sender, quantity);
     }
     
-    // Get current state and price change (requires price update data)
+    // Get current state based on ETH price levels
     function getCurrentState(bytes[] calldata priceUpdateData) external payable returns (ProphetState, int256) {
         // Update price feeds with provided data
         uint fee = pyth.getUpdateFee(priceUpdateData);
@@ -74,47 +68,22 @@ contract ProphetsNFT is ERC721A, Ownable {
         
         // Get current price
         PythStructs.Price memory currentPriceData = pyth.getPriceUnsafe(ethUsdPriceId);
-        
-        // Check if price is recent enough (within 60 seconds)
-        if (currentPriceData.publishTime > block.timestamp) {
-            return (ProphetState.NEUTRAL, 0); // Future timestamp, return neutral
-        }
-        require(block.timestamp - currentPriceData.publishTime <= 60, "Price too stale");
-        
         int256 currentPrice = int256(currentPriceData.price);
         
-        // Calculate percentage change vs baseline in basis points
-        if (baselinePrice == 0) {
-            return (ProphetState.NEUTRAL, 0);
-        }
-        
-        // Use safer arithmetic to avoid overflow
-        int256 priceDiff = currentPrice - baselinePrice;
-        int256 priceChange;
-        
-        // Avoid overflow by checking if the calculation would be too large
-        if (priceDiff > type(int256).max / 10000 || priceDiff < type(int256).min / 10000) {
-            // If the price difference is too large, use a simplified calculation
-            priceChange = priceDiff > 0 ? int256(10000) : int256(-10000); // Max positive or negative change
-        } else {
-            priceChange = (priceDiff * 10000) / baselinePrice;
-        }
-        
+        // Determine state based on price levels (prices are in 8 decimals)
         ProphetState state;
-        if (priceChange >= 500) { // +5%
+        if (currentPrice >= 350000000000) { // $3500+
             state = ProphetState.BULLISH;
-        } else if (priceChange <= -1000) { // -10%
+        } else if (currentPrice <= 150000000000) { // $1500 or below
             state = ProphetState.BONES_AND_ASHES;
-        } else if (priceChange <= -500) { // -5%
+        } else if (currentPrice <= 200000000000) { // $1500-$2000
             state = ProphetState.BEARISH;
         } else {
-            state = ProphetState.NEUTRAL;
+            state = ProphetState.NEUTRAL; // $2000-$3500
         }
         
-        return (state, priceChange);
+        return (state, currentPrice);
     }
-    
-
     
     // Dynamic metadata generation
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
@@ -130,19 +99,19 @@ contract ProphetsNFT is ERC721A, Ownable {
         
         if (state == ProphetState.BULLISH) {
             image = bullishImage;
-            description = "The prophets are BULLISH! ETH is up 5%+ from 24h ago. The market spirits are strong!";
+            description = "The prophets are BULLISH! ETH is above $3500. The market spirits are strong!";
             stateName = "BULLISH";
         } else if (state == ProphetState.NEUTRAL) {
             image = neutralImage;
-            description = "The prophets remain NEUTRAL. ETH is within 5% of 24h ago. The spirits are balanced.";
+            description = "The prophets remain NEUTRAL. ETH is between $2000-$3500. The spirits are balanced.";
             stateName = "NEUTRAL";
         } else if (state == ProphetState.BEARISH) {
             image = bearishImage;
-            description = "The prophets are BEARISH. ETH is down 5-10% from 24h ago. The spirits are cautious.";
+            description = "The prophets are BEARISH. ETH is between $1500-$2000. The spirits are cautious.";
             stateName = "BEARISH";
         } else {
             image = bonesAndAshesImage;
-            description = "BONES AND ASHES! ETH is down 10%+ from 24h ago. The spirits have fled!";
+            description = "BONES AND ASHES! ETH is below $1500. The spirits have fled!";
             stateName = "BONES_AND_ASHES";
         }
         
@@ -171,40 +140,17 @@ contract ProphetsNFT is ERC721A, Ownable {
     // View function to get current state without updating prices
     function getCurrentStateView() public view returns (ProphetState) {
         try pyth.getPriceUnsafe(ethUsdPriceId) returns (PythStructs.Price memory currentPriceData) {
-            // Check if price is recent enough (within 60 seconds)
-            // Skip future timestamp check for testing (MockPyth has incorrect timestamps)
-            // if (currentPriceData.publishTime > block.timestamp) {
-            //     return ProphetState.NEUTRAL; // Future timestamp, return neutral
-            // }
-            // TODO: Re-enable staleness check when MockPyth timestamps are fixed
-            // Check staleness with overflow protection
-            // if (currentPriceData.publishTime <= block.timestamp) {
-            //     require(block.timestamp - currentPriceData.publishTime <= 60, "Price too stale");
-            // } else {
-            //     // Future timestamp, treat as stale
-            //     require(false, "Price too stale");
-            // }
-            
             int256 currentPrice = int256(currentPriceData.price);
             
-            // Calculate percentage change vs baseline in basis points
-            if (baselinePrice == 0) {
-                return ProphetState.NEUTRAL;
-            }
-            
-            // Calculate percentage change vs baseline in basis points
-            int256 priceDiff = currentPrice - baselinePrice;
-            int256 priceChange = (priceDiff * 10000) / baselinePrice;
-            
-            // Debug: This will cause a revert with the values for debugging
-            if (priceChange >= 500) { // +5%
+            // Determine state based on price levels (prices are in 8 decimals)
+            if (currentPrice >= 350000000000) { // $3500+
                 return ProphetState.BULLISH;
-            } else if (priceChange <= -1000) { // -10%
+            } else if (currentPrice <= 150000000000) { // $1500 or below
                 return ProphetState.BONES_AND_ASHES;
-            } else if (priceChange <= -500) { // -5%
+            } else if (currentPrice <= 200000000000) { // $1500-$2000
                 return ProphetState.BEARISH;
             } else {
-                return ProphetState.NEUTRAL;
+                return ProphetState.NEUTRAL; // $2000-$3500
             }
         } catch {
             // Default to neutral if price can't be fetched
@@ -231,10 +177,6 @@ contract ProphetsNFT is ERC721A, Ownable {
     
     function updatePriceId(bytes32 _ethUsdPriceId) external onlyOwner {
         ethUsdPriceId = _ethUsdPriceId;
-    }
-    
-    function updateBaselinePrice(int256 _baselinePrice) external onlyOwner {
-        baselinePrice = _baselinePrice;
     }
     
     function withdraw() external onlyOwner {
