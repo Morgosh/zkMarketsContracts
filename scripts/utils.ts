@@ -9,8 +9,8 @@ export function getRPC(network: string): string {
     "zksync-era-testnet": "https://sepolia.era.zksync.dev",
     "zksync-era": "https://mainnet.era.zksync.io",
     "scroll-mainnet": "https://rpc.scroll.io/",
-    "sepolia": `https://sepolia.infura.io/v3/${process.env.INFURA_API_KEY}`,
-    "mainnet": `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+    "sepolia": `https://eth-sepolia.g.alchemy.com/public`,
+    "mainnet": `https://rpc.ankr.com/eth`,
     "abstract-testnet": "https://api.testnet.abs.xyz",
     "abstract": "https://api.mainnet.abs.xyz/",
   }

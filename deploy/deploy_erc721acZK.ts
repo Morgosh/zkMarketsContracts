@@ -13,12 +13,14 @@ export default async function (hre: HardhatRuntimeEnvironment) {
     const royaltyFeeNumerator = 1000 // 10% royalty (1000 basis points)
     const name = "My NFT Collection"
     const symbol = "MNC"
+    const baseTokenURI = "https://api.example.com/metadata/" // Update as needed
 
     const deployParams: any = [
       royaltyReceiver,
       royaltyFeeNumerator, 
       name,
-      symbol
+      symbol,
+      baseTokenURI
     ]
 
     console.log("🚀 Deploying ERC721ACWithBasicRoyalties...")
@@ -26,6 +28,7 @@ export default async function (hre: HardhatRuntimeEnvironment) {
     console.log(`Symbol: ${symbol}`)
     console.log(`Royalty Receiver: ${royaltyReceiver}`)
     console.log(`Royalty Fee: ${royaltyFeeNumerator / 100}%`)
+    console.log(`Base Token URI: ${baseTokenURI}`)
     console.log(`Network: ${hre.network.name}`)
 
     const contract = await deployContract("ERC721ACWithBasicRoyalties", deployParams, options)
