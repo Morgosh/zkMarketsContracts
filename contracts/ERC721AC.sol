@@ -11,9 +11,6 @@ contract ERC721ACWithBasicRoyalties is OwnableBasic, ERC721AC, BasicRoyalties {
     string private _baseTokenURI;
     string private _contractURI;
     
-    // Mapping for individual token URIs
-    mapping(uint256 => string) private _tokenURIs;
-    
     constructor(
         address royaltyReceiver_,
         uint96 royaltyFeeNumerator_,
@@ -42,23 +39,9 @@ contract ERC721ACWithBasicRoyalties is OwnableBasic, ERC721AC, BasicRoyalties {
 
     function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
         require(_exists(tokenId), "ERC721: URI query for nonexistent token");
-
-        string memory _tokenURI = _tokenURIs[tokenId];
         
-        // If there is a specific token URI, return it
-        if (bytes(_tokenURI).length > 0) {
-            return _tokenURI;
-        }
-        
-        // Otherwise return base URI + tokenId
         return bytes(_baseTokenURI).length > 0 ? 
             string(abi.encodePacked(_baseTokenURI, _toString(tokenId))) : "";
-    }
-    
-    function setTokenURI(uint256 tokenId, string memory _tokenURI) public {
-        _requireCallerIsContractOwner();
-        require(_exists(tokenId), "ERC721: URI set of nonexistent token");
-        _tokenURIs[tokenId] = _tokenURI;
     }
     
     function setBaseURI(string memory baseTokenURI_) public {
