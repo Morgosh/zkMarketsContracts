@@ -10,7 +10,7 @@ import * as fs from "fs"
 import * as path from "path"
 
 // Import ABI
-import ERC721ACABI from "../abis/ERC721ACWithBasicRoyalties.abi.json"
+import ERC721ACABI from "../abis/ERC721ACBasic.abi.json"
 
 const network = getNetwork()
 const provider = new ethers.JsonRpcProvider(getRPC(network))

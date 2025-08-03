@@ -24,7 +24,7 @@ async function main() {
       baseTokenURI
     ]
 
-    console.log("🚀 Deploying ERC721ACWithBasicRoyalties...")
+    console.log("🚀 Deploying ERC721ACBasic...")
     console.log(`Name: ${name}`)
     console.log(`Symbol: ${symbol}`)
     console.log(`Royalty Receiver: ${royaltyReceiver}`)
@@ -32,7 +32,7 @@ async function main() {
     console.log(`Base Token URI: ${baseTokenURI}`)
     console.log(`Network: ${hre.network.name}`)
 
-    const contract = await deployContract("ERC721ACWithBasicRoyalties", deployParams, options)
+    const contract = await deployContract("ERC721ACBasic", deployParams, options)
     console.log ("done")
     
     const address = await contract.getAddress()

@@ -4,6 +4,8 @@ import "@matterlabs/hardhat-zksync"
 import { generatePrivateKeyWithSalt } from "./functions"
 import * as dotenv from "dotenv"
 import "hardhat-gas-reporter";
+import 'solidity-coverage';
+
 
 // const network: string = process.argv.includes("--network") ? process.argv[process.argv.indexOf("--network") + 1] : "zksync-era-testnet"
 // initializeDotenv(getMainnetOrTestnet(network), null!)

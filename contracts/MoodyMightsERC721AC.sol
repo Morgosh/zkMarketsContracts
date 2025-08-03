@@ -4,9 +4,17 @@ pragma solidity ^0.8.4;
 import "@limitbreak/creator-token-standards/src/access/OwnableBasic.sol";
 import "@limitbreak/creator-token-standards/src/erc721c/ERC721AC.sol";
 import "@limitbreak/creator-token-standards/src/programmable-royalties/BasicRoyalties.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 
-contract ERC721ACWithBasicRoyalties is OwnableBasic, ERC721AC, BasicRoyalties {
+contract MoodyMightsERC721AC is OwnableBasic, ERC721AC, BasicRoyalties {
+    using SafeERC20 for IERC20;
+    
+    modifier onlyContractOwner() {
+        _requireCallerIsContractOwner();
+        _;
+    }
     
     string private _baseTokenURI;
     string private _contractURI;
@@ -27,13 +35,11 @@ contract ERC721ACWithBasicRoyalties is OwnableBasic, ERC721AC, BasicRoyalties {
         return super.supportsInterface(interfaceId);
     }
 
-    function setDefaultRoyalty(address receiver, uint96 feeNumerator) public {
-        _requireCallerIsContractOwner();
+    function setDefaultRoyalty(address receiver, uint96 feeNumerator) public onlyContractOwner {
         _setDefaultRoyalty(receiver, feeNumerator);
     }
 
-    function setTokenRoyalty(uint256 tokenId, address receiver, uint96 feeNumerator) public {
-        _requireCallerIsContractOwner();
+    function setTokenRoyalty(uint256 tokenId, address receiver, uint96 feeNumerator) public onlyContractOwner {
         _setTokenRoyalty(tokenId, receiver, feeNumerator);
     }
 
@@ -44,8 +50,7 @@ contract ERC721ACWithBasicRoyalties is OwnableBasic, ERC721AC, BasicRoyalties {
             string(abi.encodePacked(_baseTokenURI, _toString(tokenId))) : "";
     }
     
-    function setBaseURI(string memory baseTokenURI_) public {
-        _requireCallerIsContractOwner();
+    function setBaseURI(string memory baseTokenURI_) public onlyContractOwner {
         _baseTokenURI = baseTokenURI_;
     }
     
@@ -53,13 +58,11 @@ contract ERC721ACWithBasicRoyalties is OwnableBasic, ERC721AC, BasicRoyalties {
         return _contractURI;
     }
     
-    function setContractURI(string memory contractURI_) public {
-        _requireCallerIsContractOwner();
+    function setContractURI(string memory contractURI_) public onlyContractOwner {
         _contractURI = contractURI_;
     }
 
-    function batchMint(address[] calldata recipients, uint256[] calldata amounts) external {
-        _requireCallerIsContractOwner();
+    function batchMint(address[] calldata recipients, uint256[] calldata amounts) external onlyContractOwner {
         require(recipients.length == amounts.length, "Arrays length mismatch");
         require(recipients.length > 0, "Empty arrays");
         
@@ -68,5 +71,23 @@ contract ERC721ACWithBasicRoyalties is OwnableBasic, ERC721AC, BasicRoyalties {
             require(amounts[i] > 0, "Amount must be greater than 0");
             _mint(recipients[i], amounts[i]);
         }
+    }
+    
+    function withdraw() external onlyContractOwner {
+        uint256 balance = address(this).balance;
+        require(balance > 0, "No ETH to withdraw");
+        
+        (bool success, ) = payable(owner()).call{value: balance}("");
+        require(success, "ETH withdrawal failed");
+    }
+    
+    function withdrawERC20(address token) external onlyContractOwner {
+        require(token != address(0), "Invalid token address");
+        
+        IERC20 erc20Token = IERC20(token);
+        uint256 balance = erc20Token.balanceOf(address(this));
+        require(balance > 0, "No tokens to withdraw");
+        
+        erc20Token.safeTransfer(owner(), balance);
     }
 }
