@@ -23,7 +23,8 @@
     "deploy-erc721ac-abstract-test": "hardhat deploy-zksync --script deploy_erc721acZK.ts --network abstract-testnet",
     "deploy-erc721ac-test": "hardhat run deploy/deploy_erc721ac.ts --network sepolia",
     "deploy-moody-mights": "hardhat run deploy/deploy_moody_mights.ts --network mainnet",
-    "deploy-moody-mights-test": "hardhat run deploy/deploy_moody_mights.ts --network sepolia"
+    "deploy-moody-mights-test": "hardhat run deploy/deploy_moody_mights.ts --network sepolia",
+    "deploy-prophets-abstract": "hardhat deploy-zksync --script deploy_prophets.ts --network abstract"
   },
   "devDependencies": {
     "@chainlink/contracts": "^1.1.1",
