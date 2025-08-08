@@ -4,7 +4,7 @@ import "@matterlabs/hardhat-zksync"
 import { generatePrivateKeyWithSalt } from "./functions"
 import * as dotenv from "dotenv"
 import "hardhat-gas-reporter";
-import 'solidity-coverage';
+//import 'solidity-coverage';
 
 
 // const network: string = process.argv.includes("--network") ? process.argv[process.argv.indexOf("--network") + 1] : "zksync-era-testnet"
@@ -42,7 +42,7 @@ const config: HardhatUserConfig = {
     },
     "mainnet": {
       chainId: 1,
-      url: "https://rpc.ankr.com/eth",
+      url: "https://mainnet.infura.io/v3/ba034bf5bde742abaf750923726c2ffb",
       accounts: [deployerKey!],
     },
     "zkHardhat": {
@@ -96,7 +96,7 @@ const config: HardhatUserConfig = {
     ],
   },
   zksolc: {
-    version: "1.5.7", // Ensure version is 1.5.7!
+    version: "1.5.15", // Ensure version is 1.5.7!
     settings: {
       // find all available options in the official documentation
       // https://era.zksync.io/docs/tools/hardhat/hardhat-zksync-solc.html#configuration

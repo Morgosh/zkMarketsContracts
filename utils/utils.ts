@@ -19,6 +19,8 @@ export interface DeployContractOptions {
   wallet?: Wallet | any // hardhatEthers.Signer
   // If specified, the contract will be deployed with the specified libraries
   libraries?: any
+  // If specified, the contract will be deployed with this gas limit
+  gasLimit?: number
 }
 
 export const isZkSyncNetwork = () => {
@@ -131,7 +133,12 @@ export const deployContract = async (contractArtifactName: string, constructorAr
       console.log(`Sleeping for ${options.sleepMS} MS...`)
       await new Promise(r => setTimeout(r, options.sleepMS!))
     }
-    const contract = await factory.deploy(...constructorArguments)
+    const deployOptions: any = {}
+    if (options?.gasLimit) {
+      deployOptions.gasLimit = options.gasLimit
+    }
+    
+    const contract = await factory.deploy(...constructorArguments, deployOptions)
     await contract.waitForDeployment()
     
     const address = await contract.getAddress()

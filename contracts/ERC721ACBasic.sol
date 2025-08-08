@@ -5,23 +5,22 @@ import "@limitbreak/creator-token-standards/src/access/OwnableBasic.sol";
 import "@limitbreak/creator-token-standards/src/erc721c/ERC721AC.sol";
 import "@limitbreak/creator-token-standards/src/programmable-royalties/BasicRoyalties.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
+import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 
-contract ERC721ACBasic is OwnableBasic, ERC721AC, BasicRoyalties {
+contract ERC721ACBasic is OwnableBasic, ERC721AC, BasicRoyalties, EIP712 {
     using SafeERC20 for IERC20;
-    
-    modifier onlyContractOwner() {
-        _requireCallerIsContractOwner();
-        _;
-    }
+    using ECDSA for bytes32;
     
     string private _baseTokenURI;
     string private _contractURI;
     address public approver;
     uint256 public maxSupply;
+    
+    // EIP-712 type hash
+    bytes32 private constant MINT_TYPEHASH = keccak256("Mint(address user,uint256 saleId,uint256 endTime,uint256 maxMint,uint256 pricePerToken)");
     
     // Hash => amount minted by user
     mapping(bytes32 => uint256) public mintedByHash;
@@ -39,7 +38,8 @@ contract ERC721ACBasic is OwnableBasic, ERC721AC, BasicRoyalties {
         address approver_,
         uint256 maxSupply_)
         ERC721AC(name_, symbol_) 
-        BasicRoyalties(royaltyReceiver_, royaltyFeeNumerator_) {
+        BasicRoyalties(royaltyReceiver_, royaltyFeeNumerator_)
+        EIP712(name_, "1") {
         _baseTokenURI = baseTokenURI_;
         _contractURI = ""; // Empty by default
         approver = approver_;
@@ -47,25 +47,22 @@ contract ERC721ACBasic is OwnableBasic, ERC721AC, BasicRoyalties {
     }
     
     function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721AC, ERC2981) returns (bool) {
-        return super.supportsInterface(interfaceId);
+        return ERC721AC.supportsInterface(interfaceId) || ERC2981.supportsInterface(interfaceId);
     }
 
-    function setDefaultRoyalty(address receiver, uint96 feeNumerator) public onlyContractOwner {
+    function setDefaultRoyalty(address receiver, uint96 feeNumerator) public onlyOwner {
         _setDefaultRoyalty(receiver, feeNumerator);
     }
 
-    function setTokenRoyalty(uint256 tokenId, address receiver, uint96 feeNumerator) public onlyContractOwner {
+    function setTokenRoyalty(uint256 tokenId, address receiver, uint96 feeNumerator) public onlyOwner {
         _setTokenRoyalty(tokenId, receiver, feeNumerator);
     }
 
-    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
-        require(_exists(tokenId), "ERC721: URI query for nonexistent token");
-        
-        return bytes(_baseTokenURI).length > 0 ? 
-            string(abi.encodePacked(_baseTokenURI, _toString(tokenId))) : "";
+    function _baseURI() internal view virtual override returns (string memory) {
+        return _baseTokenURI;
     }
     
-    function setBaseURI(string memory baseTokenURI_) public onlyContractOwner {
+    function setBaseURI(string memory baseTokenURI_) public onlyOwner {
         _baseTokenURI = baseTokenURI_;
     }
     
@@ -73,7 +70,7 @@ contract ERC721ACBasic is OwnableBasic, ERC721AC, BasicRoyalties {
         return _contractURI;
     }
     
-    function setContractURI(string memory contractURI_) public onlyContractOwner {
+    function setContractURI(string memory contractURI_) public onlyOwner {
         _contractURI = contractURI_;
     }
 
@@ -107,13 +104,22 @@ contract ERC721ACBasic is OwnableBasic, ERC721AC, BasicRoyalties {
         uint256 pricePerToken,
         bytes calldata signature
     ) internal view returns (bool) {
-        bytes32 message = keccak256(abi.encodePacked(msg.sender, saleId, endTime, maxMint, pricePerToken));
-        bytes32 messageHash = ECDSA.toEthSignedMessageHash(message);
+        bytes32 structHash = keccak256(abi.encode(
+            MINT_TYPEHASH,
+            msg.sender,
+            saleId,
+            endTime,
+            maxMint,
+            pricePerToken
+        ));
         
-        return SignatureChecker.isValidSignatureNow(approver, messageHash, signature);
+        bytes32 hash = _hashTypedDataV4(structHash);
+        address signer = hash.recover(signature);
+        
+        return signer == approver;
     }
     
-    function setApprover(address newApprover) external onlyContractOwner {
+    function setApprover(address newApprover) external onlyOwner {
         require(newApprover != address(0), "Invalid approver address");
         
         address oldApprover = approver;
@@ -122,7 +128,7 @@ contract ERC721ACBasic is OwnableBasic, ERC721AC, BasicRoyalties {
         emit ApproverUpdated(oldApprover, newApprover);
     }
     
-    function setMaxSupply(uint256 newMaxSupply) external onlyContractOwner {
+    function setMaxSupply(uint256 newMaxSupply) external onlyOwner {
         require(newMaxSupply >= totalSupply(), "Max supply cannot be less than current supply");
         
         uint256 oldMaxSupply = maxSupply;
@@ -131,7 +137,7 @@ contract ERC721ACBasic is OwnableBasic, ERC721AC, BasicRoyalties {
         emit MaxSupplyUpdated(oldMaxSupply, newMaxSupply);
     }
     
-    function withdraw() external onlyContractOwner {
+    function withdraw() external onlyOwner {
         uint256 balance = address(this).balance;
         require(balance > 0, "No ETH to withdraw");
         
@@ -139,7 +145,7 @@ contract ERC721ACBasic is OwnableBasic, ERC721AC, BasicRoyalties {
         require(success, "ETH withdrawal failed");
     }
     
-    function withdrawERC20(address token) external onlyContractOwner {
+    function withdrawERC20(address token) external onlyOwner {
         require(token != address(0), "Invalid token address");
         
         IERC20 erc20Token = IERC20(token);
@@ -170,16 +176,5 @@ contract ERC721ACBasic is OwnableBasic, ERC721AC, BasicRoyalties {
         bytes32 saleHash = keccak256(abi.encodePacked(user, saleId, endTime, maxMint, pricePerToken));
         uint256 minted = mintedByHash[saleHash];
         return maxMint > minted ? maxMint - minted : 0;
-    }
-    
-    function batchMint(address[] calldata recipients, uint256[] calldata amounts) external onlyContractOwner {
-        require(recipients.length == amounts.length, "Arrays length mismatch");
-        require(recipients.length > 0, "Empty arrays");
-        
-        for (uint256 i = 0; i < recipients.length; i++) {
-            require(recipients[i] != address(0), "Cannot mint to zero address");
-            require(amounts[i] > 0, "Amount must be greater than 0");
-            _mint(recipients[i], amounts[i]);
-        }
     }
 }

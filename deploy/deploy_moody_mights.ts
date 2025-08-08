@@ -1,7 +1,8 @@
-import { HardhatRuntimeEnvironment } from "hardhat/types"
+const hre = require("hardhat");
 import { deployContract } from "../utils/utils"
 
-export default async function (hre: HardhatRuntimeEnvironment) {
+
+async function main() {
   try {
     const options = {
       verify: true,
@@ -10,34 +11,28 @@ export default async function (hre: HardhatRuntimeEnvironment) {
 
     // Deployment configuration
     const royaltyReceiver = "0x62d8B1c7FE0c8a6d3a8a8Ac051c24A06b4602e65" // Update as needed
-    const royaltyFeeNumerator = 500 // 5% royalty (1000 basis points)
+    const royaltyFeeNumerator = 500 // 10% royalty (1000 basis points)
     const name = "Moody Mights"
     const symbol = "CMMM"
     const baseTokenURI = "https://cryptomazeapp.fra1.digitaloceanspaces.com/moodymights/metadata/" // Update as needed
-    const approver = "0x62d8B1c7FE0c8a6d3a8a8Ac051c24A06b4602e65" // Update as needed
-    const maxSupply = 10000 // Update as needed
 
     const deployParams: any = [
       royaltyReceiver,
       royaltyFeeNumerator, 
       name,
       symbol,
-      baseTokenURI,
-      approver,
-      maxSupply
+      baseTokenURI
     ]
 
-    console.log("🚀 Deploying ERC721ACBasic...")
+    console.log("🚀 Deploying MoodyMightsERC721AC...")
     console.log(`Name: ${name}`)
     console.log(`Symbol: ${symbol}`)
     console.log(`Royalty Receiver: ${royaltyReceiver}`)
     console.log(`Royalty Fee: ${royaltyFeeNumerator / 100}%`)
     console.log(`Base Token URI: ${baseTokenURI}`)
-    console.log(`Approver: ${approver}`)
-    console.log(`Max Supply: ${maxSupply}`)
     console.log(`Network: ${hre.network.name}`)
 
-    const contract = await deployContract("ERC721ACBasic", deployParams, options)
+    const contract = await deployContract("MoodyMightsERC721AC", deployParams, options)
     console.log ("done")
     
     const address = await contract.getAddress()
@@ -48,4 +43,11 @@ export default async function (hre: HardhatRuntimeEnvironment) {
     console.error("❌ Deployment failed:", error)
     throw error
   }
-} 
+}
+
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });

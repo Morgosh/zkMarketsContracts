@@ -11,11 +11,6 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 contract MoodyMightsERC721AC is OwnableBasic, ERC721AC, BasicRoyalties {
     using SafeERC20 for IERC20;
     
-    modifier onlyContractOwner() {
-        _requireCallerIsContractOwner();
-        _;
-    }
-    
     string private _baseTokenURI;
     string private _contractURI;
     
@@ -32,25 +27,22 @@ contract MoodyMightsERC721AC is OwnableBasic, ERC721AC, BasicRoyalties {
     }
     
     function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721AC, ERC2981) returns (bool) {
-        return super.supportsInterface(interfaceId);
+        return ERC721AC.supportsInterface(interfaceId) || ERC2981.supportsInterface(interfaceId);
     }
 
-    function setDefaultRoyalty(address receiver, uint96 feeNumerator) public onlyContractOwner {
+    function setDefaultRoyalty(address receiver, uint96 feeNumerator) public onlyOwner {
         _setDefaultRoyalty(receiver, feeNumerator);
     }
 
-    function setTokenRoyalty(uint256 tokenId, address receiver, uint96 feeNumerator) public onlyContractOwner {
+    function setTokenRoyalty(uint256 tokenId, address receiver, uint96 feeNumerator) public onlyOwner {
         _setTokenRoyalty(tokenId, receiver, feeNumerator);
     }
 
-    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
-        require(_exists(tokenId), "ERC721: URI query for nonexistent token");
-        
-        return bytes(_baseTokenURI).length > 0 ? 
-            string(abi.encodePacked(_baseTokenURI, _toString(tokenId))) : "";
+    function _baseURI() internal view virtual override returns (string memory) {
+        return _baseTokenURI;
     }
     
-    function setBaseURI(string memory baseTokenURI_) public onlyContractOwner {
+    function setBaseURI(string memory baseTokenURI_) public onlyOwner {
         _baseTokenURI = baseTokenURI_;
     }
     
@@ -58,11 +50,11 @@ contract MoodyMightsERC721AC is OwnableBasic, ERC721AC, BasicRoyalties {
         return _contractURI;
     }
     
-    function setContractURI(string memory contractURI_) public onlyContractOwner {
+    function setContractURI(string memory contractURI_) public onlyOwner {
         _contractURI = contractURI_;
     }
 
-    function batchMint(address[] calldata recipients, uint256[] calldata amounts) external onlyContractOwner {
+    function batchMint(address[] calldata recipients, uint256[] calldata amounts) external onlyOwner {
         require(recipients.length == amounts.length, "Arrays length mismatch");
         require(recipients.length > 0, "Empty arrays");
         
@@ -73,7 +65,7 @@ contract MoodyMightsERC721AC is OwnableBasic, ERC721AC, BasicRoyalties {
         }
     }
     
-    function withdraw() external onlyContractOwner {
+    function withdraw() external onlyOwner {
         uint256 balance = address(this).balance;
         require(balance > 0, "No ETH to withdraw");
         
@@ -81,7 +73,7 @@ contract MoodyMightsERC721AC is OwnableBasic, ERC721AC, BasicRoyalties {
         require(success, "ETH withdrawal failed");
     }
     
-    function withdrawERC20(address token) external onlyContractOwner {
+    function withdrawERC20(address token) external onlyOwner {
         require(token != address(0), "Invalid token address");
         
         IERC20 erc20Token = IERC20(token);
