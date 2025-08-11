@@ -1,460 +1,422 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import "erc721a/contracts/ERC721A.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+// Pyth removed; using on-chain AMM spot price instead
 
-/**
- * @title Prophets of Ethereum
- * @notice A dynamic NFT collection where prophets predict ETH price movements
- * @dev Each NFT changes state based on predictions and market performance
- */
+interface IUniswapV2PairMinimal {
+    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+    function token0() external view returns (address);
+    function token1() external view returns (address);
+}
+
+/// @title Prophets of Ethereum
+/// @notice Weekly prediction game with on-chain judgment using Pyth prices (Abstract)
+/// @dev ERC721A, token IDs start at 1. Minimal, gas-conscious implementation sized for 666 supply.
 contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
     using Strings for uint256;
 
-    // ═══════════════════════════════════════════════════════════════════
-    //                              CONSTANTS
-    // ═══════════════════════════════════════════════════════════════════
-    
+    // ------------------------------
+    // Constants
+    // ------------------------------
     uint256 public constant TOTAL_SUPPLY = 666;
     uint256 public constant MINT_PRICE = 0.01 ether;
     uint256 public constant MAINTENANCE_FEE = 1 ether;
-    uint256 public constant JUDGMENT_THRESHOLD = 1000; // 10% = 1000 basis points
-    uint256 public constant LISTING_GRACE_PERIOD = 1 hours;
-    
-    // Royalty info
-    address public constant ROYALTY_RECEIVER = 0x8F995E8961D2FF09d444aB4eC72d67f36aa2c8CC;
-    uint96 public constant ROYALTY_FEE = 500; // 5%
+    uint256 public constant JUDGMENT_THRESHOLD_BPS = 1000; // 10%
+    uint256 public constant MIN_PREDICTION_DIFF_BPS = 100; // 1%
+    uint256 public constant LISTING_GRACE_PERIOD = 1 hours; // reserved (not implemented yet)
 
-    // ═══════════════════════════════════════════════════════════════════
-    //                               ENUMS
-    // ═══════════════════════════════════════════════════════════════════
-    
+    // Royalties
+    uint96 public constant ROYALTY_FEE = 500; // 5% in basis points
+
+    // ------------------------------
+    // Types
+    // ------------------------------
     enum ProphetState {
         PROPHESIZING,  // 0 - Default meditation state (Sundays)
-        BULLISH,       // 1 - Predicting ETH rise
-        BEARISH,       // 2 - Predicting ETH fall  
-        BURNED         // 3 - Failed prophet (permanent)
+        BULLISH,       // 1 - Predict ETH rise
+        BEARISH,       // 2 - Predict ETH fall
+        BURNED         // 3 - Permanent
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    //                              STRUCTS
-    // ═══════════════════════════════════════════════════════════════════
-    
-    struct Prophet {
-        ProphetState state;
-        uint256 lastPredictionWeek;
-        uint256 predictedPrice;
-        uint256 listingTime;
-        uint256 listingPrice;
+
+    struct CycleInfo {
+        // Prices are 1e8 normalized (like Pyth price with expo -8)
+        int64 startPrice;           // price logged at first prediction of the cycle (Sunday)
+        uint64 startTime;           // Sunday 00:00 UTC start (first prediction timestamp)
+        uint64 endTime;             // Sunday 00:00 UTC end of week (start + 7 days)
+        uint32 predictionsCount;    // unique tokens that predicted in this cycle
+        // Extremes for tie-break and blessing
+        uint256 lowestPredictionTokenId;  // smallest predicted price
+        int64 lowestPredictionPrice;
+        uint256 highestPredictionTokenId; // largest predicted price
+        int64 highestPredictionPrice;
     }
 
-    struct WeeklyRitual {
-        uint256 startPrice;      // ETH price at ritual start
-        uint256 endPrice;        // ETH price at ritual end
-        uint256 startTimestamp;  // When ritual started
-        bool isActive;           // Is ritual currently active
-        bool judged;             // Has judgment been executed
-    }
+    // ------------------------------
+    // Storage
+    // ------------------------------
+    // Prediction per token per cycle (1e8 normalized); 0 = no prediction
+    mapping(uint256 => mapping(uint256 => int64)) public predictions; // tokenId => cycle => price
+    // Mark tokens that were explicitly punished (e.g., listing infractions)
+    mapping(uint256 => bool) public divinePunished;
 
-    // ═══════════════════════════════════════════════════════════════════
-    //                            STATE VARIABLES
-    // ═══════════════════════════════════════════════════════════════════
-    
-    mapping(uint256 => Prophet) public prophets;
-    mapping(uint256 => WeeklyRitual) public weeklyRituals;
-    
-    uint256 public currentWeek;
-    uint256 public aliveProphets;
-    uint256 public divineTreasury;
-    bool public mintingActive;
-    string private _baseTokenURI;
-    
-    // Price oracle (simplified - in production use Chainlink)
-    address public priceOracle;
-    uint256 public lastKnownETHPrice;
+    // Cycle data by cycle index starting at 1. Cycle 0 = pre-game.
+    mapping(uint256 => CycleInfo) public cycles;
+    // Blessed token (forever bullish winner)
+    uint256 public blessedByDivine;
 
-    // ═══════════════════════════════════════════════════════════════════
-    //                               EVENTS
-    // ═══════════════════════════════════════════════════════════════════
-    
-    event RitualStarted(uint256 indexed week, uint256 ethPrice);
-    event ProphecyMade(uint256 indexed tokenId, ProphetState prediction, uint256 predictedPrice);
-    event JudgmentExecuted(uint256 indexed week, uint256 burnedCount);
-    event ProphetBurned(uint256 indexed tokenId, string reason);
-    event DivineVictory(uint256 indexed tokenId, uint256 treasuryAmount);
-    event ListingPunishment(uint256 indexed tokenId, uint256 listingPrice, uint256 minFloorPrice);
+    // Global (cycle index computed via getCurrentCycle)
 
-    // ═══════════════════════════════════════════════════════════════════
-    //                              MODIFIERS
-    // ═══════════════════════════════════════════════════════════════════
-    
-    modifier onlyProphetOwner(uint256 tokenId) {
-        require(ownerOf(tokenId) == msg.sender, "Not prophet owner");
-        _;
-    }
-    
-    modifier prophetAlive(uint256 tokenId) {
-        require(prophets[tokenId].state != ProphetState.BURNED, "Prophet is burned");
-        _;
-    }
-    
-    modifier duringMeditation() {
-        require(isSunday() && !weeklyRituals[currentWeek].isActive, "Not meditation time");
-        _;
-    }
+    // Treasury tracking
+    bool public maintenanceWithdrawn;
 
-    // ═══════════════════════════════════════════════════════════════════
-    //                             CONSTRUCTOR
-    // ═══════════════════════════════════════════════════════════════════
-    
+    // Metadata base
+    string private baseImageURI;
+
+    // AMM Pool (WETH/USDC.E) Uniswap V2 pair address
+    address public immutable pool;
+
+    // Mint lifecycle to determine first cycle start
+    bool public mintComplete; // becomes true when totalSupply == 666
+    uint64 public mintCompleteTimestamp; // wall clock when mint out happens
+    uint64 public firstCycleStart; // first Sunday 00:00 UTC at/after mintComplete
+
+    // ------------------------------
+    // Events
+    // ------------------------------
+    event PredictionMade(uint256 indexed tokenId, uint256 indexed cycle, int64 startPrice, int64 predictedPrice, bool bullish);
+    // no explicit judgment event/function — state is computed
+    event DivineBlessingAccepted(uint256 indexed cycle, uint256 indexed tokenId, uint256 amount);
+    event Minted(address indexed to, uint256 quantity, uint256 paid, uint256 treasuryAfter);
+
+    // ------------------------------
+    // Constructor
+    // ------------------------------
     constructor(
-        string memory baseTokenURI,
-        address _priceOracle
+        string memory _baseImageURI,
+        address uniPool
     ) ERC721A("Prophets of Ethereum", "PROPHET") {
-        _baseTokenURI = baseTokenURI;
-        priceOracle = _priceOracle;
-        aliveProphets = 0;
-        currentWeek = 1;
-        lastKnownETHPrice = 3000 ether; // Starting price assumption
+        baseImageURI = _baseImageURI;
+        pool = uniPool;
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    //                            MINTING FUNCTIONS
-    // ═══════════════════════════════════════════════════════════════════
-    
-    function startMinting() external onlyOwner {
-        mintingActive = true;
+    // ------------------------------
+    // ERC721A config
+    // ------------------------------
+    function _startTokenId() internal pure override returns (uint256) {
+        return 1; // start at id 1
     }
-    
+
+    // ------------------------------
+    // Minting
+    // ------------------------------
     function mint(uint256 quantity) external payable {
-        require(mintingActive, "Minting not active");
-        require(quantity > 0 && quantity <= 10, "Invalid quantity");
-        require(totalSupply() + quantity <= TOTAL_SUPPLY, "Exceeds max supply");
-        require(msg.value >= MINT_PRICE * quantity, "Insufficient payment");
-        
-        uint256 startTokenId = _nextTokenId();
+        require(quantity > 0, "qty=0");
+        require(totalSupply() + quantity <= TOTAL_SUPPLY, "supply");
+        require(msg.value == MINT_PRICE * quantity, "price");
+
         _mint(msg.sender, quantity);
-        
-        // Initialize prophets in meditation state
-        for (uint256 i = 0; i < quantity; i++) {
-            prophets[startTokenId + i] = Prophet({
-                state: ProphetState.PROPHESIZING,
-                lastPredictionWeek: 0,
-                predictedPrice: 0,
-                listingTime: 0,
-                listingPrice: 0
-            });
+
+        // Treasury is just contract balance; maintenance fee handled on withdraw
+
+        // if this completes mint-out, set firstCycleStart to next Sunday 00:00 UTC
+        if (!mintComplete && totalSupply() == TOTAL_SUPPLY) {
+            mintComplete = true;
+            mintCompleteTimestamp = uint64(block.timestamp);
+            firstCycleStart = _nextSunday00UTC(mintCompleteTimestamp);
+            // first cycle index becomes 1 when Sunday window opens
         }
-        
-        aliveProphets += quantity;
-        
-        // Add to divine treasury (minus maintenance fee)
-        uint256 treasuryAmount = msg.value;
-        if (divineTreasury == 0 && treasuryAmount >= MAINTENANCE_FEE) {
-            treasuryAmount -= MAINTENANCE_FEE;
-        }
-        divineTreasury += treasuryAmount;
+
+        emit Minted(msg.sender, quantity, msg.value, getTreasury());
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    //                           PROPHECY FUNCTIONS
-    // ═══════════════════════════════════════════════════════════════════
-    
-    function makeProphecy(
-        uint256 tokenId, 
-        ProphetState prediction, 
-        uint256 predictedPrice
-    ) external onlyProphetOwner(tokenId) prophetAlive(tokenId) duringMeditation {
-        require(prediction == ProphetState.BULLISH || prediction == ProphetState.BEARISH, "Invalid prediction");
-        require(predictedPrice > 0, "Invalid price prediction");
-        require(prophets[tokenId].lastPredictionWeek < currentWeek, "Already predicted this week");
-        
-        prophets[tokenId].state = prediction;
-        prophets[tokenId].predictedPrice = predictedPrice;
-        prophets[tokenId].lastPredictionWeek = currentWeek;
-        
-        emit ProphecyMade(tokenId, prediction, predictedPrice);
-    }
-    
-    function startWeeklyRitual() external {
-        require(isSunday(), "Ritual only starts on Sunday");
-        require(!weeklyRituals[currentWeek].isActive, "Ritual already active");
-        
-        uint256 currentPrice = getCurrentETHPrice();
-        weeklyRituals[currentWeek] = WeeklyRitual({
-            startPrice: currentPrice,
-            endPrice: 0,
-            startTimestamp: block.timestamp,
-            isActive: true,
-            judged: false
-        });
-        
-        emit RitualStarted(currentWeek, currentPrice);
-    }
-    
-    function executeJudgment() external {
-        require(isSunday(), "Judgment only on Sunday");
-        require(weeklyRituals[currentWeek].isActive, "No active ritual");
-        require(!weeklyRituals[currentWeek].judged, "Already judged");
-        require(block.timestamp >= weeklyRituals[currentWeek].startTimestamp + 7 days, "Too early for judgment");
-        
-        uint256 endPrice = getCurrentETHPrice();
-        weeklyRituals[currentWeek].endPrice = endPrice;
-        weeklyRituals[currentWeek].judged = true;
-        weeklyRituals[currentWeek].isActive = false;
-        
-        uint256 burnedCount = _executeDivineJudgment(currentWeek);
-        
-        emit JudgmentExecuted(currentWeek, burnedCount);
-        
-        // Check for divine victory
-        if (aliveProphets == 1) {
-            _executeDivineVictory();
-        } else if (aliveProphets == 0) {
-            _executeLastStandJudgment();
-        }
-        
-        // Reset prophets to meditation for next week
-        _resetToMeditation();
-        currentWeek++;
+    function withdrawMaintenanceFee(address payable to) external onlyOwner {
+        require(!maintenanceWithdrawn, "done");
+        require(address(this).balance >= MAINTENANCE_FEE, "insufficient");
+        maintenanceWithdrawn = true;
+        (bool ok, ) = to.call{value: MAINTENANCE_FEE}("");
+        require(ok, "withdraw");
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    //                          JUDGMENT LOGIC
-    // ═══════════════════════════════════════════════════════════════════
-    
-    function _executeDivineJudgment(uint256 week) private returns (uint256 burnedCount) {
-        WeeklyRitual memory ritual = weeklyRituals[week];
-        uint256 priceChange = _calculatePriceChange(ritual.startPrice, ritual.endPrice);
-        bool ethWentUp = ritual.endPrice > ritual.startPrice;
-        
-        for (uint256 tokenId = _startTokenId(); tokenId < _nextTokenId(); tokenId++) {
-            if (prophets[tokenId].state == ProphetState.BURNED) continue;
-            
-            Prophet storage prophet = prophets[tokenId];
-            
-            // Skip if prophet didn't make a prediction
-            if (prophet.lastPredictionWeek < week) {
-                _burnProphet(tokenId, "Failed to prophesy");
-                burnedCount++;
-                continue;
+    function getTreasury() public view returns (uint256) {
+        if (maintenanceWithdrawn) return address(this).balance;
+        if (address(this).balance <= MAINTENANCE_FEE) return 0;
+        return address(this).balance - MAINTENANCE_FEE;
+    }
+
+    // ------------------------------
+    // Cycles
+    // ------------------------------
+    function getCurrentCycle() public view returns (uint256) {
+        if (!mintComplete) return 0;
+        if (block.timestamp < firstCycleStart) return 0;
+        // weeks elapsed since first cycle start; cycle index starts at 1
+        return 1 + (block.timestamp - uint256(firstCycleStart)) / 1 weeks;
+    }
+
+    function _ensureCycleWindow() internal {
+        uint256 cycle = getCurrentCycle();
+        require(cycle > 0, "no-cycle");
+        // recompute window bounds
+        uint64 cycleStart = uint64(uint256(firstCycleStart) + (cycle - 1) * 1 weeks);
+        // Sunday window: from cycleStart to cycleStart + 1 day
+        require(block.timestamp >= cycleStart && block.timestamp < cycleStart + 1 days, "not-sunday");
+    }
+
+    // Uniswap V2 spot price. Returns token1 per token0 scaled to 1e8.
+    // Assumes pool tokens are WETH (18 decimals) and USDC.e (6 decimals). For other tokens, uses ERC20 decimals.
+    function _readPoolSpotPrice() internal view returns (int64) {
+        (uint112 r0, uint112 r1, ) = IUniswapV2PairMinimal(pool).getReserves();
+        address t0 = IUniswapV2PairMinimal(pool).token0();
+        address t1 = IUniswapV2PairMinimal(pool).token1();
+        uint8 d0 = 18;
+        uint8 d1 = 6;
+        // attempt to read decimals, ignore failures
+        try IERC20Metadata(t0).decimals() returns (uint8 dec0) { d0 = dec0; } catch {}
+        try IERC20Metadata(t1).decimals() returns (uint8 dec1) { d1 = dec1; } catch {}
+        require(r0 > 0 && r1 > 0, "res");
+        // price token1 per token0 = (r1 * 10^d0) / (r0 * 10^d1)
+        uint256 num = uint256(r1) * (10 ** d0) * 1e8;
+        uint256 den = uint256(r0) * (10 ** d1);
+        uint256 price1e8 = num / den;
+        require(price1e8 <= uint256(uint64(type(int64).max)), "overflow");
+        return int64(int256(price1e8));
+    }
+
+    // ------------------------------
+    // Predictions
+    // ------------------------------
+    /// @notice Make or update a prediction for the current cycle during Sunday window.
+    /// If this is the first prediction in the cycle, records the cycle's start price from Pyth.
+    /// The predicted price must differ by at least 1% from the cycle start price.
+    function makePrediction(uint256 tokenId, int64 predictedPrice)
+        external
+        payable
+    {
+        require(ownerOf(tokenId) == msg.sender, "owner");
+        require(!isBurned(tokenId), "burned");
+        _ensureCycleWindow();
+
+        uint256 cycle = getCurrentCycle();
+        CycleInfo storage info = cycles[cycle];
+
+        // initialize cycle on first prediction
+        if (info.startPrice == int64(0)) {
+            // Read on-chain pool spot price at the Sunday window open
+            int64 sp = _readPoolSpotPrice();
+            info.startPrice = sp;
+            info.startTime = uint64(block.timestamp);
+            // Boundaries useful for UI
+            info.endTime = uint64(uint256(firstCycleStart) + cycle * 1 weeks);
+        }
+
+        // enforce min difference
+        int64 startP = info.startPrice;
+        require(startP != int64(0), "no-start");
+
+        uint256 absDiff = _absDiff(startP, predictedPrice);
+        require(absDiff * 10000 >= uint256(int256(startP)) * MIN_PREDICTION_DIFF_BPS, "min-diff");
+
+        int64 prevPrice = predictions[tokenId][cycle];
+        bool firstForTokenThisCycle = prevPrice == int64(0);
+        predictions[tokenId][cycle] = predictedPrice;
+
+        // no persistent state; direction is derived in tokenURI/isBurned
+
+        // track extremes
+        if (firstForTokenThisCycle) {
+            info.predictionsCount += 1;
+        }
+        if (info.lowestPredictionTokenId == 0 || predictedPrice < info.lowestPredictionPrice) {
+            info.lowestPredictionTokenId = tokenId;
+            info.lowestPredictionPrice = predictedPrice;
+        }
+        if (info.highestPredictionTokenId == 0 || predictedPrice > info.highestPredictionPrice) {
+            info.highestPredictionTokenId = tokenId;
+            info.highestPredictionPrice = predictedPrice;
+        }
+
+        emit PredictionMade(tokenId, cycle, startP, predictedPrice, predictedPrice > startP);
+    }
+
+    // No executeJudgment — judgment computed in isBurned() using next cycle's startPrice as end price of previous
+
+    /// @notice Winner claims the divine treasury and becomes blessed forever.
+    /// - If exactly one prediction last cycle and they survived, they can claim.
+    /// - If zero predictions, the token among the recorded extremes (lowest/highest) closest to endPrice can claim.
+    function acceptDivineBlessing() external {
+        require(blessedByDivine == 0, "blessed");
+        require(mintComplete, "not-ready");
+
+        uint256 cycle = getCurrentCycle();
+        require(cycle > 1, "no-cycle");
+        uint256 last = cycle - 1; // evaluate last completed cycle
+
+        CycleInfo storage info = cycles[last];
+        int64 endPrice = cycles[cycle].startPrice; // end price of last = next cycle start price
+        require(endPrice != int64(0), "no-judgment");
+
+        uint256 winnerTokenId;
+
+        if (info.predictionsCount == 1) {
+            // find the only token that predicted and survived
+            uint256 nextId = _nextTokenId();
+            for (uint256 t = _startTokenId(); t < nextId; t++) {
+                if (predictions[t][last] != int64(0) && !isBurned(t)) {
+                    winnerTokenId = t;
+                    break;
+                }
             }
-            
-            bool correctDirection = (ethWentUp && prophet.state == ProphetState.BULLISH) ||
-                                  (!ethWentUp && prophet.state == ProphetState.BEARISH);
-            
-            // Check if prediction was accurate enough
-            if (!correctDirection || priceChange > JUDGMENT_THRESHOLD) {
-                _burnProphet(tokenId, "False prophecy");
-                burnedCount++;
-            }
+        } else if (info.predictionsCount == 0) {
+            // choose closest among extremes to endPrice
+            require(info.lowestPredictionTokenId != 0 || info.highestPredictionTokenId != 0, "no-extremes");
+            uint256 lowTok = info.lowestPredictionTokenId;
+            uint256 highTok = info.highestPredictionTokenId;
+            uint256 lowErr = info.lowestPredictionTokenId == 0 ? type(uint256).max : _absDiffU(endPrice, info.lowestPredictionPrice);
+            uint256 highErr = info.highestPredictionTokenId == 0 ? type(uint256).max : _absDiffU(endPrice, info.highestPredictionPrice);
+            winnerTokenId = lowErr <= highErr ? lowTok : highTok;
+        } else {
+            revert("multi");
         }
-    }
-    
-    function _executeLastStandJudgment() private {
-        // Find the prophet with the closest prediction
-        uint256 bestTokenId;
-        uint256 smallestError = type(uint256).max;
-        
-        for (uint256 tokenId = _startTokenId(); tokenId < _nextTokenId(); tokenId++) {
-            if (prophets[tokenId].state != ProphetState.BURNED) continue;
-            
-            uint256 error = _abs(int256(prophets[tokenId].predictedPrice) - int256(weeklyRituals[currentWeek].endPrice));
-            if (error < smallestError) {
-                smallestError = error;
-                bestTokenId = tokenId;
-            }
-        }
-        
-        if (bestTokenId != 0) {
-            // Resurrect the closest prophet and grant victory
-            prophets[bestTokenId].state = ProphetState.BULLISH;
-            aliveProphets = 1;
-            _executeDivineVictory();
-        }
-    }
-    
-    function _executeDivineVictory() private {
-        // Find the last living prophet
-        for (uint256 tokenId = _startTokenId(); tokenId < _nextTokenId(); tokenId++) {
-            if (prophets[tokenId].state != ProphetState.BURNED) {
-                prophets[tokenId].state = ProphetState.BULLISH; // Forever bullish
-                
-                // Transfer divine treasury to the prophet owner
-                address winner = ownerOf(tokenId);
-                payable(winner).transfer(divineTreasury);
-                
-                emit DivineVictory(tokenId, divineTreasury);
-                divineTreasury = 0;
-                break;
-            }
-        }
-    }
-    
-    function _burnProphet(uint256 tokenId, string memory reason) private {
-        prophets[tokenId].state = ProphetState.BURNED;
-        aliveProphets--;
-        emit ProphetBurned(tokenId, reason);
-    }
-    
-    function _resetToMeditation() private {
-        for (uint256 tokenId = _startTokenId(); tokenId < _nextTokenId(); tokenId++) {
-            if (prophets[tokenId].state != ProphetState.BURNED) {
-                prophets[tokenId].state = ProphetState.PROPHESIZING;
-            }
-        }
+
+        require(winnerTokenId != 0, "no-winner");
+        require(ownerOf(winnerTokenId) == msg.sender, "owner");
+
+        blessedByDivine = winnerTokenId;
+        // winner shown as bullish in tokenURI via blessedByDivine
+
+        uint256 amount = getTreasury();
+        (bool ok, ) = payable(msg.sender).call{value: amount}("");
+        require(ok, "transfer");
+
+        emit DivineBlessingAccepted(cycle, winnerTokenId, amount);
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    //                        MARKETPLACE FUNCTIONS
-    // ═══════════════════════════════════════════════════════════════════
-    
-    function onList(uint256 tokenId, uint256 price) external {
-        require(msg.sender == ownerOf(tokenId), "Not token owner");
-        
-        prophets[tokenId].listingTime = block.timestamp;
-        prophets[tokenId].listingPrice = price;
-        
-        // Check if listing is below minimal floor price
-        uint256 minFloorPrice = getMinimalFloorPrice();
-        if (price < minFloorPrice) {
-            _burnProphet(tokenId, "Listed below minimal floor price");
-            emit ListingPunishment(tokenId, price, minFloorPrice);
+    // ------------------------------
+    // Views
+    // ------------------------------
+    function isBurned(uint256 tokenId) public view returns (bool) {
+        if (blessedByDivine == tokenId) return false;
+        if (divinePunished[tokenId]) return true;
+
+        uint256 cycle = getCurrentCycle();
+        if (cycle < 2) return false; // need at least one completed cycle
+        uint256 last = cycle - 1;
+        CycleInfo storage prev = cycles[last];
+        // Need end price = next cycle's start price
+        int64 endPrice = cycles[cycle].startPrice;
+        if (endPrice == int64(0)) return false; // next cycle not started yet => no judgment
+
+        // Lazy check based on stored predictions
+        int64 pLast = predictions[tokenId][last];
+        if (pLast == int64(0)) return true; // made no prediction last cycle
+
+        bool wentUp = endPrice > prev.startPrice;
+        bool predictedUp = pLast > prev.startPrice;
+        uint256 errBps = _priceChangeBps(pLast, endPrice);
+        bool correctDir = (wentUp && predictedUp) || (!wentUp && !predictedUp);
+        if (!correctDir || errBps > JUDGMENT_THRESHOLD_BPS) return true;
+        return false;
+    }
+
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        require(_exists(tokenId), "nf");
+        if (isBurned(tokenId)) return _buildMetadata(tokenId, "burned");
+        if (blessedByDivine == tokenId) return _buildMetadata(tokenId, "bullish");
+        uint256 cycle = getCurrentCycle();
+        if (cycle > 0 && predictions[tokenId][cycle] != int64(0)) {
+            bool up = predictions[tokenId][cycle] > cycles[cycle].startPrice;
+            return _buildMetadata(tokenId, up ? "bullish" : "bearish");
         }
-    }
-    
-    function checkListingBurn(uint256 tokenId) external {
-        Prophet storage prophet = prophets[tokenId];
-        
-        // Only burn if within grace period and below floor
-        if (prophet.listingTime > 0 && 
-            block.timestamp <= prophet.listingTime + LISTING_GRACE_PERIOD &&
-            prophet.listingPrice < getMinimalFloorPrice() &&
-            prophet.state != ProphetState.BURNED) {
-            
-            _burnProphet(tokenId, "Listed below minimal floor price");
-            emit ListingPunishment(tokenId, prophet.listingPrice, getMinimalFloorPrice());
-        }
+        return _buildMetadata(tokenId, "prophesizing");
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    //                           VIEW FUNCTIONS
-    // ═══════════════════════════════════════════════════════════════════
-    
-    function getMinimalFloorPrice() public view returns (uint256) {
-        if (aliveProphets == 0) return 0;
-        return divineTreasury / aliveProphets;
-    }
-    
-    function isSunday() public view returns (bool) {
-        return (block.timestamp / 86400 + 4) % 7 == 0; // Sunday = 0
-    }
-    
-    function getCurrentETHPrice() public view returns (uint256) {
-        // Simplified - in production, use Chainlink oracle
-        if (priceOracle != address(0)) {
-            // Call oracle contract
-            (bool success, bytes memory data) = priceOracle.staticcall(
-                abi.encodeWithSignature("latestAnswer()")
-            );
-            if (success && data.length > 0) {
-                return abi.decode(data, (uint256));
-            }
-        }
-        return lastKnownETHPrice;
-    }
-    
-    function tokenURI(uint256 tokenId) public view virtual override returns (string memory) {
-        require(_exists(tokenId), "URI query for nonexistent token");
-        
-        Prophet memory prophet = prophets[tokenId];
-        
-        // Generate on-chain metadata
-        string memory stateStr = _getStateString(prophet.state);
-        string memory attributes = string(abi.encodePacked(
-            '{"trait_type": "State", "value": "', stateStr, '"},'
-            '{"trait_type": "Week", "value": "', prophet.lastPredictionWeek.toString(), '"},'
-            '{"trait_type": "Alive Prophets", "value": "', aliveProphets.toString(), '"}'
-        ));
-        
-        string memory json = string(abi.encodePacked(
-            '{"name": "Prophet #', tokenId.toString(), '",',
-            '"description": "A prophet of Ethereum, bound by divine judgment.",',
-            '"image": "', _baseTokenURI, stateStr, '.png",',
-            '"attributes": [', attributes, ']}'
-        ));
-        
-        return string(abi.encodePacked(
-            "data:application/json;base64,",
-            Base64.encode(bytes(json))
-        ));
+    function _buildMetadata(uint256 tokenId, string memory stateKey) internal view returns (string memory) {
+        string memory json = string(
+            abi.encodePacked(
+                '{"name":"Prophet #',
+                tokenId.toString(),
+                '","description":"Prophets of Ethereum.",',
+                '"image":"', baseImageURI, stateKey, '.png",',
+                '"attributes":[{"trait_type":"State","value":"', stateKey, '"}]}'
+            )
+        );
+        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(json))));
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    //                          UTILITY FUNCTIONS
-    // ═══════════════════════════════════════════════════════════════════
-    
-    function _getStateString(ProphetState state) private pure returns (string memory) {
-        if (state == ProphetState.PROPHESIZING) return "prophesizing";
-        if (state == ProphetState.BULLISH) return "bullish";
-        if (state == ProphetState.BEARISH) return "bearish";
-        if (state == ProphetState.BURNED) return "burned";
-        return "unknown";
-    }
-    
-    function _calculatePriceChange(uint256 startPrice, uint256 endPrice) private pure returns (uint256) {
-        if (startPrice == 0) return 0;
-        uint256 diff = _abs(int256(endPrice) - int256(startPrice));
-        return (diff * 10000) / startPrice; // Return in basis points
-    }
-    
-    function _abs(int256 x) private pure returns (uint256) {
-        return uint256(x >= 0 ? x : -x);
-    }
-    
+    // ------------------------------
+    // Admin
+    // ------------------------------
+    function setBaseImageURI(string calldata uri) external onlyOwner { baseImageURI = uri; }
 
-
-    // ═══════════════════════════════════════════════════════════════════
-    //                           ADMIN FUNCTIONS
-    // ═══════════════════════════════════════════════════════════════════
-    
-    function setBaseURI(string memory baseTokenURI) external onlyOwner {
-        _baseTokenURI = baseTokenURI;
-    }
-    
-    function setPriceOracle(address _priceOracle) external onlyOwner {
-        priceOracle = _priceOracle;
-    }
-    
-    function updateETHPrice(uint256 price) external onlyOwner {
-        lastKnownETHPrice = price;
-    }
-    
-    function emergencyWithdraw() external onlyOwner {
-        // Only maintenance fee can be withdrawn
-        require(address(this).balance >= MAINTENANCE_FEE, "No maintenance fee available");
-        payable(owner()).transfer(MAINTENANCE_FEE);
+    // ------------------------------
+    // Royalties (EIP-2981)
+    // ------------------------------
+    function royaltyInfo(uint256, uint256 salePrice) external view override returns (address, uint256) {
+        uint256 amount = (salePrice * ROYALTY_FEE) / 10000;
+        return (address(this), amount);
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    //                          ROYALTY FUNCTIONS
-    // ═══════════════════════════════════════════════════════════════════
-    
-    function royaltyInfo(uint256, uint256 salePrice) external pure override returns (address, uint256) {
-        uint256 royaltyAmount = (salePrice * ROYALTY_FEE) / 10000;
-        return (ROYALTY_RECEIVER, royaltyAmount);
-    }
-    
-    function supportsInterface(bytes4 interfaceId) public view virtual override(ERC721A, IERC165) returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public view override(ERC721A, IERC165) returns (bool) {
         return interfaceId == type(IERC2981).interfaceId || super.supportsInterface(interfaceId);
     }
-    
-    // Receive royalties
+
+    // ------------------------------
+    // Receive royalties and donations -> divineTreasury
+    // ------------------------------
     receive() external payable {
-        divineTreasury += msg.value;
+        // Treasury is implicit via balance; nothing to do
     }
-}0
+
+    // ------------------------------
+    // Internal utils
+    // ------------------------------
+    function _nextSunday00UTC(uint64 fromTs) internal pure returns (uint64) {
+        // days since epoch, where Thursday Jan 1 1970 is day 0; Sunday index = 0 in ((ts/86400)+4)%7
+        uint64 dayStart = fromTs - (fromTs % 86400); // 00:00 UTC of that day
+        uint64 weekday = ((dayStart / 86400) + 4) % 7; // Sunday=0
+        if (weekday == 0 && fromTs == dayStart) {
+            return dayStart; // already Sunday 00:00
+        }
+        uint64 daysToSunday = (7 - weekday) % 7;
+        if (fromTs != dayStart) {
+            // if not exactly 00:00, ensure we go to next day's boundary
+            daysToSunday = (daysToSunday == 0) ? 7 : daysToSunday; // move to next Sunday
+        }
+        return dayStart + daysToSunday * 86400;
+    }
+
+    function _priceChangeBps(int64 a, int64 b) internal pure returns (uint256) {
+        if (a == int64(0)) return 0;
+        uint256 ua = uint256(int256(a < 0 ? -a : a));
+        uint256 ub = uint256(int256(b < 0 ? -b : b));
+        uint256 diff = ua > ub ? ua - ub : ub - ua;
+        return (diff * 10000) / ua;
+    }
+
+    function _absDiff(int64 a, int64 b) internal pure returns (uint256) {
+        int256 d = int256(a) - int256(b);
+        return uint256(d >= 0 ? d : -d);
+    }
+
+    function _absDiffU(int64 a, int64 b) internal pure returns (uint256) {
+        return _absDiff(a, b);
+    }
+
+    // Mark a token as punished (e.g., listing below minimal floor in future extension)
+    function _divinePunish(uint256 tokenId) internal {
+        divinePunished[tokenId] = true;
+    }
+
+    // ------------------------------
+    // NOTE: Minimal floor price listing burn is intentionally omitted for now as requested.
+    // It can be added later with onList hooks and grace period enforcement against a computed floor = treasury / alive.
+    // ------------------------------
+}
+
