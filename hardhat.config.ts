@@ -37,12 +37,12 @@ const config: HardhatUserConfig = {
     },
     "sepolia": {
       chainId: 11155111,
-      url: "https://eth-sepolia.g.alchemy.com/public",
+      url: `https://sepolia.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts: [deployerKey!],
     },
     "mainnet": {
       chainId: 1,
-      url: "https://mainnet.infura.io/v3/ba034bf5bde742abaf750923726c2ffb",
+      url: `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts: [deployerKey!],
     },
     "zkHardhat": {
