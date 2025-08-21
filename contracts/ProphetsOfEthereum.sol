@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-// Pyth removed; using on-chain AMM spot price instead
+// Using on-chain AMM spot price
 
 interface IUniswapV2PairMinimal {
     function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
@@ -15,8 +15,24 @@ interface IUniswapV2PairMinimal {
     function token1() external view returns (address);
 }
 
+interface IPyth {
+    struct Price {
+        int64 price;
+        uint64 conf;
+        int32 expo;
+        uint256 publishTime;
+    }
+    function getPriceNoOlderThan(bytes32 id, uint256 age) external view returns (Price memory price);
+}
+
+enum PriceProvider {
+    AMM,           // 0 - Uniswap V2 AMM only
+    PYTH,          // 1 - Pyth Network only
+    PYTH_OR_AMM    // 2 - Try Pyth first, fallback to AMM
+}
+
 /// @title Prophets of Ethereum
-/// @notice Weekly prediction game with on-chain judgment using Pyth prices (Abstract)
+/// @notice Weekly prediction game with on-chain judgment using AMM prices
 /// @dev ERC721A, token IDs start at 1. Minimal, gas-conscious implementation sized for 666 supply.
 contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
     using Strings for uint256;
@@ -46,7 +62,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
 
 
     struct CycleInfo {
-        // Prices are 1e8 normalized (like Pyth price with expo -8)
+        // Prices are 1e8 normalized
         int64 startPrice;           // price logged at first prediction of the cycle (Sunday)
         uint64 startTime;           // Sunday 00:00 UTC start (first prediction timestamp)
         uint64 endTime;             // Sunday 00:00 UTC end of week (start + 7 days)
@@ -71,21 +87,20 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
     // Blessed token (forever bullish winner)
     uint256 public blessedByDivine;
 
-    // Global (cycle index computed via getCurrentCycle)
-
-    // Treasury tracking
-    bool public maintenanceWithdrawn;
-
     // Metadata base
     string private baseImageURI;
 
-    // AMM Pool (WETH/USDC.E) Uniswap V2 pair address
-    address public immutable pool;
+    // Price provider configuration
+    PriceProvider public priceProvider = PriceProvider.PYTH_OR_AMM; // Default to Pyth with AMM fallback
+    address public immutable pool; // AMM Pool (WETH/USDC.E) Uniswap V2 pair
+    address public pythContract;
+    bytes32 public pythPriceId = 0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace; // ETH/USD
+    uint256 public constant PYTH_MAX_AGE = 86400; // 24 hours
 
     // Mint lifecycle to determine first cycle start
-    bool public mintComplete; // becomes true when totalSupply == 666
     uint64 public mintCompleteTimestamp; // wall clock when mint out happens
     uint64 public firstCycleStart; // first Sunday 00:00 UTC at/after mintComplete
+    bool public maintenanceWithdrawn;
 
     // ------------------------------
     // Events
@@ -104,6 +119,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
     ) ERC721A("Prophets of Ethereum", "PROPHET") {
         baseImageURI = _baseImageURI;
         pool = uniPool;
+        pythContract = 0x8739d5024B5143278E2b15Bd9e7C26f6CEc658F1; // Pyth mainnet
     }
 
     // ------------------------------
@@ -123,25 +139,14 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
 
         _mint(msg.sender, quantity);
 
-        // Treasury is just contract balance; maintenance fee handled on withdraw
-
         // if this completes mint-out, set firstCycleStart to next Sunday 00:00 UTC
-        if (!mintComplete && totalSupply() == TOTAL_SUPPLY) {
-            mintComplete = true;
+        if (mintCompleteTimestamp == 0 && totalSupply() == TOTAL_SUPPLY) {
             mintCompleteTimestamp = uint64(block.timestamp);
             firstCycleStart = _nextSunday00UTC(mintCompleteTimestamp);
             // first cycle index becomes 1 when Sunday window opens
         }
 
         emit Minted(msg.sender, quantity, msg.value, getTreasury());
-    }
-
-    function withdrawMaintenanceFee(address payable to) external onlyOwner {
-        require(!maintenanceWithdrawn, "done");
-        require(address(this).balance >= MAINTENANCE_FEE, "insufficient");
-        maintenanceWithdrawn = true;
-        (bool ok, ) = to.call{value: MAINTENANCE_FEE}("");
-        require(ok, "withdraw");
     }
 
     function getTreasury() public view returns (uint256) {
@@ -154,13 +159,13 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
     // Cycles
     // ------------------------------
     function getCurrentCycle() public view returns (uint256) {
-        if (!mintComplete) return 0;
+        if (mintCompleteTimestamp == 0) return 0;
         if (block.timestamp < firstCycleStart) return 0;
         // weeks elapsed since first cycle start; cycle index starts at 1
         return 1 + (block.timestamp - uint256(firstCycleStart)) / 1 weeks;
     }
 
-    function _ensureCycleWindow() internal {
+    function _ensureCycleWindow() internal view {
         uint256 cycle = getCurrentCycle();
         require(cycle > 0, "no-cycle");
         // recompute window bounds
@@ -169,9 +174,45 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
         require(block.timestamp >= cycleStart && block.timestamp < cycleStart + 1 days, "not-sunday");
     }
 
+    // Get ETH price from selected provider. Returns price scaled to 1e8.
+    function _readPoolSpotPrice() internal view returns (int64) {
+        if (priceProvider == PriceProvider.PYTH) {
+            return _readPythPriceInternal();
+        } else if (priceProvider == PriceProvider.AMM) {
+            return _readAMMPrice();
+        } else {
+            // PYTH_OR_AMM: try Pyth first, fallback to AMM
+            try this._readPythPrice() returns (int64 price) {
+                return price;
+            } catch {
+                return _readAMMPrice();
+            }
+        }
+    }
+    
+    // External wrapper for Pyth price (used in try/catch)
+    function _readPythPrice() external view returns (int64) {
+        return _readPythPriceInternal();
+    }
+    
+    // Pyth price feed. Returns ETH/USD price scaled to 1e8.
+    function _readPythPriceInternal() internal view returns (int64) {
+        require(pythContract != address(0), "pyth-not-set");
+        IPyth.Price memory price = IPyth(pythContract).getPriceNoOlderThan(pythPriceId, PYTH_MAX_AGE);
+        // Pyth returns price with expo, normalize to 1e8
+        int64 normalizedPrice;
+        if (price.expo >= -8) {
+            normalizedPrice = price.price * int64(int256(10 ** uint256(int256(price.expo + 8))));
+        } else {
+            normalizedPrice = price.price / int64(int256(10 ** uint256(int256(-price.expo - 8))));
+        }
+        require(normalizedPrice > 0, "invalid-pyth-price");
+        return normalizedPrice;
+    }
+    
     // Uniswap V2 spot price. Returns token1 per token0 scaled to 1e8.
     // Assumes pool tokens are WETH (18 decimals) and USDC.e (6 decimals). For other tokens, uses ERC20 decimals.
-    function _readPoolSpotPrice() internal view returns (int64) {
+    function _readAMMPrice() internal view returns (int64) {
         (uint112 r0, uint112 r1, ) = IUniswapV2PairMinimal(pool).getReserves();
         address t0 = IUniswapV2PairMinimal(pool).token0();
         address t1 = IUniswapV2PairMinimal(pool).token1();
@@ -193,7 +234,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
     // Predictions
     // ------------------------------
     /// @notice Make or update a prediction for the current cycle during Sunday window.
-    /// If this is the first prediction in the cycle, records the cycle's start price from Pyth.
+    /// If this is the first prediction in the cycle, records the cycle's start price from AMM.
     /// The predicted price must differ by at least 1% from the cycle start price.
     function makePrediction(uint256 tokenId, int64 predictedPrice)
         external
@@ -248,11 +289,13 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
     // No executeJudgment — judgment computed in isBurned() using next cycle's startPrice as end price of previous
 
     /// @notice Winner claims the divine treasury and becomes blessed forever.
-    /// - If exactly one prediction last cycle and they survived, they can claim.
-    /// - If zero predictions, the token among the recorded extremes (lowest/highest) closest to endPrice can claim.
-    function acceptDivineBlessing() external {
+    /// - Must be Monday or later (cycle judgment available)
+    /// - Exactly 1 prediction was made last cycle and that token survived
+    /// - Caller must own the winning token
+    function acceptDivineBlessing(uint256 tokenId) external {
         require(blessedByDivine == 0, "blessed");
-        require(mintComplete, "not-ready");
+        require(mintCompleteTimestamp > 0, "not-ready");
+        require(ownerOf(tokenId) == msg.sender, "owner");
 
         uint256 cycle = getCurrentCycle();
         require(cycle > 1, "no-cycle");
@@ -262,40 +305,32 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
         int64 endPrice = cycles[cycle].startPrice; // end price of last = next cycle start price
         require(endPrice != int64(0), "no-judgment");
 
-        uint256 winnerTokenId;
+        // Must be exactly 1 prediction last cycle
+        require(info.predictionsCount == 1, "not-single");
+        
+        // This token must have made the prediction and survived
+        require(predictions[tokenId][last] != int64(0), "no-prediction");
+        require(!isBurned(tokenId), "burned");
 
-        if (info.predictionsCount == 1) {
-            // find the only token that predicted and survived
-            uint256 nextId = _nextTokenId();
-            for (uint256 t = _startTokenId(); t < nextId; t++) {
-                if (predictions[t][last] != int64(0) && !isBurned(t)) {
-                    winnerTokenId = t;
-                    break;
-                }
-            }
-        } else if (info.predictionsCount == 0) {
-            // choose closest among extremes to endPrice
-            require(info.lowestPredictionTokenId != 0 || info.highestPredictionTokenId != 0, "no-extremes");
-            uint256 lowTok = info.lowestPredictionTokenId;
-            uint256 highTok = info.highestPredictionTokenId;
-            uint256 lowErr = info.lowestPredictionTokenId == 0 ? type(uint256).max : _absDiffU(endPrice, info.lowestPredictionPrice);
-            uint256 highErr = info.highestPredictionTokenId == 0 ? type(uint256).max : _absDiffU(endPrice, info.highestPredictionPrice);
-            winnerTokenId = lowErr <= highErr ? lowTok : highTok;
-        } else {
-            revert("multi");
-        }
-
-        require(winnerTokenId != 0, "no-winner");
-        require(ownerOf(winnerTokenId) == msg.sender, "owner");
-
-        blessedByDivine = winnerTokenId;
-        // winner shown as bullish in tokenURI via blessedByDivine
+        // Set blessed status BEFORE external call
+        blessedByDivine = tokenId;
 
         uint256 amount = getTreasury();
+        require(amount > 0, "no-treasury");
+        
         (bool ok, ) = payable(msg.sender).call{value: amount}("");
         require(ok, "transfer");
 
-        emit DivineBlessingAccepted(cycle, winnerTokenId, amount);
+        emit DivineBlessingAccepted(cycle, tokenId, amount);
+    }
+
+    
+    function withdrawMaintenanceFee(address payable to) external onlyOwner {
+        require(!maintenanceWithdrawn, "done");
+        require(address(this).balance >= MAINTENANCE_FEE, "insufficient");
+        maintenanceWithdrawn = true;
+        (bool ok, ) = to.call{value: MAINTENANCE_FEE}("");
+        require(ok, "withdraw");
     }
 
     // ------------------------------
@@ -309,13 +344,17 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
         if (cycle < 2) return false; // need at least one completed cycle
         uint256 last = cycle - 1;
         CycleInfo storage prev = cycles[last];
-        // Need end price = next cycle's start price
-        int64 endPrice = cycles[cycle].startPrice;
-        if (endPrice == int64(0)) return false; // next cycle not started yet => no judgment
-
+        
         // Lazy check based on stored predictions
         int64 pLast = predictions[tokenId][last];
-        if (pLast == int64(0)) return true; // made no prediction last cycle
+        if (pLast == int64(0)) return true; // made no prediction last cycle = burned
+
+        // Need end price = next cycle's start price
+        int64 endPrice = cycles[cycle].startPrice;
+        // If current cycle hasn't started yet, calculate what the end price would be now
+        if (endPrice == int64(0)) {
+            endPrice = _readPoolSpotPrice(); // get current price as judgment
+        }
 
         bool wentUp = endPrice > prev.startPrice;
         bool predictedUp = pLast > prev.startPrice;
@@ -354,6 +393,18 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
     // Admin
     // ------------------------------
     function setBaseImageURI(string calldata uri) external onlyOwner { baseImageURI = uri; }
+    
+    function setPriceProvider(PriceProvider _provider) external onlyOwner {
+        priceProvider = _provider;
+    }
+    
+    function setPythContract(address _pythContract) external onlyOwner {
+        pythContract = _pythContract;
+    }
+    
+    function setPythPriceId(bytes32 _priceId) external onlyOwner {
+        pythPriceId = _priceId;
+    }
 
     // ------------------------------
     // Royalties (EIP-2981)
@@ -378,18 +429,11 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
     // Internal utils
     // ------------------------------
     function _nextSunday00UTC(uint64 fromTs) internal pure returns (uint64) {
-        // days since epoch, where Thursday Jan 1 1970 is day 0; Sunday index = 0 in ((ts/86400)+4)%7
-        uint64 dayStart = fromTs - (fromTs % 86400); // 00:00 UTC of that day
-        uint64 weekday = ((dayStart / 86400) + 4) % 7; // Sunday=0
-        if (weekday == 0 && fromTs == dayStart) {
-            return dayStart; // already Sunday 00:00
-        }
-        uint64 daysToSunday = (7 - weekday) % 7;
-        if (fromTs != dayStart) {
-            // if not exactly 00:00, ensure we go to next day's boundary
-            daysToSunday = (daysToSunday == 0) ? 7 : daysToSunday; // move to next Sunday
-        }
-        return dayStart + daysToSunday * 86400;
+        uint64 day = fromTs / 86400;         // whole days since epoch
+        uint64 dayStart = day * 86400;       // 00:00 UTC of that day
+        uint64 w = (day + 4) % 7;            // 0=Sun, 1=Mon, ..., 6=Sat
+        uint64 addDays = (7 - w) % 7;        // 0 if Sunday, else days until Sunday
+        return dayStart + addDays * 86400;
     }
 
     function _priceChangeBps(int64 a, int64 b) internal pure returns (uint256) {

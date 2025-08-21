@@ -1,4 +1,5 @@
 import { expect } from "chai";
+import "@nomicfoundation/hardhat-chai-matchers";
 import { ethers } from "ethers"; // user preference
 import hre from "hardhat";
 
@@ -36,13 +37,17 @@ describe("ProphetsOfEthereum end-to-end", () => {
     const mockPyth = await MockPyth.deploy(startPx, -8);
     await mockPyth.waitForDeployment();
 
-    // Deploy Prophets with mock pyth
+    // Deploy Prophets (constructor takes baseURI and uniPool, Pyth is hardcoded)
     const prophetsArtifact = await hre.artifacts.readArtifact("ProphetsOfEthereum");
-    const Prophets = new ethers.ContractFactory(prophetsArtifact.abi, prophetsArtifact.bytecode, deployer);
-    const priceId = ethers.ZeroHash; // not used by mock
+    const Prophets = new ethers.ContractFactory(prophetsArtifact.abi, prophetsArtifact.bytecode, deployer) as any;
     const baseURI = "ipfs://base/";
-    const prophets = await Prophets.deploy(await mockPyth.getAddress(), priceId, baseURI);
+    const dummyPool = ethers.ZeroAddress; // not used in this test
+    const prophets = await Prophets.deploy(baseURI, dummyPool);
     await prophets.waitForDeployment();
+    
+    // Set mock pyth as the pyth contract and switch to PYTH mode
+    await prophets.setPythContract(await mockPyth.getAddress());
+    await prophets.setPriceProvider(1); // PYTH = 1
 
     // Mint 333 from w1, 333 from w2
     await (await prophets.connect(w1).mint(333, { value: MINT_PRICE * 333n })).wait();
@@ -71,36 +76,35 @@ describe("ProphetsOfEthereum end-to-end", () => {
 
     // First cycle: both wallets set predictions. w1 always bearish, w2 always bullish.
     // They can switch during Sunday; verify switch allowed.
-    const updates: string[] = []; // mock expects empty updates
 
     // First prediction initializes start price from Pyth
-    await (await prophets.connect(w1).makePrediction(1, (Number(startPx) * 98) / 100, updates)).wait(); // -2%
+    await (await prophets.connect(w1).makePrediction(1, (Number(startPx) * 98) / 100)).wait(); // -2%
     // Switch prediction: should be allowed during Sunday window
-    await prophets.connect(w1).makePrediction(1, (Number(startPx) * 97) / 100, updates); // -3%
+    await prophets.connect(w1).makePrediction(1, (Number(startPx) * 97) / 100); // -3%
 
     // Bulk some picks across ranges (bearish/bullish) to diversify outcomes
     // w1 bearish for a range
     for (let t = 1; t <= 50; t++) {
-      await (await prophets.connect(w1).makePrediction(t, Math.floor(Number(startPx) * 0.97), updates)).wait();
+      await (await prophets.connect(w1).makePrediction(t, Math.floor(Number(startPx) * 0.97))).wait();
     }
     // w2 bullish for another range
     for (let t = 334; t <= 384; t++) {
-      await (await prophets.connect(w2).makePrediction(t, Math.floor(Number(startPx) * 1.03), updates)).wait();
+      await (await prophets.connect(w2).makePrediction(t, Math.floor(Number(startPx) * 1.03))).wait();
     }
 
     // Ensure min diff rule: +-1% not allowed
     await expect(
-      prophets.connect(w1).makePrediction(60, Math.floor(Number(startPx) * 0.99), updates)
+      prophets.connect(w1).makePrediction(60, Math.floor(Number(startPx) * 0.99))
     ).to.be.revertedWithCustomError || to.be.reverted; // generic in zksolc, allow revert
     await expect(
-      prophets.connect(w2).makePrediction(340, Math.floor(Number(startPx) * 1.01), updates)
+      prophets.connect(w2).makePrediction(340, Math.floor(Number(startPx) * 1.01))
     ).to.be.reverted;
 
     // End of Sunday: advance to Monday 00:00 (outside Sunday window) => switching not allowed
     await setNextBlockTimestamp(Number(firstStart) + oneDay + 60);
     // Attempt switching on Monday should revert with not-sunday
     await expect(
-      prophets.connect(w1).makePrediction(1, Math.floor(Number(startPx) * 0.95), updates)
+      prophets.connect(w1).makePrediction(1, Math.floor(Number(startPx) * 0.95))
     ).to.be.revertedWith("not-sunday");
 
     // Move to next Sunday: second cycle starts; this also finalizes previous by providing next start price.
@@ -120,8 +124,8 @@ describe("ProphetsOfEthereum end-to-end", () => {
 
     // Next cycle: craft predictions so only one survives into third cycle, then claim.
     // For simplicity, set extreme predictions such that only token 334 is closest & correct.
-    await (await prophets.connect(w2).makePrediction(334, Math.floor(Number(up10) * 1.05), updates)).wait(); // bullish +5%
-    await (await prophets.connect(w1).makePrediction(2, Math.floor(Number(up10) * 0.5), updates)).wait(); // way off bearish
+    await (await prophets.connect(w2).makePrediction(334, Math.floor(Number(up10) * 1.05))).wait(); // bullish +5%
+    await (await prophets.connect(w1).makePrediction(2, Math.floor(Number(up10) * 0.5))).wait(); // way off bearish
 
     // Move to third Sunday, set next start price to match token 334’s target so it survives uniquely
     const thirdStart = secondStart + oneWeek;
