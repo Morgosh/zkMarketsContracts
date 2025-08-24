@@ -99,6 +99,9 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     // Signature minting
     address public approver;
     mapping(bytes32 => uint256) public mintedByHash;
+    
+    // Marketplace integration
+    address public immutable marketplace;
 
     // Price provider configuration
     PriceProvider public priceProvider = PriceProvider.PYTH_OR_AMM; // Default to Pyth with AMM fallback
@@ -133,12 +136,21 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     constructor(
         string memory _baseImageURI,
         address uniPool,
-        address _approver
+        address _approver,
+        address _marketplace,
+        address _defaultOperator
     ) ERC721A("Prophets of Ethereum", "PROPHET") EIP712("Prophets of Ethereum", "1") {
         baseImageURI = _baseImageURI;
         pool = uniPool;
         approver = _approver;
+        marketplace = _marketplace;
         pythContract = 0x8739d5024B5143278E2b15Bd9e7C26f6CEc658F1; // Pyth mainnet
+        
+        // Set default whitelisted operator
+        if (_defaultOperator != address(0)) {
+            allowedOperators[_defaultOperator] = true;
+            emit OperatorAllowed(_defaultOperator, true);
+        }
     }
 
     // ------------------------------
@@ -583,8 +595,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     function punishUnfaithful(
         IMarketplace.OrderParameters calldata orderParameters,
         bytes calldata signature,
-        bytes32 fullHash,
-        address marketplace
+        bytes32 fullHash
     ) external {
         // Verify the order is for an NFT from this collection
         require(orderParameters.offer.itemType == IMarketplace.ItemType.NFT, "not-nft");

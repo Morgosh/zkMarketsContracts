@@ -69,7 +69,16 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
     const Prophets = new ethers.ContractFactory(prophetsArtifact.abi, prophetsArtifact.bytecode, deployer);
     const baseURI = "ipfs://test/";
     const dummyPool = ethers.ZeroAddress;
-    prophets = await Prophets.deploy(baseURI, dummyPool, await approver.getAddress());
+    const mockMarketplace = ethers.ZeroAddress; // Mock marketplace for testing
+    const defaultOperator = await deployer.getAddress(); // Set deployer as default operator
+    
+    prophets = await Prophets.deploy(
+      baseURI, 
+      dummyPool, 
+      await approver.getAddress(),
+      mockMarketplace,
+      defaultOperator
+    );
     await prophets.waitForDeployment();
 
     // Configure to use MockPyth
@@ -221,6 +230,17 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
       expect(await prophets.totalSupply()).to.equal(TOTAL);
       expect(await prophets.firstCycleStart()).to.be.gt(0);
       expect(await prophets.mintCompleteTimestamp()).to.be.gt(0);
+    });
+  });
+
+  describe("Constructor & Configuration", () => {
+    it("should set marketplace address correctly", async () => {
+      expect(await prophets.marketplace()).to.equal(ethers.ZeroAddress);
+    });
+
+    it("should set default operator as allowed", async () => {
+      const deployerAddress = await deployer.getAddress();
+      expect(await prophets.allowedOperators(deployerAddress)).to.be.true;
     });
   });
 

@@ -73,7 +73,16 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
     const Prophets = new ethers.ContractFactory(prophetsArtifact.abi, prophetsArtifact.bytecode, deployer);
     const baseURI = "ipfs://test/";
     const dummyPool = ethers.ZeroAddress;
-    prophets = await Prophets.deploy(baseURI, dummyPool, await approver.getAddress());
+    const mockMarketplace = ethers.ZeroAddress; // Mock marketplace for testing
+    const defaultOperator = await deployer.getAddress(); // Set deployer as default operator
+    
+    prophets = await Prophets.deploy(
+      baseURI, 
+      dummyPool, 
+      await approver.getAddress(),
+      mockMarketplace,
+      defaultOperator
+    );
     await prophets.waitForDeployment();
 
     // Configure to use MockPyth
@@ -181,7 +190,7 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
       orderParams.offer.itemType = 1; // ERC20
       
       await expect(
-        prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash, mockMarketplace)
+        prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash)
       ).to.be.revertedWith("not-nft");
     });
 
@@ -189,7 +198,7 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
       orderParams.offer.tokenAddress = ethers.ZeroAddress;
       
       await expect(
-        prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash, mockMarketplace)
+        prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash)
       ).to.be.revertedWith("wrong-collection");
     });
 
@@ -197,7 +206,7 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
       orderParams.orderType = 1; // ERC20_FOR_ERC721
       
       await expect(
-        prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash, mockMarketplace)
+        prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash)
       ).to.be.revertedWith("wrong-type");
     });
 
@@ -205,7 +214,7 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
       orderParams.offerer = await user2.getAddress(); // user2 doesn't own token 1
       
       await expect(
-        prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash, mockMarketplace)
+        prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash)
       ).to.be.revertedWith("not-owner");
     });
 
@@ -213,7 +222,7 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
       const invalidSignature = "0x" + "ff".repeat(65); // Invalid signature
       
       await expect(
-        prophets.connect(user3).punishUnfaithful(orderParams, invalidSignature, fullHash, mockMarketplace)
+        prophets.connect(user3).punishUnfaithful(orderParams, invalidSignature, fullHash)
       ).to.be.revertedWith("invalid-signature");
     });
 
@@ -222,7 +231,7 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
       orderParams.consideration.amount = minimalFloor + 1n; // Above floor
       
       await expect(
-        prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash, mockMarketplace)
+        prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash)
       ).to.be.revertedWith("above-minimal-floor");
     });
 
@@ -237,7 +246,7 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
       orderParams.createdTime = oneHourAgo;
       
       await expect(
-        prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash, mockMarketplace)
+        prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash)
       ).to.be.revertedWith("grace-period-expired");
     });
 
@@ -255,7 +264,7 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
         
         // Should not revert due to grace period (just created)
         await expect(
-          prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash, mockMarketplace)
+          prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash)
         ).to.not.be.revertedWith("grace-period-expired");
         
         // Should burn the token
@@ -348,7 +357,7 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
         
         // Should be protected from punishment due to grace period expiry
         await expect(
-          prophets.connect(user3).punishUnfaithful(protectedOrderParams, signature, fullHash, mockMarketplace)
+          prophets.connect(user3).punishUnfaithful(protectedOrderParams, signature, fullHash)
         ).to.be.revertedWith("grace-period-expired");
         
         // Token should remain unburned (protected)
