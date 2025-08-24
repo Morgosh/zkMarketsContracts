@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import "./IMarketplace.sol";
 // Using on-chain AMM spot price
 
 interface IUniswapV2PairMinimal {
@@ -60,7 +61,6 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
         BURNED         // 3 - Permanent
     }
 
-
     struct CycleInfo {
         // Prices are 1e8 normalized
         int64 startPrice;           // price logged at first prediction of the cycle (Sunday)
@@ -113,6 +113,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
     event DivineBlessingAccepted(uint256 indexed cycle, uint256 indexed tokenId, uint256 amount);
     event Minted(address indexed to, uint256 quantity, uint256 paid, uint256 treasuryAfter);
     event OperatorAllowed(address indexed operator, bool allowed);
+    event UnfaithfulPunished(uint256 indexed tokenId, uint256 listingPrice, uint256 minimalFloor, address punisher);
 
     // ------------------------------
     // Constructor
@@ -496,8 +497,52 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
     }
 
     // ------------------------------
-    // NOTE: Minimal floor price listing burn is intentionally omitted for now as requested.
-    // It can be added later with onList hooks and grace period enforcement against a computed floor = treasury / alive.
+    // Listing Punishment System
     // ------------------------------
+
+    /// @notice Calculate minimal floor price: Divine Treasury ÷ Alive Prophets
+    function getMinimalFloorPrice() public view returns (uint256) {
+        uint256 aliveProphets = getAliveProphetsCount();
+        if (aliveProphets == 0) return 0;
+        return getTreasury() / aliveProphets;
+    }
+
+    /// @notice Count alive prophets based on previous cycle submissions
+    /// @dev Always uses previous cycle submission count
+    function getAliveProphetsCount() public view returns (uint256) {
+        uint256 cycle = getCurrentCycle();
+        if (cycle <= 1) return totalSupply(); // Pre-game or first cycle, all alive
+        
+        // Always use previous cycle submissions
+        uint256 prevCycle = cycle - 1;
+        return cycles[prevCycle].predictionsCount;
+    }
+
+    /// @notice Punish unfaithful prophets who list below minimal floor price
+    /// @dev Anyone can submit order parameters from marketplace to burn NFT if listed below floor
+    function punishUnfaithful(IMarketplace.OrderParameters calldata orderParameters) external {
+        // Verify the order is for an NFT from this collection
+        require(orderParameters.offer.itemType == IMarketplace.ItemType.NFT, "not-nft");
+        require(orderParameters.offer.tokenAddress == address(this), "wrong-collection");
+        require(orderParameters.orderType == IMarketplace.BasicOrderType.ERC721_FOR_ETH, "wrong-type");
+        
+        uint256 tokenId = orderParameters.offer.identifier;
+        require(!isBurned(tokenId), "already-burned");
+        
+        // Verify signature matches the current owner (marketplace handles signature verification)
+        require(orderParameters.offerer == ownerOf(tokenId), "not-owner");
+        
+        // Check if listing price is below minimal floor
+        uint256 listingPrice = orderParameters.consideration.amount;
+        uint256 minimalFloor = getMinimalFloorPrice();
+        require(listingPrice < minimalFloor, "above-floor");
+        
+        // Divine punishment: burn the unfaithful prophet
+        _divinePunish(tokenId);
+        
+        emit UnfaithfulPunished(tokenId, listingPrice, minimalFloor, msg.sender);
+    }
+
+
 }
 
