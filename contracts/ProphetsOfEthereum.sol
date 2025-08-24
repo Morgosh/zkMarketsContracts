@@ -101,6 +101,9 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
     uint64 public mintCompleteTimestamp; // wall clock when mint out happens
     uint64 public firstCycleStart; // first Sunday 00:00 UTC at/after mintComplete
     bool public maintenanceWithdrawn;
+    
+    // Allowed operators for transfers - who needs ERC721C anyway?
+    mapping(address => bool) public allowedOperators;
 
     // ------------------------------
     // Events
@@ -109,6 +112,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
     // no explicit judgment event/function — state is computed
     event DivineBlessingAccepted(uint256 indexed cycle, uint256 indexed tokenId, uint256 amount);
     event Minted(address indexed to, uint256 quantity, uint256 paid, uint256 treasuryAfter);
+    event OperatorAllowed(address indexed operator, bool allowed);
 
     // ------------------------------
     // Constructor
@@ -334,6 +338,24 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
     }
 
     // ------------------------------
+    // Operator Management & OTC
+    // ------------------------------
+    function setAllowedOperator(address operator, bool allowed) external onlyOwner {
+        allowedOperators[operator] = allowed;
+        emit OperatorAllowed(operator, allowed);
+    }
+
+
+
+    modifier onlyAllowedOperator(address from) {
+        if (from != address(0)) {
+            // Allow if sender is an allowed operator OR if sender is the token owner (OTC)
+            require(allowedOperators[msg.sender] || msg.sender == from, "not-allowed");
+        }
+        _;
+    }
+
+    // ------------------------------
     // Views
     // ------------------------------
     function isBurned(uint256 tokenId) public view returns (bool) {
@@ -416,6 +438,21 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
 
     function supportsInterface(bytes4 interfaceId) public view override(ERC721A, IERC165) returns (bool) {
         return interfaceId == type(IERC2981).interfaceId || super.supportsInterface(interfaceId);
+    }
+
+    // ------------------------------
+    // Transfer Overrides
+    // ------------------------------
+    function transferFrom(address from, address to, uint256 tokenId) public payable override onlyAllowedOperator(from) {
+        super.transferFrom(from, to, tokenId);
+    }
+
+    function safeTransferFrom(address from, address to, uint256 tokenId) public payable override onlyAllowedOperator(from) {
+        super.safeTransferFrom(from, to, tokenId);
+    }
+
+    function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data) public payable override onlyAllowedOperator(from) {
+        super.safeTransferFrom(from, to, tokenId, data);
     }
 
     // ------------------------------
