@@ -520,6 +520,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
 
     /// @notice Punish unfaithful prophets who list below minimal floor price
     /// @dev Anyone can submit order parameters from marketplace to burn NFT if listed below floor
+    /// @dev Punishment only valid within 1 hour of order creation to protect from retroactive burns
     function punishUnfaithful(IMarketplace.OrderParameters calldata orderParameters) external {
         // Verify the order is for an NFT from this collection
         require(orderParameters.offer.itemType == IMarketplace.ItemType.NFT, "not-nft");
@@ -531,6 +532,9 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
         
         // Verify signature matches the current owner (marketplace handles signature verification)
         require(orderParameters.offerer == ownerOf(tokenId), "not-owner");
+        
+        // Check that order is within 1 hour grace period
+        require(block.timestamp <= orderParameters.createdTime + LISTING_GRACE_PERIOD, "grace-period-expired");
         
         // Check if listing price is below minimal floor
         uint256 listingPrice = orderParameters.consideration.amount;
