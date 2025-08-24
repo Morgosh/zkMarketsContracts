@@ -535,7 +535,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
         // Check if listing price is below minimal floor
         uint256 listingPrice = orderParameters.consideration.amount;
         uint256 minimalFloor = getMinimalFloorPrice();
-        require(listingPrice < minimalFloor, "above-floor");
+        require(listingPrice < minimalFloor, "above-minimal-floor");
         
         // Divine punishment: burn the unfaithful prophet
         _divinePunish(tokenId);
