@@ -11,16 +11,55 @@ const oneDay = 24 * 60 * 60;
 const oneWeek = 7 * oneDay;
 const provider = new ethers.BrowserProvider(hre.network.provider as any);
 
+// Helper function to create mint signature
+async function createMintSignature(
+  approver: any,
+  contractAddress: string,
+  user: string,
+  saleId: number,
+  endTime: number,
+  maxMint: number,
+  pricePerToken: bigint
+) {
+  const domain = {
+    name: "Prophets of Ethereum",
+    version: "1",
+    chainId: (await provider.getNetwork()).chainId,
+    verifyingContract: contractAddress
+  };
+
+  const types = {
+    Mint: [
+      { name: "user", type: "address" },
+      { name: "saleId", type: "uint256" },
+      { name: "endTime", type: "uint256" },
+      { name: "maxMint", type: "uint256" },
+      { name: "pricePerToken", type: "uint256" }
+    ]
+  };
+
+  const value = {
+    user: user,
+    saleId: saleId,
+    endTime: endTime,
+    maxMint: maxMint,
+    pricePerToken: pricePerToken.toString()
+  };
+
+  return await approver.signTypedData(domain, types, value);
+}
+
 describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
   let prophets: any;
   let mockPyth: any;
-  let deployer: any, user1: any, user2: any, user3: any;
+  let deployer: any, user1: any, user2: any, user3: any, approver: any;
 
   beforeEach(async () => {
     deployer = await provider.getSigner(0);
     user1 = await provider.getSigner(1);
     user2 = await provider.getSigner(2);
     user3 = await provider.getSigner(3);
+    approver = await provider.getSigner(4);
 
     // Deploy MockPyth
     const mockPythArtifact = await hre.artifacts.readArtifact("MockPyth");
@@ -34,16 +73,44 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
     const Prophets = new ethers.ContractFactory(prophetsArtifact.abi, prophetsArtifact.bytecode, deployer);
     const baseURI = "ipfs://test/";
     const dummyPool = ethers.ZeroAddress;
-    prophets = await Prophets.deploy(baseURI, dummyPool);
+    prophets = await Prophets.deploy(baseURI, dummyPool, await approver.getAddress());
     await prophets.waitForDeployment();
 
     // Configure to use MockPyth
     await prophets.setPythContract(await mockPyth.getAddress());
     await prophets.setPriceProvider(1); // PYTH = 1
 
-    // Complete mint out
-    await prophets.connect(user1).mint(333, { value: MINT_PRICE * 333n });
-    await prophets.connect(user2).mint(333, { value: MINT_PRICE * 333n });
+    // Complete mint out using signature-based minting
+    const contractAddress = await prophets.getAddress();
+    const currentTime = Math.floor(Date.now() / 1000);
+    const endTime = currentTime + 3600; // 1 hour from now
+    const saleId = 1;
+    const maxMint = 333;
+    const pricePerToken = MINT_PRICE;
+
+    // Create signatures for both users
+    const signature1 = await createMintSignature(
+      approver,
+      contractAddress,
+      await user1.getAddress(),
+      saleId,
+      endTime,
+      maxMint,
+      pricePerToken
+    );
+
+    const signature2 = await createMintSignature(
+      approver,
+      contractAddress,
+      await user2.getAddress(),
+      saleId + 1, // Different sale ID
+      endTime,
+      maxMint,
+      pricePerToken
+    );
+
+    await prophets.connect(user1).mint(saleId, endTime, maxMint, pricePerToken, 333, signature1, { value: MINT_PRICE * 333n });
+    await prophets.connect(user2).mint(saleId + 1, endTime, maxMint, pricePerToken, 333, signature2, { value: MINT_PRICE * 333n });
   });
 
   describe("getAliveProphetsCount", () => {
@@ -72,6 +139,9 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
 
   describe("punishUnfaithful - Basic Validation", () => {
     let orderParams: any;
+    let signature: string;
+    let fullHash: string;
+    let mockMarketplace: string;
 
     beforeEach(async () => {
       // Get current blockchain timestamp
@@ -100,13 +170,18 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
         endTime: currentTime + 86400,
         createdTime: currentTime
       };
+
+      // Mock parameters for testing
+      fullHash = ethers.keccak256(ethers.toUtf8Bytes("MockOrderHash"));
+      signature = "0x" + "00".repeat(65); // Mock signature for testing
+      mockMarketplace = ethers.ZeroAddress; // Mock marketplace address
     });
 
     it("reverts if order is not for NFT", async () => {
       orderParams.offer.itemType = 1; // ERC20
       
       await expect(
-        prophets.connect(user3).punishUnfaithful(orderParams)
+        prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash, mockMarketplace)
       ).to.be.revertedWith("not-nft");
     });
 
@@ -114,7 +189,7 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
       orderParams.offer.tokenAddress = ethers.ZeroAddress;
       
       await expect(
-        prophets.connect(user3).punishUnfaithful(orderParams)
+        prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash, mockMarketplace)
       ).to.be.revertedWith("wrong-collection");
     });
 
@@ -122,7 +197,7 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
       orderParams.orderType = 1; // ERC20_FOR_ERC721
       
       await expect(
-        prophets.connect(user3).punishUnfaithful(orderParams)
+        prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash, mockMarketplace)
       ).to.be.revertedWith("wrong-type");
     });
 
@@ -130,8 +205,16 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
       orderParams.offerer = await user2.getAddress(); // user2 doesn't own token 1
       
       await expect(
-        prophets.connect(user3).punishUnfaithful(orderParams)
+        prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash, mockMarketplace)
       ).to.be.revertedWith("not-owner");
+    });
+
+    it("reverts if signature is invalid", async () => {
+      const invalidSignature = "0x" + "ff".repeat(65); // Invalid signature
+      
+      await expect(
+        prophets.connect(user3).punishUnfaithful(orderParams, invalidSignature, fullHash, mockMarketplace)
+      ).to.be.revertedWith("invalid-signature");
     });
 
     it("reverts if listing price is above minimal floor", async () => {
@@ -139,7 +222,7 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
       orderParams.consideration.amount = minimalFloor + 1n; // Above floor
       
       await expect(
-        prophets.connect(user3).punishUnfaithful(orderParams)
+        prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash, mockMarketplace)
       ).to.be.revertedWith("above-minimal-floor");
     });
 
@@ -154,7 +237,7 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
       orderParams.createdTime = oneHourAgo;
       
       await expect(
-        prophets.connect(user3).punishUnfaithful(orderParams)
+        prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash, mockMarketplace)
       ).to.be.revertedWith("grace-period-expired");
     });
 
@@ -172,7 +255,7 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
         
         // Should not revert due to grace period (just created)
         await expect(
-          prophets.connect(user3).punishUnfaithful(orderParams)
+          prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash, mockMarketplace)
         ).to.not.be.revertedWith("grace-period-expired");
         
         // Should burn the token
@@ -193,7 +276,7 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
         expect(await prophets.isBurned(1)).to.be.false;
         
         // Execute punishment
-        const tx = await prophets.connect(user3).punishUnfaithful(orderParams);
+        const tx = await prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash, mockMarketplace);
         
         // Verify token is now burned
         expect(await prophets.isBurned(1)).to.be.true;
@@ -265,7 +348,7 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
         
         // Should be protected from punishment due to grace period expiry
         await expect(
-          prophets.connect(user3).punishUnfaithful(protectedOrderParams)
+          prophets.connect(user3).punishUnfaithful(protectedOrderParams, signature, fullHash, mockMarketplace)
         ).to.be.revertedWith("grace-period-expired");
         
         // Token should remain unburned (protected)

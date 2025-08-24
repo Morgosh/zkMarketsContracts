@@ -7,6 +7,8 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import "./IMarketplace.sol";
 // Using on-chain AMM spot price
 
@@ -35,8 +37,9 @@ enum PriceProvider {
 /// @title Prophets of Ethereum
 /// @notice Weekly prediction game with on-chain judgment using AMM prices
 /// @dev ERC721A, token IDs start at 1. Minimal, gas-conscious implementation sized for 666 supply.
-contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
+contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     using Strings for uint256;
+    using ECDSA for bytes32;
 
     // ------------------------------
     // Constants
@@ -46,7 +49,10 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
     uint256 public constant MAINTENANCE_FEE = 1 ether;
     uint256 public constant JUDGMENT_THRESHOLD_BPS = 1000; // 10%
     uint256 public constant MIN_PREDICTION_DIFF_BPS = 100; // 1%
-    uint256 public constant LISTING_GRACE_PERIOD = 1 hours; // reserved (not implemented yet)
+    uint256 public constant LISTING_GRACE_PERIOD = 1 hours;
+    
+    // EIP-712 type hash for signature minting
+    bytes32 private constant MINT_TYPEHASH = keccak256("Mint(address user,uint256 saleId,uint256 endTime,uint256 maxMint,uint256 pricePerToken)");
 
     // Royalties
     uint96 public constant ROYALTY_FEE = 500; // 5% in basis points
@@ -89,6 +95,10 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
 
     // Metadata base
     string private baseImageURI;
+    
+    // Signature minting
+    address public approver;
+    mapping(bytes32 => uint256) public mintedByHash;
 
     // Price provider configuration
     PriceProvider public priceProvider = PriceProvider.PYTH_OR_AMM; // Default to Pyth with AMM fallback
@@ -114,16 +124,20 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
     event Minted(address indexed to, uint256 quantity, uint256 paid, uint256 treasuryAfter);
     event OperatorAllowed(address indexed operator, bool allowed);
     event UnfaithfulPunished(uint256 indexed tokenId, uint256 listingPrice, uint256 minimalFloor, address punisher);
+    event MintWithSignature(address indexed to, uint256 amount, bytes32 indexed saleHash);
+    event ApproverUpdated(address indexed oldApprover, address indexed newApprover);
 
     // ------------------------------
     // Constructor
     // ------------------------------
     constructor(
         string memory _baseImageURI,
-        address uniPool
-    ) ERC721A("Prophets of Ethereum", "PROPHET") {
+        address uniPool,
+        address _approver
+    ) ERC721A("Prophets of Ethereum", "PROPHET") EIP712("Prophets of Ethereum", "1") {
         baseImageURI = _baseImageURI;
         pool = uniPool;
+        approver = _approver;
         pythContract = 0x8739d5024B5143278E2b15Bd9e7C26f6CEc658F1; // Pyth mainnet
     }
 
@@ -137,12 +151,25 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
     // ------------------------------
     // Minting
     // ------------------------------
-    function mint(uint256 quantity) external payable {
-        require(quantity > 0, "qty=0");
-        require(totalSupply() + quantity <= TOTAL_SUPPLY, "supply");
-        require(msg.value == MINT_PRICE * quantity, "price");
-
-        _mint(msg.sender, quantity);
+    function mint(
+        uint256 saleId,
+        uint256 endTime,
+        uint256 maxMint,
+        uint256 pricePerToken,
+        uint256 amount,
+        bytes calldata signature
+    ) external payable {
+        require(amount > 0, "Amount must be greater than 0");
+        require(block.timestamp <= endTime, "Sale has ended");
+        require(totalSupply() + amount <= TOTAL_SUPPLY, "Exceeds max supply");
+        require(msg.value == pricePerToken * amount, "Insufficient payment");
+        
+        bytes32 saleHash = keccak256(abi.encodePacked(msg.sender, saleId, endTime, maxMint, pricePerToken));
+        require(_validateSignature(saleId, endTime, maxMint, pricePerToken, signature), "Invalid signature");
+        require(mintedByHash[saleHash] + amount <= maxMint, "Exceeds max mint for this sale");
+        
+        mintedByHash[saleHash] += amount;
+        _mint(msg.sender, amount);
 
         // if this completes mint-out, set firstCycleStart to next Sunday 00:00 UTC
         if (mintCompleteTimestamp == 0 && totalSupply() == TOTAL_SUPPLY) {
@@ -150,8 +177,31 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
             firstCycleStart = _nextSunday00UTC(mintCompleteTimestamp);
             // first cycle index becomes 1 when Sunday window opens
         }
+        
+        emit MintWithSignature(msg.sender, amount, saleHash);
+        emit Minted(msg.sender, amount, msg.value, getTreasury());
+    }
 
-        emit Minted(msg.sender, quantity, msg.value, getTreasury());
+    function _validateSignature(
+        uint256 saleId,
+        uint256 endTime,
+        uint256 maxMint,
+        uint256 pricePerToken,
+        bytes calldata signature
+    ) internal view returns (bool) {
+        bytes32 structHash = keccak256(abi.encode(
+            MINT_TYPEHASH,
+            msg.sender,
+            saleId,
+            endTime,
+            maxMint,
+            pricePerToken
+        ));
+        
+        bytes32 hash = _hashTypedDataV4(structHash);
+        address signer = hash.recover(signature);
+        
+        return signer == approver;
     }
 
     function getTreasury() public view returns (uint256) {
@@ -428,6 +478,15 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
     function setPythPriceId(bytes32 _priceId) external onlyOwner {
         pythPriceId = _priceId;
     }
+    
+    function setApprover(address newApprover) external onlyOwner {
+        require(newApprover != address(0), "Invalid approver address");
+        
+        address oldApprover = approver;
+        approver = newApprover;
+        
+        emit ApproverUpdated(oldApprover, newApprover);
+    }
 
     // ------------------------------
     // Royalties (EIP-2981)
@@ -519,9 +578,14 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
     }
 
     /// @notice Punish unfaithful prophets who list below minimal floor price
-    /// @dev Anyone can submit order parameters from marketplace to burn NFT if listed below floor
+    /// @dev Anyone can submit order parameters and signature from marketplace to burn NFT if listed below floor
     /// @dev Punishment only valid within 1 hour of order creation to protect from retroactive burns
-    function punishUnfaithful(IMarketplace.OrderParameters calldata orderParameters) external {
+    function punishUnfaithful(
+        IMarketplace.OrderParameters calldata orderParameters,
+        bytes calldata signature,
+        bytes32 fullHash,
+        address marketplace
+    ) external {
         // Verify the order is for an NFT from this collection
         require(orderParameters.offer.itemType == IMarketplace.ItemType.NFT, "not-nft");
         require(orderParameters.offer.tokenAddress == address(this), "wrong-collection");
@@ -530,8 +594,13 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
         uint256 tokenId = orderParameters.offer.identifier;
         require(!isBurned(tokenId), "already-burned");
         
-        // Verify signature matches the current owner (marketplace handles signature verification)
-        require(orderParameters.offerer == ownerOf(tokenId), "not-owner");
+        // Verify signature matches the current owner
+        address tokenOwner = ownerOf(tokenId);
+        require(orderParameters.offerer == tokenOwner, "not-owner");
+        
+        // Verify signature via marketplace contract
+        bool isValidSignature = IMarketplace(marketplace).verifySignature(fullHash, signature, tokenOwner);
+        require(isValidSignature, "invalid-signature");
         
         // Check that order is within 1 hour grace period
         require(block.timestamp <= orderParameters.createdTime + LISTING_GRACE_PERIOD, "grace-period-expired");
@@ -546,7 +615,5 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981 {
         
         emit UnfaithfulPunished(tokenId, listingPrice, minimalFloor, msg.sender);
     }
-
-
 }
 

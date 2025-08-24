@@ -2,7 +2,7 @@
 pragma solidity ^0.8.24;
 
 /// @title IMarketplace
-/// @notice Interface defining marketplace order structures
+/// @notice Interface defining marketplace order structures and functions
 interface IMarketplace {
     enum ItemType {
         NFT,
@@ -39,4 +39,6 @@ interface IMarketplace {
         OrderParameters parameters;
         bytes signature;
     }
+
+    function verifySignature(bytes32 fullHash, bytes memory _signature, address signer) external view returns (bool);
 }

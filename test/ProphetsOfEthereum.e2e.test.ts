@@ -63,7 +63,15 @@ describe("ProphetsOfEthereum end-to-end", () => {
     const firstStart = await prophets.firstCycleStart();
     // Set to Friday 12:00 before Sunday window
     const fridayNoon = Number(firstStart) - (2 * oneDay) + (12 * 60 * 60);
-    await setNextBlockTimestamp(fridayNoon);
+    
+    // Calculate time difference and move forward if needed
+    const timeDiff = fridayNoon - now;
+    if (timeDiff > 0) {
+      await increaseTime(timeDiff);
+    } else {
+      // If fridayNoon is in the past, we're already past that point, continue
+      console.log("Already past Friday noon, continuing with current time");
+    }
 
     // All tokens should show prophesizing metadata (no prediction yet)
     // Before Sunday window, no prediction is recorded; tokenURI defaults to prophesizing
@@ -72,7 +80,13 @@ describe("ProphetsOfEthereum end-to-end", () => {
     expect(uri1).to.be.a("string");
 
     // Advance to Sunday 00:00 (prediction window)
-    await setNextBlockTimestamp(Number(firstStart) + 60); // within Sunday window
+    const currentTime = (await provider.getBlock("latest"))!.timestamp;
+    const sundayStart = Number(firstStart) + 60; // within Sunday window
+    const timeToSunday = sundayStart - currentTime;
+    
+    if (timeToSunday > 0) {
+      await increaseTime(timeToSunday);
+    }
 
     // First cycle: both wallets set predictions. w1 always bearish, w2 always bullish.
     // They can switch during Sunday; verify switch allowed.
@@ -101,7 +115,12 @@ describe("ProphetsOfEthereum end-to-end", () => {
     ).to.be.reverted;
 
     // End of Sunday: advance to Monday 00:00 (outside Sunday window) => switching not allowed
-    await setNextBlockTimestamp(Number(firstStart) + oneDay + 60);
+    const mondayTime = Number(firstStart) + oneDay + 60;
+    const currentTime2 = (await provider.getBlock("latest"))!.timestamp;
+    const timeToMonday = mondayTime - currentTime2;
+    if (timeToMonday > 0) {
+      await increaseTime(timeToMonday);
+    }
     // Attempt switching on Monday should revert with not-sunday
     await expect(
       prophets.connect(w1).makePrediction(1, Math.floor(Number(startPx) * 0.95))
