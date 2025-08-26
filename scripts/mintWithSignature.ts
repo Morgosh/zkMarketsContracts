@@ -33,8 +33,7 @@ async function mintWithSignature() {
     console.log(`🔗 RPC: ${rpcUrl}`)
 
     // Contract configuration - UPDATE THESE VALUES
-    const contractAddress = "0x16dae4ac85f2d5107be4cac6a2d4ae6cb865f1f0" // Update with deployed contract
-    const contractName = "Moody Mights" // Must match deployed contract name
+    const contractAddress = "0x47159d83d6bc0b6bb1b11c6fbf69de71aa9e55cb" // Update with deployed contract
     const chainId = await provider.getNetwork().then(n => Number(n.chainId))
 
     // Mint parameters
@@ -60,10 +59,15 @@ async function mintWithSignature() {
       "function totalSupply() external view returns (uint256)",
       "function balanceOf(address owner) external view returns (uint256)",
       "function approver() external view returns (address)",
-      "function maxSupply() external view returns (uint256)"
+      "function maxSupply() external view returns (uint256)",
+      "function name() external view returns (string)"
     ]
 
     const contract = new ethers.Contract(contractAddress, contractABI, userWallet)
+
+    // Get contract name for EIP-712 domain
+    const contractName = await contract.name()
+    console.log(`📋 Contract name: "${contractName}"`)
 
     // Verify contract approver matches our approver
     try {

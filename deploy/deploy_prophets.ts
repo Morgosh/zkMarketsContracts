@@ -8,7 +8,7 @@ export default async function deployProphets(hre: HardhatRuntimeEnvironment) {
     // Deployment configuration
     const rendererAddr = "0xcda9cb3CEA3ac21612FF67BBb5E9c1D188c4f2B7" // Set to existing renderer address or null to deploy new one
     const uniPool = "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640" // WETH/USDC 0.05% pool on mainnet
-    const approver = "0x0000000000000000000000000000000000000000" // Will be set after deployment
+    const approver = "0x62d8B1c7FE0c8a6d3a8a8Ac051c24A06b4602e65" // Will be set after deployment
     const marketplace = "0x0000000000000000000000000000000000000000" // Will be set after deployment
     const defaultOperator = "0x0000000000000000000000000000000000000000" // Optional
 
