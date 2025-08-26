@@ -108,7 +108,8 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     address public immutable pool; // AMM Pool (WETH/USDC.E) Uniswap V2 pair
     address public pythContract;
     bytes32 public pythPriceId = 0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace; // ETH/USD
-    uint256 public constant PYTH_MAX_AGE = 86400; // 24 hours
+    uint256 public pythMaxAge = 3600; // 1 hour default
+    uint256 public constant PYTH_MIN_MAX_AGE = 60; // 1 minute minimal
 
     // Mint lifecycle to determine first cycle start
     uint64 public mintCompleteTimestamp; // wall clock when mint out happens
@@ -265,7 +266,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     // Pyth price feed. Returns ETH/USD price scaled to 1e8.
     function _readPythPriceInternal() internal view returns (int64) {
         require(pythContract != address(0), "pyth-not-set");
-        IPyth.Price memory price = IPyth(pythContract).getPriceNoOlderThan(pythPriceId, PYTH_MAX_AGE);
+        IPyth.Price memory price = IPyth(pythContract).getPriceNoOlderThan(pythPriceId, pythMaxAge);
         // Pyth returns price with expo, normalize to 1e8
         int64 normalizedPrice;
         if (price.expo >= -8) {
@@ -356,31 +357,16 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     // No executeJudgment — judgment computed in isBurned() using next cycle's startPrice as end price of previous
 
     /// @notice Winner claims the divine treasury and becomes blessed forever.
-    /// - Must be Monday or later (cycle judgment available)
-    /// - Exactly 1 prediction was made last cycle and that token survived
+    /// - Game must have ended
     /// - Caller must own the winning token
-    function acceptDivineBlessing(uint256 tokenId) external {
+    function acceptDivineBlessing(uint256 gameEndedCycle) external {
         require(blessedByDivine == 0, "blessed");
         require(mintCompleteTimestamp > 0, "not-ready");
-        require(ownerOf(tokenId) == msg.sender, "owner");
-
-        uint256 cycle = getCurrentCycle();
-        require(cycle > 1, "no-cycle");
-        uint256 last = cycle - 1; // evaluate last completed cycle
-
-        CycleInfo storage info = cycles[last];
-        int64 endPrice = cycles[cycle].startPrice; // end price of last = next cycle start price
-        require(endPrice != int64(0), "no-judgment");
-
-        // Must be exactly 1 prediction last cycle
-        require(info.predictionsCount == 1, "not-single");
-        
-        // This token must have made the prediction and survived
-        require(predictions[tokenId][last] != int64(0), "no-prediction");
-        require(!isBurned(tokenId), "burned");
+        uint256 winnerId = getWinner(gameEndedCycle);
+        require(ownerOf(winnerId) == msg.sender, "not-winner");
 
         // Set blessed status BEFORE external call
-        blessedByDivine = tokenId;
+        blessedByDivine = winnerId;
 
         uint256 amount = getTreasury();
         require(amount > 0, "no-treasury");
@@ -388,7 +374,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         (bool ok, ) = payable(msg.sender).call{value: amount}("");
         require(ok, "transfer");
 
-        emit DivineBlessingAccepted(cycle, tokenId, amount);
+        emit DivineBlessingAccepted(getCurrentCycle(), winnerId, amount);
     }
 
     
@@ -399,6 +385,27 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         (bool ok, ) = to.call{value: MAINTENANCE_FEE}("");
         require(ok, "withdraw");
     }
+    
+    /// @notice Emergency withdrawal if winner doesn't claim blessing within 1 month
+    /// @param gameEndedCycle The cycle where the game ended
+    /// @param to Address to send the treasury to
+    function emergencyWithdraw(uint256 gameEndedCycle, address payable to) external onlyOwner {
+        require(blessedByDivine == 0, "already-blessed");
+        
+        // Validate gameEndedCycle is correct by getting the winner (will revert if invalid)
+        uint256 winnerId = getWinner(gameEndedCycle);
+        require(winnerId > 0, "no-winner");
+        
+        uint256 currentCycle = getCurrentCycle();
+        // Check if 1 month (4 weeks) has passed since game ended
+        require(currentCycle >= gameEndedCycle + 4, "too-early");
+        
+        uint256 amount = getTreasury();
+        require(amount > 0, "no-treasury");
+        
+        (bool ok, ) = to.call{value: amount}("");
+        require(ok, "transfer");
+    }
 
     // ------------------------------
     // Operator Management & OTC
@@ -407,7 +414,6 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         allowedOperators[operator] = allowed;
         emit OperatorAllowed(operator, allowed);
     }
-
 
 
     modifier onlyAllowedOperator(address from) {
@@ -421,6 +427,57 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     // ------------------------------
     // Views
     // ------------------------------
+    function isGameEnded() public view returns (bool) {
+        uint256 cycle = getCurrentCycle();
+        if (cycle <= 1) return false; // need at least 1 completed cycle
+        
+        // If we're in Sunday window, check 2 cycles back to avoid timing issues
+        if (_isInSundayWindow()) {
+            if (cycle <= 2) return false;
+            return cycles[cycle - 2].predictionsCount <= 1;
+        }
+        
+        // Not in Sunday window - we can safely check the most recent completed cycle
+        return cycles[cycle - 1].predictionsCount <= 1;
+    }
+    
+    function _isInSundayWindow() internal view returns (bool) {
+        uint256 cycle = getCurrentCycle();
+        if (cycle == 0) return false;
+        
+        uint64 cycleStart = uint64(uint256(firstCycleStart) + (cycle - 1) * 1 weeks);
+        return block.timestamp >= cycleStart && block.timestamp < cycleStart + 1 days;
+    }
+    
+    /// @notice Determine the winner when game has ended
+    /// @param gameEndedCycle The cycle where the game ended (last cycle with predictions)
+    /// @return tokenId of the winning prophet
+    function getWinner(uint256 gameEndedCycle) public view returns (uint256) {
+        require(isGameEnded(), "game-not-ended");
+        uint256 currentCycle = getCurrentCycle();
+        require(currentCycle > gameEndedCycle, "invalid-cycle");
+        require(cycles[gameEndedCycle + 1].predictionsCount == 0, "next-cycle-has-votes");
+        
+        CycleInfo storage endedCycleInfo = cycles[gameEndedCycle];
+        require(endedCycleInfo.predictionsCount > 0, "no-predictions");
+        
+        // Get the end price (start price of next cycle or current price)
+        int64 endPrice = cycles[gameEndedCycle + 1].startPrice;
+        if (endPrice == int64(0)) {
+            endPrice = _readPoolSpotPrice(); // current price as judgment
+        }
+        
+        // If ETH ended higher than highest prediction, take highest prediction as winner
+        // If only one survivor, they are both highest and lowest, so this works for both cases
+        if (endPrice > endedCycleInfo.highestPredictionPrice) {
+            return endedCycleInfo.highestPredictionTokenId;
+        }
+        // Otherwise take lowest prediction as winner
+        else {
+            return endedCycleInfo.lowestPredictionTokenId;
+        }
+    }
+    
     function isBurned(uint256 tokenId) public view returns (bool) {
         if (blessedByDivine == tokenId) return false;
         if (divinePunished[tokenId]) return true;
@@ -489,6 +546,11 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     
     function setPythPriceId(bytes32 _priceId) external onlyOwner {
         pythPriceId = _priceId;
+    }
+    
+    function setPythMaxAge(uint256 _maxAge) external onlyOwner {
+        require(_maxAge >= PYTH_MIN_MAX_AGE, "below-min");
+        pythMaxAge = _maxAge;
     }
     
     function setApprover(address newApprover) external onlyOwner {
