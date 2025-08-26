@@ -2,13 +2,28 @@
   {
     "inputs": [
       {
-        "internalType": "string",
-        "name": "_baseImageURI",
-        "type": "string"
+        "internalType": "address",
+        "name": "_renderer",
+        "type": "address"
       },
       {
         "internalType": "address",
         "name": "uniPool",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_approver",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_marketplace",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_defaultOperator",
         "type": "address"
       }
     ],
@@ -28,6 +43,11 @@
   {
     "inputs": [],
     "name": "BalanceQueryForZeroAddress",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "InvalidShortString",
     "type": "error"
   },
   {
@@ -73,6 +93,17 @@
   {
     "inputs": [],
     "name": "SpotMintTokenIdTooSmall",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "str",
+        "type": "string"
+      }
+    ],
+    "name": "StringTooLong",
     "type": "error"
   },
   {
@@ -160,6 +191,25 @@
     "inputs": [
       {
         "indexed": true,
+        "internalType": "address",
+        "name": "oldApprover",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newApprover",
+        "type": "address"
+      }
+    ],
+    "name": "ApproverUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
         "internalType": "uint256",
         "name": "fromTokenId",
         "type": "uint256"
@@ -209,6 +259,37 @@
       }
     ],
     "name": "DivineBlessingAccepted",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [],
+    "name": "EIP712DomainChanged",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "to",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "saleHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "MintWithSignature",
     "type": "event"
   },
   {
@@ -440,7 +521,7 @@
   },
   {
     "inputs": [],
-    "name": "PYTH_MAX_AGE",
+    "name": "PYTH_MIN_MAX_AGE",
     "outputs": [
       {
         "internalType": "uint256",
@@ -494,7 +575,7 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "tokenId",
+        "name": "gameEndedCycle",
         "type": "uint256"
       }
     ],
@@ -538,6 +619,19 @@
     "name": "approve",
     "outputs": [],
     "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "approver",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -647,6 +741,67 @@
   },
   {
     "inputs": [],
+    "name": "eip712Domain",
+    "outputs": [
+      {
+        "internalType": "bytes1",
+        "name": "fields",
+        "type": "bytes1"
+      },
+      {
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "version",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "chainId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "verifyingContract",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "salt",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "extensions",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "gameEndedCycle",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address payable",
+        "name": "to",
+        "type": "address"
+      }
+    ],
+    "name": "emergencyWithdraw",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "firstCycleStart",
     "outputs": [
       {
@@ -732,6 +887,25 @@
   {
     "inputs": [
       {
+        "internalType": "uint256",
+        "name": "gameEndedCycle",
+        "type": "uint256"
+      }
+    ],
+    "name": "getWinner",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "owner",
         "type": "address"
@@ -774,6 +948,19 @@
   },
   {
     "inputs": [],
+    "name": "isGameEnded",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "maintenanceWithdrawn",
     "outputs": [
       {
@@ -804,11 +991,49 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "marketplace",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "quantity",
+        "name": "saleId",
         "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "endTime",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxMint",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "pricePerToken",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "amount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes",
+        "name": "signature",
+        "type": "bytes"
       }
     ],
     "name": "mint",
@@ -824,6 +1049,25 @@
         "internalType": "uint64",
         "name": "",
         "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "name": "mintedByHash",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -1021,6 +1265,16 @@
         "internalType": "struct IMarketplace.OrderParameters",
         "name": "orderParameters",
         "type": "tuple"
+      },
+      {
+        "internalType": "bytes",
+        "name": "signature",
+        "type": "bytes"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "fullHash",
+        "type": "bytes32"
       }
     ],
     "name": "punishUnfaithful",
@@ -1043,12 +1297,38 @@
   },
   {
     "inputs": [],
+    "name": "pythMaxAge",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "pythPriceId",
     "outputs": [
       {
         "internalType": "bytes32",
         "name": "",
         "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "renderer",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -1180,12 +1460,12 @@
   {
     "inputs": [
       {
-        "internalType": "string",
-        "name": "uri",
-        "type": "string"
+        "internalType": "address",
+        "name": "newApprover",
+        "type": "address"
       }
     ],
-    "name": "setBaseImageURI",
+    "name": "setApprover",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1212,6 +1492,19 @@
       }
     ],
     "name": "setPythContract",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_maxAge",
+        "type": "uint256"
+      }
+    ],
+    "name": "setPythMaxAge",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

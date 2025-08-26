@@ -28,6 +28,10 @@ interface IPyth {
     function getPriceNoOlderThan(bytes32 id, uint256 age) external view returns (Price memory price);
 }
 
+interface IProphetsRenderer {
+    function tokenURI(uint256 tokenId, string memory state) external view returns (string memory);
+}
+
 enum PriceProvider {
     AMM,           // 0 - Uniswap V2 AMM only
     PYTH,          // 1 - Pyth Network only
@@ -93,8 +97,8 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     // Blessed token (forever bullish winner)
     uint256 public blessedByDivine;
 
-    // Metadata base
-    string private baseImageURI;
+    // Renderer contract
+    address public immutable renderer;
     
     // Signature minting
     address public approver;
@@ -135,13 +139,14 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     // Constructor
     // ------------------------------
     constructor(
-        string memory _baseImageURI,
+        address _renderer,
         address uniPool,
         address _approver,
         address _marketplace,
         address _defaultOperator
-    ) ERC721A("Prophets of Ethereum", "PROPHET") EIP712("Prophets of Ethereum", "1") {
-        baseImageURI = _baseImageURI;
+    // ) ERC721A("Prophets of Ethereum", "PROPHET") EIP712("Prophets of Ethereum", "1") {
+    ) ERC721A("TEST", "TEST") EIP712("TEST", "1") {
+        renderer = _renderer;
         pool = uniPool;
         approver = _approver;
         marketplace = _marketplace;
@@ -508,33 +513,24 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         require(_exists(tokenId), "nf");
-        if (isBurned(tokenId)) return _buildMetadata(tokenId, "burned");
-        if (blessedByDivine == tokenId) return _buildMetadata(tokenId, "bullish");
+        string memory state = _getTokenState(tokenId);
+        return IProphetsRenderer(renderer).tokenURI(tokenId, state);
+    }
+    
+    function _getTokenState(uint256 tokenId) internal view returns (string memory) {
+        if (isBurned(tokenId)) return "burned";
+        if (blessedByDivine == tokenId) return "bullish";
         uint256 cycle = getCurrentCycle();
         if (cycle > 0 && predictions[tokenId][cycle] != int64(0)) {
             bool up = predictions[tokenId][cycle] > cycles[cycle].startPrice;
-            return _buildMetadata(tokenId, up ? "bullish" : "bearish");
+            return up ? "bullish" : "bearish";
         }
-        return _buildMetadata(tokenId, "prophesizing");
-    }
-
-    function _buildMetadata(uint256 tokenId, string memory stateKey) internal view returns (string memory) {
-        string memory json = string(
-            abi.encodePacked(
-                '{"name":"Prophet #',
-                tokenId.toString(),
-                '","description":"Prophets of Ethereum.",',
-                '"image":"', baseImageURI, stateKey, '.png",',
-                '"attributes":[{"trait_type":"State","value":"', stateKey, '"}]}'
-            )
-        );
-        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(json))));
+        return "prophesizing";
     }
 
     // ------------------------------
     // Admin
     // ------------------------------
-    function setBaseImageURI(string calldata uri) external onlyOwner { baseImageURI = uri; }
     
     function setPriceProvider(PriceProvider _provider) external onlyOwner {
         priceProvider = _provider;

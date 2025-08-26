@@ -6,17 +6,29 @@ export default async function deployProphets(hre: HardhatRuntimeEnvironment) {
     console.log("=" .repeat(60))
 
     // Deployment configuration
-    const baseTokenURI = "https://prophets.zkmarkets.com/metadata/"
-    const priceOracle = "0x0000000000000000000000000000000000000000" // Will be set after deployment
+    const rendererAddr = "0xcda9cb3CEA3ac21612FF67BBb5E9c1D188c4f2B7" // Set to existing renderer address or null to deploy new one
+    const uniPool = "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640" // WETH/USDC 0.05% pool on mainnet
+    const approver = "0x0000000000000000000000000000000000000000" // Will be set after deployment
+    const marketplace = "0x0000000000000000000000000000000000000000" // Will be set after deployment
+    const defaultOperator = "0x0000000000000000000000000000000000000000" // Optional
+
+    let renderer: any
+    renderer = { target: rendererAddr }
 
     const deployParams: any = [
-        baseTokenURI,
-        priceOracle
+        renderer.target,
+        uniPool,
+        approver,
+        marketplace,
+        defaultOperator
     ]
 
     console.log("🚀 Deploying ProphetsOfEthereum...")
-    console.log(`Base URI: ${baseTokenURI}`)
-    console.log(`Price Oracle: ${priceOracle}`)
+    console.log(`Renderer: ${renderer.target}`)
+    console.log(`Uniswap Pool: ${uniPool}`)
+    console.log(`Approver: ${approver}`)
+    console.log(`Marketplace: ${marketplace}`)
+    console.log(`Default Operator: ${defaultOperator}`)
     console.log(`Network: ${hre.network.name}`)
     console.log(`Total Supply: 666 NFTs`)
     console.log(`Mint Price: 0.01 ETH`)
@@ -24,15 +36,20 @@ export default async function deployProphets(hre: HardhatRuntimeEnvironment) {
     console.log("=" .repeat(60))
 
     try {
+        const options = {
+            verify: true,
+            doLog: true,
+          }
         const contract = await deployContract(
-            hre,
             "ProphetsOfEthereum",
-            deployParams
+            deployParams,
+            options
         )
 
         console.log("✅ PROPHETS SUCCESSFULLY SUMMONED!")
         console.log("=" .repeat(60))
-        console.log(`📋 Contract Address: ${contract.target}`)
+        console.log(`📋 Prophets Contract: ${contract.target}`)
+        console.log(`🎨 Renderer Contract: ${renderer.target}`)
         console.log(`🔗 Network: ${hre.network.name}`)
         console.log(`💰 Divine Treasury: 0 ETH (empty at start)`)
         console.log(`👥 Alive Prophets: 0 (none minted yet)`)
@@ -41,10 +58,11 @@ export default async function deployProphets(hre: HardhatRuntimeEnvironment) {
         console.log("=" .repeat(60))
         
         console.log("🔮 NEXT STEPS:")
-        console.log("1. Call startMinting() to begin the summoning")
-        console.log("2. Set up price oracle integration")
-        console.log("3. Start the first weekly ritual on Sunday")
-        console.log("4. Watch as false prophets burn in divine flames 🔥")
+        console.log("1. Set approver address for signature minting")
+        console.log("2. Set marketplace address for listing punishment")
+        console.log("3. Configure Pyth price feed settings if needed")
+        console.log("4. Start minting and begin the first weekly ritual on Sunday")
+        console.log("5. Watch as false prophets burn in divine flames 🔥")
         console.log("=" .repeat(60))
         
         return contract
