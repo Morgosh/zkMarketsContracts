@@ -37,25 +37,78 @@ describe("ProphetsOfEthereum end-to-end", () => {
     const mockPyth = await MockPyth.deploy(startPx, -8);
     await mockPyth.waitForDeployment();
 
-    // Deploy Prophets (constructor takes baseURI and uniPool, Pyth is hardcoded)
+    // Deploy ProphetsRenderer first
+    const rendererArtifact = await hre.artifacts.readArtifact("ProphetsRenderer");
+    const Renderer = new ethers.ContractFactory(rendererArtifact.abi, rendererArtifact.bytecode, deployer);
+    const renderer = await Renderer.deploy();
+    await renderer.waitForDeployment();
+
+    // Deploy Prophets with updated constructor parameters
     const prophetsArtifact = await hre.artifacts.readArtifact("ProphetsOfEthereum");
     const Prophets = new ethers.ContractFactory(prophetsArtifact.abi, prophetsArtifact.bytecode, deployer) as any;
-    const baseURI = "ipfs://base/";
-    const dummyPool = ethers.ZeroAddress; // not used in this test
-    const prophets = await Prophets.deploy(baseURI, dummyPool);
+    const dummyPool = ethers.ZeroAddress;
+    const approver = await provider.getSigner(4); // Use signer 4 as approver
+    const dummyMarketplace = ethers.ZeroAddress;
+    const dummyOperator = ethers.ZeroAddress;
+    
+    const prophets = await Prophets.deploy(
+      await renderer.getAddress(),  // _renderer
+      dummyPool,                   // uniPool
+      await approver.getAddress(), // _approver
+      dummyMarketplace,           // _marketplace
+      dummyOperator               // _defaultOperator
+    );
     await prophets.waitForDeployment();
     
     // Set mock pyth as the pyth contract and switch to PYTH mode
     await prophets.setPythContract(await mockPyth.getAddress());
     await prophets.setPriceProvider(1); // PYTH = 1
 
-    // Mint 333 from w1, 333 from w2
-    await (await prophets.connect(w1).mint(333, { value: MINT_PRICE * 333n })).wait();
-    await (await prophets.connect(w2).mint(333, { value: MINT_PRICE * 333n })).wait();
+    // Create signature-based minting helper
+    async function createMintSignature(user: any, saleId: number, amount: number) {
+      const domain = {
+        name: "TEST", // Match the contract's actual name
+        version: "1",
+        chainId: await hre.network.provider.send("eth_chainId"),
+        verifyingContract: await prophets.getAddress()
+      };
+
+      const types = {
+        Mint: [
+          { name: "user", type: "address" },
+          { name: "saleId", type: "uint256" },
+          { name: "endTime", type: "uint256" },
+          { name: "maxMint", type: "uint256" },
+          { name: "pricePerToken", type: "uint256" }
+        ]
+      };
+
+      const currentTime = Math.floor(Date.now() / 1000);
+      const value = {
+        user: await user.getAddress(),
+        saleId: saleId,
+        endTime: currentTime + (365 * 24 * 60 * 60),
+        maxMint: amount,
+        pricePerToken: MINT_PRICE.toString()
+      };
+
+      return await approver.signTypedData(domain, types, value);
+    }
+
+    // Mint 333 from w1, 333 from w2 using signature minting
+    const currentTime = Math.floor(Date.now() / 1000);
+    const sig1 = await createMintSignature(w1, 1, 333);
+    const sig2 = await createMintSignature(w2, 2, 333);
+    
+    await prophets.connect(w1).mint(1, currentTime + (365 * 24 * 60 * 60), 333, MINT_PRICE, 333, sig1, { value: MINT_PRICE * 333n });
+    await prophets.connect(w2).mint(2, currentTime + (365 * 24 * 60 * 60), 333, MINT_PRICE, 333, sig2, { value: MINT_PRICE * 333n });
     expect(await prophets.totalSupply()).to.equal(TOTAL);
 
-    // Third wallet cannot mint more
-    await expect(prophets.connect(w3).mint(1, { value: MINT_PRICE })).to.be.revertedWith("supply");
+    // Third wallet cannot mint more (supply exhausted)
+    const sig3 = await createMintSignature(w3, 3, 1);
+    await expect(
+      prophets.connect(w3).mint(3, currentTime + (365 * 24 * 60 * 60), 1, MINT_PRICE, 1, sig3, { value: MINT_PRICE })
+    ).to.be.revertedWith("Exceeds max supply");
 
     // Move time to Friday before the first Sunday window.
     const now = (await provider.getBlock("latest"))!.timestamp;
@@ -80,9 +133,9 @@ describe("ProphetsOfEthereum end-to-end", () => {
     expect(uri1).to.be.a("string");
 
     // Advance to Sunday 00:00 (prediction window)
-    const currentTime = (await provider.getBlock("latest"))!.timestamp;
+    const currentTime2 = (await provider.getBlock("latest"))!.timestamp;
     const sundayStart = Number(firstStart) + 60; // within Sunday window
-    const timeToSunday = sundayStart - currentTime;
+    const timeToSunday = sundayStart - currentTime2;
     
     if (timeToSunday > 0) {
       await increaseTime(timeToSunday);
@@ -116,8 +169,8 @@ describe("ProphetsOfEthereum end-to-end", () => {
 
     // End of Sunday: advance to Monday 00:00 (outside Sunday window) => switching not allowed
     const mondayTime = Number(firstStart) + oneDay + 60;
-    const currentTime2 = (await provider.getBlock("latest"))!.timestamp;
-    const timeToMonday = mondayTime - currentTime2;
+    const currentTime3 = (await provider.getBlock("latest"))!.timestamp;
+    const timeToMonday = mondayTime - currentTime3;
     if (timeToMonday > 0) {
       await increaseTime(timeToMonday);
     }
@@ -158,11 +211,13 @@ describe("ProphetsOfEthereum end-to-end", () => {
     expect(await prophets.isBurned(2)).to.equal(true);
 
     // Winner accepts blessing and withdraws divine treasury
+    // acceptDivineBlessing now requires gameEndedCycle parameter
     const balBefore = await provider.getBalance(await w2.getAddress());
-    const tx = await prophets.connect(w2).acceptDivineBlessing();
+    const gameEndedCycle = 2; // Second cycle ended, third cycle started
+    const tx = await prophets.connect(w2).acceptDivineBlessing(gameEndedCycle);
     const rc = await tx.wait();
     const gas = rc ? rc.gasUsed * rc.gasPrice : 0n;
-    const balAfter = await ethers.provider.getBalance(await w2.getAddress());
+    const balAfter = await provider.getBalance(await w2.getAddress());
     expect(balAfter + gas).to.be.greaterThan(balBefore);
   });
 });

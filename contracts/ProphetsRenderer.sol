@@ -29,30 +29,13 @@ contract ProphetsRenderer is Ownable {
         emit ImageStored(state, bytes(imageData).length);
     }
     
-    /// @notice Generate token URI for a Prophet NFT
-    /// @param tokenId The token ID
-    /// @param state The current state of the prophet (prophesizing, bullish, bearish, burned)
-    /// @return JSON metadata URI
-    function tokenURI(uint256 tokenId, string memory state) external view returns (string memory) {
+    /// @notice Get image for a specific state
+    /// @param state The prophet state (prophesizing, bullish, bearish, burned)
+    /// @return Complete data URI for the image
+    function getImage(string memory state) external view returns (string memory) {
         string memory imageData = images[state];
         require(bytes(imageData).length > 0, "image-not-found");
-        
-        string memory json = string(
-            abi.encodePacked(
-                '{"name":"Prophet #',
-                tokenId.toString(),
-                '","description":"',
-                getDescription(state),
-                '","image":"',
-                imageData,
-                '",',
-                '"attributes":[{"trait_type":"State","value":"',
-                state,
-                '"}]}'
-            )
-        );
-        
-        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(json))));
+        return imageData;
     }
     
     /// @notice Get description based on Prophet state

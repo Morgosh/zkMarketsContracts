@@ -29,7 +29,8 @@ interface IPyth {
 }
 
 interface IProphetsRenderer {
-    function tokenURI(uint256 tokenId, string memory state) external view returns (string memory);
+    function images(string memory state) external view returns (string memory);
+    function getDescription(string memory state) external pure returns (string memory);
 }
 
 enum PriceProvider {
@@ -513,8 +514,29 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
 
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         require(_exists(tokenId), "nf");
+        
         string memory state = _getTokenState(tokenId);
-        return IProphetsRenderer(renderer).tokenURI(tokenId, state);
+        string memory imageData = IProphetsRenderer(renderer).images(state);
+        string memory description = IProphetsRenderer(renderer).getDescription(state);
+        
+        // Build attributes with current cycle prediction if available
+        string memory attributes = _buildAttributes(tokenId, state);
+        
+        string memory json = string(
+            abi.encodePacked(
+                '{"name":"Prophet #',
+                tokenId.toString(),
+                '","description":"',
+                description,
+                '","image":"',
+                imageData,
+                '","attributes":[',
+                attributes,
+                ']}'
+            )
+        );
+        
+        return string(abi.encodePacked("data:application/json;base64,", Base64.encode(bytes(json))));
     }
     
     function _getTokenState(uint256 tokenId) internal view returns (string memory) {
@@ -526,6 +548,101 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
             return up ? "bullish" : "bearish";
         }
         return "prophesizing";
+    }
+    
+    /// @notice Check if a token is soulbound (non-transferable)
+    /// @param tokenId The token ID to check
+    /// @return true if the token is soulbound and cannot be transferred
+    function isSoulbound(uint256 tokenId) public view returns (bool) {
+        require(_exists(tokenId), "nf");
+        // Burned tokens are soulbound
+        return isBurned(tokenId);
+    }
+    
+    /// @notice Build metadata attributes including current prediction
+    /// @param tokenId The token ID
+    /// @param state The current state
+    /// @return JSON attributes string
+    function _buildAttributes(uint256 tokenId, string memory state) internal view returns (string memory) {
+        string memory attributes = string(abi.encodePacked('{"trait_type":"State","value":"', state, '"}'));
+        
+        // Add current cycle prediction if available
+        uint256 cycle = getCurrentCycle();
+        if (cycle > 0) {
+            int64 prediction = predictions[tokenId][cycle];
+            if (prediction != int64(0)) {
+                attributes = string(abi.encodePacked(
+                    attributes,
+                    ',{"trait_type":"Current Cycle","value":"', cycle.toString(), '"}',
+                    ',{"trait_type":"Current Prediction","value":"', _formatPrice(prediction), '"}'
+                ));
+                
+                // Add cycle start price for context
+                CycleInfo storage cycleInfo = cycles[cycle];
+                if (cycleInfo.startPrice != int64(0)) {
+                    attributes = string(abi.encodePacked(
+                        attributes,
+                        ',{"trait_type":"Cycle Start Price","value":"', _formatPrice(cycleInfo.startPrice), '"}',
+                        ',{"trait_type":"Prediction Direction","value":"', prediction > cycleInfo.startPrice ? "Bullish" : "Bearish", '"}'
+                    ));
+                }
+            }
+        }
+        
+        // Add blessed status
+        if (blessedByDivine == tokenId) {
+            attributes = string(abi.encodePacked(
+                attributes,
+                ',{"trait_type":"Divine Status","value":"Blessed"}'
+            ));
+        }
+        
+        // Add soulbound status
+        if (isSoulbound(tokenId)) {
+            attributes = string(abi.encodePacked(
+                attributes,
+                ',{"trait_type":"Transferable","value":"Soulbound"}'
+            ));
+        }
+        
+        return attributes;
+    }
+    
+    /// @notice Format price for display (1e8 normalized to readable format)
+    /// @param price Price in 1e8 format
+    /// @return formatted price string
+    function _formatPrice(int64 price) internal pure returns (string memory) {
+        if (price <= 0) return "$0.00";
+        
+        uint256 uPrice = uint256(int256(price));
+        uint256 dollars = uPrice / 1e8;
+        uint256 cents = (uPrice % 1e8) / 1e6; // Show 2 decimal places
+        
+        return string(abi.encodePacked("$", dollars.toString(), ".", _padZeros(cents, 2)));
+    }
+    
+    /// @notice Pad number with leading zeros
+    /// @param num Number to pad
+    /// @param digits Target number of digits
+    /// @return padded string
+    function _padZeros(uint256 num, uint256 digits) internal pure returns (string memory) {
+        string memory numStr = num.toString();
+        bytes memory numBytes = bytes(numStr);
+        
+        if (numBytes.length >= digits) return numStr;
+        
+        bytes memory padded = new bytes(digits);
+        uint256 padding = digits - numBytes.length;
+        
+        for (uint256 i = 0; i < padding; i++) {
+            padded[i] = "0";
+        }
+        
+        for (uint256 i = 0; i < numBytes.length; i++) {
+            padded[padding + i] = numBytes[i];
+        }
+        
+        return string(padded);
     }
 
     // ------------------------------
@@ -574,14 +691,17 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     // Transfer Overrides
     // ------------------------------
     function transferFrom(address from, address to, uint256 tokenId) public payable override onlyAllowedOperator(from) {
+        require(!isSoulbound(tokenId), "soulbound");
         super.transferFrom(from, to, tokenId);
     }
 
     function safeTransferFrom(address from, address to, uint256 tokenId) public payable override onlyAllowedOperator(from) {
+        require(!isSoulbound(tokenId), "soulbound");
         super.safeTransferFrom(from, to, tokenId);
     }
 
     function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data) public payable override onlyAllowedOperator(from) {
+        require(!isSoulbound(tokenId), "soulbound");
         super.safeTransferFrom(from, to, tokenId, data);
     }
 
@@ -629,11 +749,14 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     // Listing Punishment System
     // ------------------------------
 
-    /// @notice Calculate minimal floor price: Divine Treasury ÷ Alive Prophets
+    /// @notice Calculate minimal floor price: Divine Treasury ÷ Alive Prophets, but never below mint price
     function getMinimalFloorPrice() public view returns (uint256) {
         uint256 aliveProphets = getAliveProphetsCount();
-        if (aliveProphets == 0) return 0;
-        return getTreasury() / aliveProphets;
+        if (aliveProphets == 0) return MINT_PRICE;
+        
+        uint256 calculatedFloor = getTreasury() / aliveProphets;
+        // Floor price cannot go below mint price
+        return calculatedFloor > MINT_PRICE ? calculatedFloor : MINT_PRICE;
     }
 
     /// @notice Count alive prophets based on previous cycle submissions
