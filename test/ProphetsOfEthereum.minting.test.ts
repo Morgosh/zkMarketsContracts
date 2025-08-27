@@ -11,18 +11,21 @@ const provider = new ethers.BrowserProvider(hre.network.provider as any);
 // Helper function to create mint signature
 async function createMintSignature(
   approver: any,
-  contractAddress: string,
+  contract: any,
   user: string,
   saleId: number,
   endTime: number,
   maxMint: number,
   pricePerToken: bigint
 ) {
+  // Fetch contract name dynamically
+  const contractName = await contract.name();
+  
   const domain = {
-    name: "TEST", // Match the contract's actual name
+    name: contractName, // Dynamically fetch contract name
     version: "1",
     chainId: (await provider.getNetwork()).chainId,
-    verifyingContract: contractAddress
+    verifyingContract: await contract.getAddress()
   };
 
   const types = {
@@ -103,7 +106,7 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
 
       const signature = await createMintSignature(
         approver,
-        contractAddress,
+        prophets,
         await user1.getAddress(),
         saleId,
         endTime,
@@ -139,7 +142,7 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
       // Create signature with wrong signer (user2 instead of approver)
       const invalidSignature = await createMintSignature(
         user2, // Wrong signer
-        contractAddress,
+        prophets,
         await user1.getAddress(),
         saleId,
         endTime,
@@ -170,7 +173,7 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
 
       const signature = await createMintSignature(
         approver,
-        contractAddress,
+        prophets,
         await user1.getAddress(),
         saleId,
         endTime,
@@ -213,7 +216,7 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
 
       const signature = await createMintSignature(
         approver,
-        contractAddress,
+        prophets,
         await user1.getAddress(),
         saleId,
         endTime,
@@ -262,7 +265,7 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
 
       const signature = await createMintSignature(
         approver,
-        contractAddress,
+        prophets,
         await user1.getAddress(),
         saleId,
         endTime,

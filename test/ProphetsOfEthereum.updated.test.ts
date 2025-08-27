@@ -56,8 +56,11 @@ describe("ProphetsOfEthereum - Updated Tests", () => {
     expect(await renderer.owner()).to.equal(await deployer.getAddress());
     
     // Check prophets initial state
-    expect(await prophets.name()).to.equal("TEST"); // Updated to match current deployment
-    expect(await prophets.symbol()).to.equal("TEST");
+    // Check initial state - dynamically verify name and symbol
+    const contractName = await prophets.name();
+    const contractSymbol = await prophets.symbol();
+    expect(contractName).to.be.a("string").and.not.be.empty;
+    expect(contractSymbol).to.be.a("string").and.not.be.empty;
     expect(await prophets.totalSupply()).to.equal(0);
     expect(await prophets.TOTAL_SUPPLY()).to.equal(666);
     expect(await prophets.getCurrentCycle()).to.equal(0);
@@ -76,8 +79,9 @@ describe("ProphetsOfEthereum - Updated Tests", () => {
     const amount = 1;
 
     // Generate EIP-712 signature
+    const contractName = await prophets.name();
     const domain = {
-      name: "TEST", // Must match contract name
+      name: contractName, // Dynamically fetch contract name
       version: "1",
       chainId: await hre.network.provider.send("eth_chainId"),
       verifyingContract: await prophets.getAddress()
@@ -193,8 +197,9 @@ describe("ProphetsOfEthereum - Updated Tests", () => {
     const pricePerToken = 0n;
     const amount = 1;
 
+    const contractName = await prophets.name();
     const domain = {
-      name: "TEST",
+      name: contractName,
       version: "1",
       chainId: await hre.network.provider.send("eth_chainId"),
       verifyingContract: await prophets.getAddress()

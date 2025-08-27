@@ -14,18 +14,21 @@ const provider = new ethers.BrowserProvider(hre.network.provider as any);
 // Helper function to create mint signature
 async function createMintSignature(
   approver: any,
-  contractAddress: string,
+  contract: any,
   user: string,
   saleId: number,
   endTime: number,
   maxMint: number,
   pricePerToken: bigint
 ) {
+  // Fetch contract name dynamically
+  const contractName = await contract.name();
+  
   const domain = {
-    name: "TEST", // Match the contract's actual name
+    name: contractName, // Dynamically fetch contract name
     version: "1",
     chainId: (await provider.getNetwork()).chainId,
-    verifyingContract: contractAddress
+    verifyingContract: await contract.getAddress()
   };
 
   const types = {
@@ -95,7 +98,6 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
     await prophets.setPriceProvider(1); // PYTH = 1
 
     // Complete mint out using signature-based minting
-    const contractAddress = await prophets.getAddress();
     const currentTime = Math.floor(Date.now() / 1000);
     const endTime = currentTime + (365 * 24 * 60 * 60); // 1 year from now
     const saleId = 1;
@@ -105,7 +107,7 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
     // Create signatures for both users
     const signature1 = await createMintSignature(
       approver,
-      contractAddress,
+      prophets,
       await user1.getAddress(),
       saleId,
       endTime,
@@ -115,7 +117,7 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
 
     const signature2 = await createMintSignature(
       approver,
-      contractAddress,
+      prophets,
       await user2.getAddress(),
       saleId + 1, // Different sale ID
       endTime,

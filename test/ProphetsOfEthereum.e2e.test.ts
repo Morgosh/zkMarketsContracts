@@ -66,8 +66,9 @@ describe("ProphetsOfEthereum end-to-end", () => {
 
     // Create signature-based minting helper
     async function createMintSignature(user: any, saleId: number, amount: number) {
+      const contractName = await prophets.name();
       const domain = {
-        name: "TEST", // Match the contract's actual name
+        name: contractName, // Dynamically fetch contract name
         version: "1",
         chainId: await hre.network.provider.send("eth_chainId"),
         verifyingContract: await prophets.getAddress()
