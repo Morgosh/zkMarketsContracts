@@ -340,6 +340,15 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
 
         int64 prevPrice = predictions[tokenId][cycle];
         bool firstForTokenThisCycle = prevPrice == int64(0);
+        
+        // Prevent predictions from being exactly the same as current extremes
+        // UNLESS it's the same token updating to the same price (no-op) or updating to a different extreme
+        if (info.lowestPredictionTokenId != 0 && info.lowestPredictionTokenId != tokenId) {
+            require(predictedPrice != info.lowestPredictionPrice, "same-as-lowest");
+        }
+        if (info.highestPredictionTokenId != 0 && info.highestPredictionTokenId != tokenId) {
+            require(predictedPrice != info.highestPredictionPrice, "same-as-highest");
+        }
         predictions[tokenId][cycle] = predictedPrice;
 
         // no persistent state; direction is derived in tokenURI/isBurned
