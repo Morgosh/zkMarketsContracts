@@ -9,8 +9,7 @@ export default async function deployProphets(hre: HardhatRuntimeEnvironment) {
     const rendererAddr = "0xcda9cb3CEA3ac21612FF67BBb5E9c1D188c4f2B7" // Set to existing renderer address or null to deploy new one
     const uniPool = "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640" // WETH/USDC 0.05% pool on mainnet
     const approver = "0x62d8B1c7FE0c8a6d3a8a8Ac051c24A06b4602e65" // Will be set after deployment
-    const marketplace = "0x0000000000000000000000000000000000000000" // Will be set after deployment
-    const defaultOperator = "0x0000000000000000000000000000000000000000" // Optional
+    const marketplace = "0x7e0fa00d7a02890c66833d4f08f698d15d4ecd01" // Will be set after deployment (auto-set as operator)
 
     let renderer: any
     renderer = { target: rendererAddr }
@@ -19,16 +18,14 @@ export default async function deployProphets(hre: HardhatRuntimeEnvironment) {
         renderer.target,
         uniPool,
         approver,
-        marketplace,
-        defaultOperator
+        marketplace
     ]
 
     console.log("🚀 Deploying ProphetsOfEthereum...")
     console.log(`Renderer: ${renderer.target}`)
     console.log(`Uniswap Pool: ${uniPool}`)
     console.log(`Approver: ${approver}`)
-    console.log(`Marketplace: ${marketplace}`)
-    console.log(`Default Operator: ${defaultOperator}`)
+    console.log(`Marketplace (auto-operator): ${marketplace}`)
     console.log(`Network: ${hre.network.name}`)
     console.log(`Total Supply: 666 NFTs`)
     console.log(`Mint Price: 0.01 ETH`)

@@ -2,17 +2,31 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
+        "internalType": "string",
+        "name": "state",
+        "type": "string"
+      }
+    ],
+    "name": "getDescription",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
       {
         "internalType": "string",
         "name": "state",
         "type": "string"
       }
     ],
-    "name": "tokenURI",
+    "name": "images",
     "outputs": [
       {
         "internalType": "string",

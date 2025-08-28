@@ -33,8 +33,7 @@ describe("ProphetsOfEthereum - Simple Test", () => {
       await renderer.getAddress(),  // _renderer
       dummyPool,                   // uniPool
       await approver.getAddress(), // _approver
-      dummyMarketplace,           // _marketplace
-      dummyOperator               // _defaultOperator
+      dummyMarketplace            // _marketplace (auto-set as operator)
     );
     await prophets.waitForDeployment();
 
@@ -48,7 +47,7 @@ describe("ProphetsOfEthereum - Simple Test", () => {
     expect(contractName).to.be.a("string").and.not.be.empty;
     expect(contractSymbol).to.be.a("string").and.not.be.empty;
     expect(await prophets.totalSupply()).to.equal(0);
-    expect(await prophets.TOTAL_SUPPLY()).to.equal(666);
+    expect(await prophets.maxSupply()).to.equal(666);
     expect(await prophets.getCurrentCycle()).to.equal(0); // No cycle until mint complete
     
     console.log("✅ Contract deployed and configured successfully");
@@ -84,7 +83,6 @@ describe("ProphetsOfEthereum - Simple Test", () => {
       await renderer.getAddress(),
       ethers.ZeroAddress,
       await approver.getAddress(),
-      ethers.ZeroAddress,
       ethers.ZeroAddress
     );
     await prophets.waitForDeployment();

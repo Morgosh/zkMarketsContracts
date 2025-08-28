@@ -8,8 +8,8 @@ async function main() {
 
     // Configuration constants
     const rendererAddress = "0xcda9cb3CEA3ac21612FF67BBb5E9c1D188c4f2B7"; // UPDATE THIS
-    const state = "burned";
-    const imageFile = "04burned.txt";
+    const state = "bullish";
+    const imageFile = "03bullish.txt";
 
     // Validate state
     const validStates = ["prophesizing", "bullish", "bearish", "burned"];

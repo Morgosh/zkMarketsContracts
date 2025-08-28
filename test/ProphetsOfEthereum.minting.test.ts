@@ -85,7 +85,7 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
       dummyPool,                   // uniPool
       await approver.getAddress(), // _approver
       mockMarketplace,             // _marketplace
-      defaultOperator              // _defaultOperator
+
     );
     await prophets.waitForDeployment();
 

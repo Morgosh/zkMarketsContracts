@@ -49,7 +49,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     // ------------------------------
     // Constants
     // ------------------------------
-    uint256 public constant TOTAL_SUPPLY = 666;
+    uint256 public constant MAX_SUPPLY = 666;
     uint256 public constant MINT_PRICE = 0.01 ether;
     uint256 public constant MAINTENANCE_FEE = 1 ether;
     uint256 public constant JUDGMENT_THRESHOLD_BPS = 1000; // 10%
@@ -143,21 +143,23 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         address _renderer,
         address uniPool,
         address _approver,
-        address _marketplace,
-        address _defaultOperator
-    // ) ERC721A("Prophets of Ethereum", "PROPHET") EIP712("Prophets of Ethereum", "1") {
-    ) ERC721A("TEST", "TEST") EIP712("TEST", "1") {
+        address _marketplace
+    ) ERC721A("Prophets of Ethereum", "PROPHET") EIP712("Prophets of Ethereum", "1") {
         renderer = _renderer;
         pool = uniPool;
         approver = _approver;
         marketplace = _marketplace;
         pythContract = 0x8739d5024B5143278E2b15Bd9e7C26f6CEc658F1; // Pyth mainnet
         
-        // Set default whitelisted operator
-        if (_defaultOperator != address(0)) {
-            allowedOperators[_defaultOperator] = true;
-            emit OperatorAllowed(_defaultOperator, true);
+        // Automatically set marketplace as allowed operator
+        if (_marketplace != address(0)) {
+            allowedOperators[_marketplace] = true;
+            emit OperatorAllowed(_marketplace, true);
         }
+        
+        // Set deployer as allowed operator by default
+        allowedOperators[msg.sender] = true;
+        emit OperatorAllowed(msg.sender, true);
     }
 
     // ------------------------------
@@ -180,7 +182,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     ) external payable {
         require(amount > 0, "Amount must be greater than 0");
         require(block.timestamp <= endTime, "Sale has ended");
-        require(totalSupply() + amount <= TOTAL_SUPPLY, "Exceeds max supply");
+        require(totalSupply() + amount <= MAX_SUPPLY, "Exceeds max supply");
         require(msg.value == pricePerToken * amount, "Insufficient payment");
         
         bytes32 saleHash = keccak256(abi.encodePacked(msg.sender, saleId, endTime, maxMint, pricePerToken));
@@ -191,7 +193,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         _mint(msg.sender, amount);
 
         // if this completes mint-out, set firstCycleStart to next Sunday 00:00 UTC
-        if (mintCompleteTimestamp == 0 && totalSupply() == TOTAL_SUPPLY) {
+        if (mintCompleteTimestamp == 0 && totalSupply() == MAX_SUPPLY) {
             mintCompleteTimestamp = uint64(block.timestamp);
             firstCycleStart = _nextSunday00UTC(mintCompleteTimestamp);
             // first cycle index becomes 1 when Sunday window opens
@@ -340,15 +342,6 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
 
         int64 prevPrice = predictions[tokenId][cycle];
         bool firstForTokenThisCycle = prevPrice == int64(0);
-        
-        // Prevent predictions from being exactly the same as current extremes
-        // UNLESS it's the same token updating to the same price (no-op) or updating to a different extreme
-        if (info.lowestPredictionTokenId != 0 && info.lowestPredictionTokenId != tokenId) {
-            require(predictedPrice != info.lowestPredictionPrice, "same-as-lowest");
-        }
-        if (info.highestPredictionTokenId != 0 && info.highestPredictionTokenId != tokenId) {
-            require(predictedPrice != info.highestPredictionPrice, "same-as-highest");
-        }
         predictions[tokenId][cycle] = predictedPrice;
 
         // no persistent state; direction is derived in tokenURI/isBurned
@@ -442,6 +435,10 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     // ------------------------------
     // Views
     // ------------------------------
+    function maxSupply() public pure returns (uint256) {
+        return MAX_SUPPLY;
+    }
+
     function isGameEnded() public view returns (bool) {
         uint256 cycle = getCurrentCycle();
         if (cycle <= 1) return false; // need at least 1 completed cycle

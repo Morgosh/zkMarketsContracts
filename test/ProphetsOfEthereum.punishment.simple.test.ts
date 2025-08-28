@@ -89,7 +89,7 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
       dummyPool,                   // uniPool
       await approver.getAddress(), // _approver
       mockMarketplace,             // _marketplace
-      defaultOperator              // _defaultOperator
+
     );
     await prophets.waitForDeployment();
 

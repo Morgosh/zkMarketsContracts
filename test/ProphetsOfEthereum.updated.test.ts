@@ -42,7 +42,7 @@ describe("ProphetsOfEthereum - Updated Tests", () => {
       dummyPool,                   // uniPool
       await approver.getAddress(), // _approver
       dummyMarketplace,           // _marketplace
-      dummyOperator               // _defaultOperator
+
     );
     await prophets.waitForDeployment();
 
@@ -62,7 +62,7 @@ describe("ProphetsOfEthereum - Updated Tests", () => {
     expect(contractName).to.be.a("string").and.not.be.empty;
     expect(contractSymbol).to.be.a("string").and.not.be.empty;
     expect(await prophets.totalSupply()).to.equal(0);
-    expect(await prophets.TOTAL_SUPPLY()).to.equal(666);
+    expect(await prophets.maxSupply()).to.equal(666);
     expect(await prophets.getCurrentCycle()).to.equal(0);
     expect(await prophets.renderer()).to.equal(await renderer.getAddress());
     expect(await prophets.approver()).to.equal(await approver.getAddress());
@@ -141,8 +141,9 @@ describe("ProphetsOfEthereum - Updated Tests", () => {
     const pricePerToken = 0n;
     const amount = 1;
 
+    const contractName = await prophets.name();
     const domain = {
-      name: "TEST",
+      name: contractName,
       version: "1", 
       chainId: await hre.network.provider.send("eth_chainId"),
       verifyingContract: await prophets.getAddress()

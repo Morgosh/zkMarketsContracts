@@ -56,7 +56,7 @@ describe("ProphetsOfEthereum end-to-end", () => {
       dummyPool,                   // uniPool
       await approver.getAddress(), // _approver
       dummyMarketplace,           // _marketplace
-      dummyOperator               // _defaultOperator
+
     );
     await prophets.waitForDeployment();
     
