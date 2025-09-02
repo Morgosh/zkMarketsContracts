@@ -76,7 +76,6 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         // Prices are 1e8 normalized
         int64 startPrice;           // price logged at first prediction of the cycle (Sunday)
         uint64 startTime;           // Sunday 00:00 UTC start (first prediction timestamp)
-        uint64 endTime;             // Sunday 00:00 UTC end of week (start + 7 days)
         uint32 predictionsCount;    // unique tokens that predicted in this cycle
         // Extremes for tie-break and blessing
         uint256 lowestPredictionTokenId;  // smallest predicted price
@@ -333,8 +332,6 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
             int64 sp = _readCurrentPrice();
             info.startPrice = sp;
             info.startTime = uint64(block.timestamp);
-            // Boundaries useful for UI
-            info.endTime = uint64(uint256(firstCycleStart) + cycle * 1 weeks);
         }
 
         // enforce min difference
