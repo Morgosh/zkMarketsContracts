@@ -42,12 +42,11 @@ describe("ProphetsOfEthereum - Updated Tests", () => {
       dummyPool,                   // uniPool
       await approver.getAddress(), // _approver
       dummyMarketplace,           // _marketplace
-
+      await mockPyth.getAddress()  // _pythContract
     );
     await prophets.waitForDeployment();
 
-    // Configure to use MockPyth
-    await prophets.setPythContract(await mockPyth.getAddress());
+    // Set price provider to use Pyth
     await prophets.setPriceProvider(1); // PYTH = 1
   });
 

@@ -38,12 +38,11 @@ describe("ProphetsOfEthereum - Prediction Uniqueness", () => {
       ethers.ZeroAddress, // dummy pool
       await approver.getAddress(),
       ethers.ZeroAddress, // dummy marketplace
-      ethers.ZeroAddress  // dummy operator
+      await mockPyth.getAddress() // _pythContract
     );
     await prophets.waitForDeployment();
 
-    // Configure to use MockPyth
-    await prophets.setPythContract(await mockPyth.getAddress());
+    // Set price provider to use Pyth
     await prophets.setPriceProvider(1); // PYTH = 1
 
     // Mint tokens and complete mint-out

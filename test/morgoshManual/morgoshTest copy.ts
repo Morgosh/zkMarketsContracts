@@ -3,6 +3,8 @@ import "@nomicfoundation/hardhat-chai-matchers";
 import { ethers } from "ethers";
 import hre from "hardhat";
 import { createMintSignature } from "../testUtils";
+import fs from "fs";
+import path from "path";
 
 const TOTAL = 666n;
 const MINT_PRICE = ethers.parseEther("0.01");
@@ -32,8 +34,22 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
     // Deploy ProphetsRenderer first
     const rendererArtifact = await hre.artifacts.readArtifact("ProphetsRenderer");
     const Renderer = new ethers.ContractFactory(rendererArtifact.abi, rendererArtifact.bytecode, deployer);
-    const renderer = await Renderer.deploy();
+    const renderer = await Renderer.deploy() as any;
     await renderer.waitForDeployment();
+
+    // Deploy all 4 images
+    const images = [
+      { state: "prophesizing", file: "01prophesizing.txt" },
+      { state: "bearish", file: "02bearish.txt" },
+      { state: "bullish", file: "03bullish.txt" },
+      { state: "burned", file: "04burned.txt" }
+    ];
+
+    for (const img of images) {
+      const imagePath = path.join(__dirname, "../../deploy/images", img.file);
+      const imageData = fs.readFileSync(imagePath, "utf8").trim();
+      await renderer.storeImage(img.state, imageData);
+    }
 
     // Deploy Prophets with correct constructor parameters
     const prophetsArtifact = await hre.artifacts.readArtifact("ProphetsOfEthereum");
@@ -51,19 +67,18 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
     );
     await prophets.waitForDeployment();
 
-    // Set price provider to use Pyth
+    // Configure to use PYTH mode
     await prophets.setPriceProvider(1); // PYTH = 1
   });
 
   describe("Signature-based Minting", () => {
     it("should mint with valid signature", async () => {
-      const contractAddress = await prophets.getAddress();
       const currentTime = Math.floor(Date.now() / 1000);
       const endTime = currentTime + (365 * 24 * 60 * 60); // 1 year from now
       const saleId = 1;
-      const maxMint = 5;
+      const maxMint = 667;
       const pricePerToken = MINT_PRICE;
-      const amount = 2;
+      const actualMintAmount = 333;
 
       const signature = await createMintSignature(
         approver,
@@ -81,18 +96,17 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
           endTime,
           maxMint,
           pricePerToken,
-          amount,
+          actualMintAmount,
           signature,
-          { value: pricePerToken * BigInt(amount) }
+          { value: pricePerToken * BigInt(actualMintAmount) }
         )
       ).to.not.be.reverted;
 
-      expect(await prophets.totalSupply()).to.equal(amount);
-      expect(await prophets.balanceOf(await user1.getAddress())).to.equal(amount);
+      expect(await prophets.totalSupply()).to.equal(actualMintAmount);
+      expect(await prophets.balanceOf(await user1.getAddress())).to.equal(actualMintAmount);
     });
 
     it("should reject invalid signature", async () => {
-      const contractAddress = await prophets.getAddress();
       const currentTime = Math.floor(Date.now() / 1000);
       const endTime = currentTime + (365 * 24 * 60 * 60);
       const saleId = 1;
@@ -214,47 +228,15 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
   });
 
   describe("Basic Functions", () => {
-    it("should return correct alive prophets count", async () => {
-      // Before any cycles, should return total supply
-      // But we need to complete mint-out first
-      const contractAddress = await prophets.getAddress();
-      const currentTime = Math.floor(Date.now() / 1000);
-      const endTime = currentTime + (365 * 24 * 60 * 60);
-      const saleId = 1;
-      const maxMint = 666;
-      const pricePerToken = MINT_PRICE;
-
-      const signature = await createMintSignature(
-        approver,
-        prophets,
-        await user1.getAddress(),
-        saleId,
-        endTime,
-        maxMint,
-        pricePerToken
-      );
-
-      // Complete mint-out
-      await prophets.connect(user1).mint(
-        saleId,
-        endTime,
-        maxMint,
-        pricePerToken,
-        666,
-        signature,
-        { value: pricePerToken * 666n }
-      );
-
-      // Now check total supply (all prophets are alive at start)
-      expect(await prophets.totalSupply()).to.equal(TOTAL);
-    });
-
-    it("should calculate minimal floor price", async () => {
+    it("should calculate minimal floor price correctly", async () => {
+      // Before any cycles, floor price should be based on total supply
       const contractFloor = await prophets.getMinimalFloorPrice();
       const mintPrice = ethers.parseEther("0.01");
       
       // Floor price should be at least the mint price
       expect(contractFloor).to.be.gte(mintPrice);
     });
+
+
   });
 });

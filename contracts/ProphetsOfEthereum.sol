@@ -95,8 +95,9 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
 
     // Cycle data by cycle index starting at 1. Cycle 0 = pre-game.
     mapping(uint256 => CycleInfo) public cycles;
-    // Blessed token (forever bullish winner)
+    // Blessed token (forever bullish winner) and cycle when blessed
     uint256 public blessedByDivine;
+    uint256 public blessedAtCycle;
 
     // Renderer contract
     address public immutable renderer;
@@ -238,8 +239,16 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     function getCurrentCycle() public view returns (uint256) {
         if (mintCompleteTimestamp == 0) return 0;
         if (block.timestamp < firstCycleStart) return 0;
+        
         // weeks elapsed since first cycle start; cycle index starts at 1
-        return 1 + (block.timestamp - uint256(firstCycleStart)) / 1 weeks;
+        uint256 calculatedCycle = 1 + (block.timestamp - uint256(firstCycleStart)) / 1 weeks;
+        
+        // If divine treasury was claimed, cycles stop at that point
+        if (blessedAtCycle > 0) {
+            return blessedAtCycle;
+        }
+        
+        return calculatedCycle;
     }
 
     function _ensureCycleWindow() internal view {
@@ -373,8 +382,11 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         uint256 winnerId = getWinner(gameEndedCycle);
         require(ownerOf(winnerId) == msg.sender, "not-winner");
 
+        uint256 currentCycle = getCurrentCycle();
+        
         // Set blessed status BEFORE external call
         blessedByDivine = winnerId;
+        blessedAtCycle = currentCycle;
 
         uint256 amount = getTreasury();
         require(amount > 0, "no-treasury");
@@ -382,7 +394,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         (bool ok, ) = payable(msg.sender).call{value: amount}("");
         require(ok, "transfer");
 
-        emit DivineBlessingAccepted(getCurrentCycle(), winnerId, amount);
+        emit DivineBlessingAccepted(currentCycle, winnerId, amount);
     }
 
     
@@ -410,6 +422,8 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         
         uint256 amount = getTreasury();
         require(amount > 0, "no-treasury");
+
+        blessedAtCycle = currentCycle;
         
         (bool ok, ) = to.call{value: amount}("");
         require(ok, "transfer");
@@ -518,6 +532,33 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         return false;
     }
 
+    /// @notice Get the cycle when a prophet was burned (0 if not burned)
+    /// @param tokenId The token ID to check
+    /// @return The cycle number when the prophet was burned, 0 if not burned
+    function getBurnCycle(uint256 tokenId) public view returns (uint256) {
+        bool burned = isBurned(tokenId);
+        require(burned, "not-burned");
+        return _getBurnCycle(tokenId);
+    }
+
+    /// @notice Internal method to get burn cycle (assumes token is burned)
+    /// @param tokenId The token ID to check
+    /// @return The cycle number when the prophet was burned
+    function _getBurnCycle(uint256 tokenId) private view returns (uint256) {
+        uint256 currentCycle = getCurrentCycle();
+        
+        // Loop forwards through cycles to find first missing prediction
+        for (uint256 cycle = 1; cycle < currentCycle; cycle++) {
+            if (predictions[tokenId][cycle] == int64(0)) {
+                // Found first cycle with no prediction = they died this cycle
+                return cycle;
+            }
+        }
+        
+        // If we get here, they made predictions all cycles but failed judgment in most recent
+        return currentCycle;
+    }
+
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         require(_exists(tokenId), "nf");
         
@@ -572,43 +613,48 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     function _buildAttributes(uint256 tokenId, string memory state) internal view returns (string memory) {
         string memory attributes = string(abi.encodePacked('{"trait_type":"State","value":"', state, '"}'));
         
-        // Add current cycle prediction if available
-        uint256 cycle = getCurrentCycle();
-        if (cycle > 0) {
-            int64 prediction = predictions[tokenId][cycle];
-            if (prediction != int64(0)) {
-                attributes = string(abi.encodePacked(
-                    attributes,
-                    ',{"trait_type":"Current Cycle","value":"', cycle.toString(), '"}',
-                    ',{"trait_type":"Current Prediction","value":"', _formatPrice(prediction), '"}'
-                ));
-                
-                // Add cycle start price for context
-                CycleInfo storage cycleInfo = cycles[cycle];
-                if (cycleInfo.startPrice != int64(0)) {
-                    attributes = string(abi.encodePacked(
-                        attributes,
-                        ',{"trait_type":"Cycle Start Price","value":"', _formatPrice(cycleInfo.startPrice), '"}',
-                        ',{"trait_type":"Prediction Direction","value":"', prediction > cycleInfo.startPrice ? "Bullish" : "Bearish", '"}'
-                    ));
-                }
-            }
-        }
-        
-        // Add blessed status
+        // Blessed prophets trump everything
         if (blessedByDivine == tokenId) {
             attributes = string(abi.encodePacked(
                 attributes,
                 ',{"trait_type":"Divine Status","value":"Blessed"}'
             ));
-        }
-        
-        // Add soulbound status
-        if (isSoulbound(tokenId)) {
-            attributes = string(abi.encodePacked(
-                attributes,
-                ',{"trait_type":"Transferable","value":"Soulbound"}'
-            ));
+        } else {
+            // Calculate burn status once and reuse
+            bool burned = isBurned(tokenId);
+            
+            if (burned) {
+                // Burned prophets: add burn cycle and soulbound status
+                uint256 burnCycle = _getBurnCycle(tokenId);
+                attributes = string(abi.encodePacked(
+                    attributes,
+                    ',{"trait_type":"Burn Cycle","value":"', burnCycle.toString(), '"}',
+                    ',{"trait_type":"Transferable","value":"Soulbound"}'
+                ));
+            } else {
+                // Alive prophets: add current cycle prediction if available
+                uint256 cycle = getCurrentCycle();
+                if (cycle > 0) {
+                    int64 prediction = predictions[tokenId][cycle];
+                    if (prediction != int64(0)) {
+                        attributes = string(abi.encodePacked(
+                            attributes,
+                            ',{"trait_type":"Current Cycle","value":"', cycle.toString(), '"}',
+                            ',{"trait_type":"Current Prediction","value":"', _formatPrice(prediction), '"}'
+                        ));
+                        
+                        // Add cycle start price for context
+                        CycleInfo storage cycleInfo = cycles[cycle];
+                        if (cycleInfo.startPrice != int64(0)) {
+                            attributes = string(abi.encodePacked(
+                                attributes,
+                                ',{"trait_type":"Cycle Start Price","value":"', _formatPrice(cycleInfo.startPrice), '"}',
+                                ',{"trait_type":"Prediction Direction","value":"', prediction > cycleInfo.startPrice ? "Bullish" : "Bearish", '"}'
+                            ));
+                        }
+                    }
+                }
+            }
         }
         
         return attributes;
