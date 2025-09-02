@@ -1,0 +1,169 @@
+yarn run v1.22.22
+warning ../../../package.json: No license field
+$ cross-env NODE_ENV=test hardhat test test/ProphetsOfEthereum.updated.test.ts test/ProphetsOfEthereum.simple.test.ts test/ProphetsOfEthereum.minting.test.ts --network hardhat test/ProphetsOfEthereum.edgecases.comprehensive.test.ts
+
+
+  ProphetsOfEthereum - Updated Tests
+✅ Contract deployed with all dependencies
+📊 Initial state verified
+    ✔ deploys correctly with all dependencies
+✅ Signature minting works correctly
+    ✔ can mint tokens with signature
+✅ Image storage and tokenURI generation works
+📋 Metadata: {
+  "name": "Prophet #1",
+  "description": "A prophet in meditation, contemplating the ethereal mysteries of the market.",
+  "image": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==",
+  "attributes": [
+    {
+      "trait_type": "State",
+      "value": "prophesizing"
+    }
+  ]
+}
+    ✔ can store images in renderer and generate tokenURI
+✅ Soulbound functionality works correctly
+    ✔ prevents soulbound token transfers
+✅ Minimal floor price calculation works
+    ✔ calculates minimal floor price correctly
+✅ Game ending detection accessible
+    ✔ handles game ending detection
+
+  ProphetsOfEthereum - Simple Test
+✅ Contract deployed and configured successfully
+📊 Initial state verified
+    ✔ deploys correctly and has proper initial state (54ms)
+⚠️  Old mint function removed - signature minting only
+✅ See ProphetsOfEthereum.updated.test.ts for signature minting tests
+    ✔ can mint tokens with signature (old mint function removed)
+✅ Price provider switching works
+💰 Pyth price reading successful: 300000000000
+    ✔ can read prices from different providers (51ms)
+
+  ProphetsOfEthereum - Signature Minting Tests
+    Signature-based Minting
+      ✔ should mint with valid signature
+      ✔ should reject invalid signature
+      ✔ should enforce max mint per sale
+      ✔ should set firstCycleStart when mint completes
+    Constructor & Configuration
+      ✔ should set marketplace address correctly
+      ✔ should set default operator as allowed
+    Basic Functions
+      ✔ should return correct alive prophets count
+      ✔ should calculate minimal floor price
+
+  🔥 ProphetsOfEthereum - COMPREHENSIVE EDGE CASES
+    🎯 EDGE CASE 1: Multiple Wallets, Different Predictions
+🏭 Minting tokens to 10 different users...
+✅ User 1 minted 66 tokens
+✅ User 2 minted 66 tokens
+✅ User 3 minted 66 tokens
+✅ User 4 minted 66 tokens
+✅ User 5 minted 66 tokens
+✅ User 6 minted 66 tokens
+✅ User 7 minted 66 tokens
+✅ User 8 minted 66 tokens
+✅ User 9 minted 66 tokens
+✅ User 10 minted 72 tokens
+🕐 First cycle starts at: Sun Aug 31 2025 01:00:00 GMT+0100 (GMT+01:00)
+📅 Successfully jumped to Cycle 1 Sunday window
+
+🔮 Making predictions with different strategies:
+📊 User 1 (Token 1): Conservative Bull (+3.3%) - $3100
+📊 User 2 (Token 67): Aggressive Bull (+16.7%) - $3500
+📊 User 3 (Token 133): Conservative Bear (-3.3%) - $2900
+📊 User 4 (Token 199): Aggressive Bear (-16.7%) - $2500
+📊 User 5 (Token 265): Moon Boy (+33.3%) - $4000
+📊 User 6 (Token 331): Extreme Bear (-33.3%) - $2000
+📊 User 7 (Token 397): Minimal Bull (+1%) - $3030
+📊 User 8 (Token 463): Minimal Bear (-1%) - $2970
+📊 User 9 (Token 529): Extreme Bull (+66.7%) - $5000
+✅ All predictions recorded successfully
+      ✔ should handle 10 different users with varied prediction strategies (166ms)
+    ⏰ EDGE CASE 2: Cycle Boundary Testing
+🕐 First cycle starts at: Sun Aug 31 2025 01:00:00 GMT+0100 (GMT+01:00)
+
+🎯 Testing cycle boundary edge cases:
+      1) should handle predictions exactly at cycle boundaries
+    💀 EDGE CASE 3: Burning and Judgment Mechanics
+      2) should handle complex burning scenarios and edge case judgments
+    🏆 EDGE CASE 4: Game Ending and Winner Selection
+
+🏆 Testing game ending scenarios:
+      3) should handle game ending with single survivor and blessing
+    ⚡ EDGE CASE 5: Extreme Price Scenarios
+      4) should handle extreme price predictions and overflow protection
+    🎭 EDGE CASE 6: State Transitions and Token URI
+
+🎭 Testing state transitions:
+      5) should handle all state transitions correctly
+    💎 EDGE CASE 7: Treasury and Minimal Floor Price
+
+💎 Testing treasury and minimal floor price:
+💰 Initial treasury: 0.0 ETH
+💰 Treasury after mint: 5.66 ETH
+      6) should handle treasury calculations and edge cases
+
+
+  18 passing (2s)
+  6 failing
+
+  1) 🔥 ProphetsOfEthereum - COMPREHENSIVE EDGE CASES
+       ⏰ EDGE CASE 2: Cycle Boundary Testing
+         should handle predictions exactly at cycle boundaries:
+     Error: could not coalesce error (error={ "code": -32000, "data": null, "message": "Timestamp 1756598399 is lower than the previous block's timestamp 1756598416" }, payload={ "id": 235, "jsonrpc": "2.0", "method": "evm_setNextBlockTimestamp", "params": [ 1756598399 ] }, code=UNKNOWN_ERROR, version=6.15.0)
+      at makeError (node_modules/ethers/src.ts/utils/errors.ts:698:21)
+      at BrowserProvider.getRpcError (node_modules/ethers/src.ts/providers/provider-jsonrpc.ts:1086:25)
+      at BrowserProvider.getRpcError (node_modules/ethers/src.ts/providers/provider-browser.ts:193:22)
+      at /Users/imaginarium/code/Kenbak/zkMarketsContracts2/node_modules/ethers/src.ts/providers/provider-jsonrpc.ts:571:45
+
+  2) 🔥 ProphetsOfEthereum - COMPREHENSIVE EDGE CASES
+       💀 EDGE CASE 3: Burning and Judgment Mechanics
+         should handle complex burning scenarios and edge case judgments:
+     Error: could not coalesce error (error={ "code": -32000, "data": null, "message": "Timestamp 1756598401 is lower than the previous block's timestamp 1756598422" }, payload={ "id": 296, "jsonrpc": "2.0", "method": "evm_setNextBlockTimestamp", "params": [ 1756598401 ] }, code=UNKNOWN_ERROR, version=6.15.0)
+      at makeError (node_modules/ethers/src.ts/utils/errors.ts:698:21)
+      at BrowserProvider.getRpcError (node_modules/ethers/src.ts/providers/provider-jsonrpc.ts:1086:25)
+      at BrowserProvider.getRpcError (node_modules/ethers/src.ts/providers/provider-browser.ts:193:22)
+      at /Users/imaginarium/code/Kenbak/zkMarketsContracts2/node_modules/ethers/src.ts/providers/provider-jsonrpc.ts:571:45
+
+  3) 🔥 ProphetsOfEthereum - COMPREHENSIVE EDGE CASES
+       🏆 EDGE CASE 4: Game Ending and Winner Selection
+         should handle game ending with single survivor and blessing:
+     Error: could not coalesce error (error={ "code": -32000, "data": null, "message": "Timestamp 1756598401 is lower than the previous block's timestamp 1756598428" }, payload={ "id": 354, "jsonrpc": "2.0", "method": "evm_setNextBlockTimestamp", "params": [ 1756598401 ] }, code=UNKNOWN_ERROR, version=6.15.0)
+      at makeError (node_modules/ethers/src.ts/utils/errors.ts:698:21)
+      at BrowserProvider.getRpcError (node_modules/ethers/src.ts/providers/provider-jsonrpc.ts:1086:25)
+      at BrowserProvider.getRpcError (node_modules/ethers/src.ts/providers/provider-browser.ts:193:22)
+      at /Users/imaginarium/code/Kenbak/zkMarketsContracts2/node_modules/ethers/src.ts/providers/provider-jsonrpc.ts:571:45
+
+  4) 🔥 ProphetsOfEthereum - COMPREHENSIVE EDGE CASES
+       ⚡ EDGE CASE 5: Extreme Price Scenarios
+         should handle extreme price predictions and overflow protection:
+     Error: could not coalesce error (error={ "code": -32000, "data": null, "message": "Timestamp 1756598401 is lower than the previous block's timestamp 1756598434" }, payload={ "id": 413, "jsonrpc": "2.0", "method": "evm_setNextBlockTimestamp", "params": [ 1756598401 ] }, code=UNKNOWN_ERROR, version=6.15.0)
+      at makeError (node_modules/ethers/src.ts/utils/errors.ts:698:21)
+      at BrowserProvider.getRpcError (node_modules/ethers/src.ts/providers/provider-jsonrpc.ts:1086:25)
+      at BrowserProvider.getRpcError (node_modules/ethers/src.ts/providers/provider-browser.ts:193:22)
+      at /Users/imaginarium/code/Kenbak/zkMarketsContracts2/node_modules/ethers/src.ts/providers/provider-jsonrpc.ts:571:45
+
+  5) 🔥 ProphetsOfEthereum - COMPREHENSIVE EDGE CASES
+       🎭 EDGE CASE 6: State Transitions and Token URI
+         should handle all state transitions correctly:
+     AssertionError: expected 'data:application/json;base64,eyJuYW1l…' to include 'prophesizing'
+      at Context.<anonymous> (test/ProphetsOfEthereum.edgecases.comprehensive.test.ts:514:27)
+
+  6) 🔥 ProphetsOfEthereum - COMPREHENSIVE EDGE CASES
+       💎 EDGE CASE 7: Treasury and Minimal Floor Price
+         should handle treasury calculations and edge cases:
+
+      AssertionError: expected 10000000000000000 to equal 8498498498498498.
+      + expected - actual
+
+      -10000000000000000
+      +8498498498498498
+      
+      at Context.<anonymous> (test/ProphetsOfEthereum.edgecases.comprehensive.test.ts:614:31)
+
+
+
+error Command failed with exit code 6.
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.
