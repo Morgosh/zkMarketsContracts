@@ -33,12 +33,12 @@ describe("ProphetsOfEthereum - Simple Test", () => {
       await renderer.getAddress(),  // _renderer
       dummyPool,                   // uniPool
       await approver.getAddress(), // _approver
-      dummyMarketplace            // _marketplace (auto-set as operator)
-    );
+      dummyMarketplace,            // _marketplace (auto-set as operator)
+      await mockPyth.getAddress()  // _pythContract
+    ) as any;
     await prophets.waitForDeployment();
 
-    // Configure to use MockPyth
-    await prophets.setPythContract(await mockPyth.getAddress());
+    // Configure to use PYTH mode
     await prophets.setPriceProvider(1); // PYTH = 1
 
     // Check initial state - dynamically verify name and symbol
@@ -83,11 +83,10 @@ describe("ProphetsOfEthereum - Simple Test", () => {
       await renderer.getAddress(),
       ethers.ZeroAddress,
       await approver.getAddress(),
-      ethers.ZeroAddress
-    );
+      ethers.ZeroAddress,
+      await mockPyth.getAddress() // _pythContract
+    ) as any;
     await prophets.waitForDeployment();
-    
-    await prophets.setPythContract(await mockPyth.getAddress());
 
     // Test PYTH mode
     await prophets.setPriceProvider(1); // PYTH

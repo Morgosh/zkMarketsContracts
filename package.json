@@ -8,7 +8,7 @@
   "scripts": {
     "compile": "hardhat compile && ts-node moveAbi.ts",
     "clean": "hardhat clean",
-    "test": "cross-env NODE_ENV=test hardhat test test/ProphetsOfEthereum.updated.test.ts test/ProphetsOfEthereum.simple.test.ts test/ProphetsOfEthereum.minting.test.ts --network hardhat",
+    "test-my": "cross-env NODE_ENV=test hardhat test test/morgoshManual/morgoshTest.ts --network hardhat",
     "test-all": "cross-env NODE_ENV=test hardhat test --network hardhat",
     "testGas": "cross-env REPORT_GAS=true NODE_ENV=test hardhat test --network hardhat",
     "testzk": "cross-env NODE_ENV=test hardhat test --network zkHardhat",

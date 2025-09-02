@@ -143,13 +143,14 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         address _renderer,
         address uniPool,
         address _approver,
-        address _marketplace
+        address _marketplace,
+        address _pythContract
     ) ERC721A("Prophets of Ethereum", "PROPHET") EIP712("Prophets of Ethereum", "1") {
         renderer = _renderer;
         pool = uniPool;
         approver = _approver;
         marketplace = _marketplace;
-        pythContract = 0x8739d5024B5143278E2b15Bd9e7C26f6CEc658F1; // Pyth mainnet
+        pythContract = _pythContract;
         
         // Automatically set marketplace as allowed operator
         if (_marketplace != address(0)) {
@@ -192,7 +193,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         mintedByHash[saleHash] += amount;
         _mint(msg.sender, amount);
 
-        // if this completes mint-out, set firstCycleStart to next Sunday 00:00 UTC
+        // if this completes mint-out, set firstCycleStart to this Sunday 00:00 UTC
         if (mintCompleteTimestamp == 0 && totalSupply() == MAX_SUPPLY) {
             mintCompleteTimestamp = uint64(block.timestamp);
             firstCycleStart = _nextSunday00UTC(mintCompleteTimestamp);
@@ -314,7 +315,6 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     /// The predicted price must differ by at least 1% from the cycle start price.
     function makePrediction(uint256 tokenId, int64 predictedPrice)
         external
-        payable
     {
         require(ownerOf(tokenId) == msg.sender, "owner");
         require(!isBurned(tokenId), "burned");
@@ -659,13 +659,6 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         priceProvider = _provider;
     }
     
-    function setPythContract(address _pythContract) external onlyOwner {
-        pythContract = _pythContract;
-    }
-    
-    function setPythPriceId(bytes32 _priceId) external onlyOwner {
-        pythPriceId = _priceId;
-    }
     
     function setPythMaxAge(uint256 _maxAge) external onlyOwner {
         require(_maxAge >= PYTH_MIN_MAX_AGE, "below-min");
@@ -756,8 +749,27 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     // ------------------------------
 
     /// @notice Calculate minimal floor price: Divine Treasury ÷ Alive Prophets, but never below mint price
+    /// @dev Uses current cycle predictions count, unless it's Sunday then uses previous cycle
     function getMinimalFloorPrice() public view returns (uint256) {
-        uint256 aliveProphets = getAliveProphetsCount();
+        uint256 cycle = getCurrentCycle();
+        uint256 aliveProphets;
+        
+        if (cycle <= 1) {
+            // Pre-game or first cycle, all alive
+            aliveProphets = totalSupply();
+        } else {
+            // Check if it's currently Sunday (prediction window)
+            bool isSunday = _isInSundayWindow();
+            
+            if (isSunday && cycle > 1) {
+                // On Sunday, use previous cycle predictions count
+                aliveProphets = cycles[cycle - 1].predictionsCount;
+            } else {
+                // Otherwise, use current cycle predictions count
+                aliveProphets = cycles[cycle].predictionsCount;
+            }
+        }
+        
         if (aliveProphets == 0) return MINT_PRICE;
         
         uint256 calculatedFloor = getTreasury() / aliveProphets;
@@ -765,16 +777,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         return calculatedFloor > MINT_PRICE ? calculatedFloor : MINT_PRICE;
     }
 
-    /// @notice Count alive prophets based on previous cycle submissions
-    /// @dev Always uses previous cycle submission count
-    function getAliveProphetsCount() public view returns (uint256) {
-        uint256 cycle = getCurrentCycle();
-        if (cycle <= 1) return totalSupply(); // Pre-game or first cycle, all alive
-        
-        // Always use previous cycle submissions
-        uint256 prevCycle = cycle - 1;
-        return cycles[prevCycle].predictionsCount;
-    }
+
 
     /// @notice Punish unfaithful prophets who list below minimal floor price
     /// @dev Anyone can submit order parameters and signature from marketplace to burn NFT if listed below floor

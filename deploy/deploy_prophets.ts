@@ -8,7 +8,8 @@ export default async function deployProphets(hre: HardhatRuntimeEnvironment) {
     // Deployment configuration
     const rendererAddr = "0xcda9cb3CEA3ac21612FF67BBb5E9c1D188c4f2B7" // Set to existing renderer address or null to deploy new one
     const uniPool = "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640" // WETH/USDC 0.05% pool on mainnet
-    const approver = "0x62d8B1c7FE0c8a6d3a8a8Ac051c24A06b4602e65" // Will be set after deployment
+    const pythContract = "0x8739d5024B5143278E2b15Bd9e7C26f6CEc658F1" // Pyth mainnet
+    const approver = "0x01F8540A5e9fA67908273A88A067fE505c99aee8" // Will be set after deployment
     const marketplace = "0x7e0fa00d7a02890c66833d4f08f698d15d4ecd01" // Will be set after deployment (auto-set as operator)
 
     let renderer: any
@@ -18,7 +19,8 @@ export default async function deployProphets(hre: HardhatRuntimeEnvironment) {
         renderer.target,
         uniPool,
         approver,
-        marketplace
+        marketplace,
+        pythContract
     ]
 
     console.log("🚀 Deploying ProphetsOfEthereum...")

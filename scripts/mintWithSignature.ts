@@ -20,8 +20,23 @@ async function mintWithSignature() {
 
     // Get network and RPC URL
     const network = getNetwork()
+    if (!network) {
+      throw new Error("Network not specified or detected")
+    }
+    
     const rpcUrl = getRPC(network)
+    if (!rpcUrl) {
+      throw new Error(`No RPC URL found for network: ${network}`)
+    }
+    
     const provider = new ethers.JsonRpcProvider(rpcUrl)
+    
+    // Test provider connection
+    try {
+      await provider.getNetwork()
+    } catch (error) {
+      throw new Error(`Failed to connect to network provider at ${rpcUrl}. Check your network connection and RPC URL.`)
+    }
 
     // Create signers
     const userWallet = new ethers.Wallet(userPrivateKey, provider)
@@ -33,7 +48,7 @@ async function mintWithSignature() {
     console.log(`🔗 RPC: ${rpcUrl}`)
 
     // Contract configuration - UPDATE THESE VALUES
-    const contractAddress = "0x47159d83d6bc0b6bb1b11c6fbf69de71aa9e55cb" // Update with deployed contract
+    const contractAddress = "0x776407752e869d699e22190a42b4786e2673af87" // Update with deployed contract
     const chainId = await provider.getNetwork().then(n => Number(n.chainId))
 
     // Mint parameters

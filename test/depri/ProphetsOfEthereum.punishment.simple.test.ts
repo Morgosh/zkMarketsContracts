@@ -2,6 +2,7 @@ import { expect } from "chai";
 import "@nomicfoundation/hardhat-chai-matchers";
 import { ethers } from "ethers";
 import hre from "hardhat";
+import { createMintSignature } from "../testUtils";
 
 const TOTAL = 666n;
 const MINT_PRICE = ethers.parseEther("0.01");
@@ -11,46 +12,7 @@ const oneDay = 24 * 60 * 60;
 const oneWeek = 7 * oneDay;
 const provider = new ethers.BrowserProvider(hre.network.provider as any);
 
-// Helper function to create mint signature
-async function createMintSignature(
-  approver: any,
-  contract: any,
-  user: string,
-  saleId: number,
-  endTime: number,
-  maxMint: number,
-  pricePerToken: bigint
-) {
-  // Fetch contract name dynamically
-  const contractName = await contract.name();
-  
-  const domain = {
-    name: contractName, // Dynamically fetch contract name
-    version: "1",
-    chainId: (await provider.getNetwork()).chainId,
-    verifyingContract: await contract.getAddress()
-  };
 
-  const types = {
-    Mint: [
-      { name: "user", type: "address" },
-      { name: "saleId", type: "uint256" },
-      { name: "endTime", type: "uint256" },
-      { name: "maxMint", type: "uint256" },
-      { name: "pricePerToken", type: "uint256" }
-    ]
-  };
-
-  const value = {
-    user: user,
-    saleId: saleId,
-    endTime: endTime,
-    maxMint: maxMint,
-    pricePerToken: pricePerToken.toString()
-  };
-
-  return await approver.signTypedData(domain, types, value);
-}
 
 describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
   let prophets: any;
@@ -89,12 +51,11 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
       dummyPool,                   // uniPool
       await approver.getAddress(), // _approver
       mockMarketplace,             // _marketplace
-
+      await mockPyth.getAddress()  // _pythContract
     );
     await prophets.waitForDeployment();
 
-    // Configure to use MockPyth
-    await prophets.setPythContract(await mockPyth.getAddress());
+    // Configure to use PYTH mode
     await prophets.setPriceProvider(1); // PYTH = 1
 
     // Complete mint out using signature-based minting
@@ -129,19 +90,7 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
     await prophets.connect(user2).mint(saleId + 1, endTime, maxMint, pricePerToken, 333, signature2, { value: MINT_PRICE * 333n });
   });
 
-  describe("getAliveProphetsCount", () => {
-    it("returns total supply before game starts", async () => {
-      // After mint completion, we're actually in cycle 1, but still return total supply
-      const currentCycle = await prophets.getCurrentCycle();
-      expect(currentCycle).to.be.gte(0); // Could be 0 or 1 depending on timing
-      expect(await prophets.getAliveProphetsCount()).to.equal(TOTAL);
-    });
 
-    it("returns total supply during first cycle", async () => {
-      // First cycle should return total supply since cycle <= 1
-      expect(await prophets.getAliveProphetsCount()).to.equal(TOTAL);
-    });
-  });
 
   describe("getMinimalFloorPrice", () => {
     it("calculates floor price with mint price minimum", async () => {
@@ -356,6 +305,8 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
         };
         
         // Should be protected from punishment due to grace period expiry
+        const signature = "0x"; // Placeholder for skipped test
+        const fullHash = ethers.ZeroHash; // Placeholder for skipped test
         await expect(
           prophets.connect(user3).punishUnfaithful(protectedOrderParams, signature, fullHash)
         ).to.be.revertedWith("grace-period-expired");

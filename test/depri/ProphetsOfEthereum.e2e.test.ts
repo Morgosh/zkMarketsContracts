@@ -2,6 +2,7 @@ import { expect } from "chai";
 import "@nomicfoundation/hardhat-chai-matchers";
 import { ethers } from "ethers"; // user preference
 import hre from "hardhat";
+import { createMintSignature } from "../testUtils";
 
 const TOTAL = 666n;
 const MINT_PRICE = ethers.parseEther("0.01");
@@ -56,57 +57,38 @@ describe("ProphetsOfEthereum end-to-end", () => {
       dummyPool,                   // uniPool
       await approver.getAddress(), // _approver
       dummyMarketplace,           // _marketplace
-
+      await mockPyth.getAddress()  // _pythContract
     );
     await prophets.waitForDeployment();
     
-    // Set mock pyth as the pyth contract and switch to PYTH mode
-    await prophets.setPythContract(await mockPyth.getAddress());
+    // Set price provider to PYTH mode
     await prophets.setPriceProvider(1); // PYTH = 1
 
     // Create signature-based minting helper
-    async function createMintSignature(user: any, saleId: number, amount: number) {
-      const contractName = await prophets.name();
-      const domain = {
-        name: contractName, // Dynamically fetch contract name
-        version: "1",
-        chainId: await hre.network.provider.send("eth_chainId"),
-        verifyingContract: await prophets.getAddress()
-      };
-
-      const types = {
-        Mint: [
-          { name: "user", type: "address" },
-          { name: "saleId", type: "uint256" },
-          { name: "endTime", type: "uint256" },
-          { name: "maxMint", type: "uint256" },
-          { name: "pricePerToken", type: "uint256" }
-        ]
-      };
-
+    async function createMintSignatureSimple(user: any, saleId: number, amount: number) {
       const currentTime = Math.floor(Date.now() / 1000);
-      const value = {
-        user: await user.getAddress(),
-        saleId: saleId,
-        endTime: currentTime + (365 * 24 * 60 * 60),
-        maxMint: amount,
-        pricePerToken: MINT_PRICE.toString()
-      };
-
-      return await approver.signTypedData(domain, types, value);
+      return createMintSignature(
+        approver,
+        prophets,
+        await user.getAddress(),
+        saleId,
+        currentTime + (365 * 24 * 60 * 60),
+        amount,
+        MINT_PRICE
+      );
     }
 
     // Mint 333 from w1, 333 from w2 using signature minting
     const currentTime = Math.floor(Date.now() / 1000);
-    const sig1 = await createMintSignature(w1, 1, 333);
-    const sig2 = await createMintSignature(w2, 2, 333);
+    const sig1 = await createMintSignatureSimple(w1, 1, 333);
+    const sig2 = await createMintSignatureSimple(w2, 2, 333);
     
     await prophets.connect(w1).mint(1, currentTime + (365 * 24 * 60 * 60), 333, MINT_PRICE, 333, sig1, { value: MINT_PRICE * 333n });
     await prophets.connect(w2).mint(2, currentTime + (365 * 24 * 60 * 60), 333, MINT_PRICE, 333, sig2, { value: MINT_PRICE * 333n });
     expect(await prophets.totalSupply()).to.equal(TOTAL);
 
     // Third wallet cannot mint more (supply exhausted)
-    const sig3 = await createMintSignature(w3, 3, 1);
+    const sig3 = await createMintSignatureSimple(w3, 3, 1);
     await expect(
       prophets.connect(w3).mint(3, currentTime + (365 * 24 * 60 * 60), 1, MINT_PRICE, 1, sig3, { value: MINT_PRICE })
     ).to.be.revertedWith("Exceeds max supply");
@@ -163,7 +145,7 @@ describe("ProphetsOfEthereum end-to-end", () => {
     // Ensure min diff rule: +-1% not allowed
     await expect(
       prophets.connect(w1).makePrediction(60, Math.floor(Number(startPx) * 0.99))
-    ).to.be.revertedWithCustomError || to.be.reverted; // generic in zksolc, allow revert
+    ).to.be.reverted; // generic in zksolc, allow revert
     await expect(
       prophets.connect(w2).makePrediction(340, Math.floor(Number(startPx) * 1.01))
     ).to.be.reverted;
@@ -184,7 +166,7 @@ describe("ProphetsOfEthereum end-to-end", () => {
     const secondStart = Number(firstStart) + oneWeek;
     // Increase Pyth price by 10%
     const up10 = BigInt(Math.floor(Number(startPx) * 1.1));
-    await (await mockPyth.connect(deployer).setPrice(up10 as any, -8)).wait();
+    await (mockPyth as any).connect(deployer).setPrice(up10 as any, -8);
     await setNextBlockTimestamp(secondStart + 60);
 
     // Now many bearish will be burned per computed judgment; bullish survive more.
@@ -203,7 +185,7 @@ describe("ProphetsOfEthereum end-to-end", () => {
     // Move to third Sunday, set next start price to match token 334’s target so it survives uniquely
     const thirdStart = secondStart + oneWeek;
     const winnerTarget = BigInt(Math.floor(Number(up10) * 1.05));
-    await (await mockPyth.connect(deployer).setPrice(winnerTarget as any, -8)).wait();
+    await (mockPyth as any).connect(deployer).setPrice(winnerTarget as any, -8);
     await setNextBlockTimestamp(thirdStart + 60);
 
     // Now 334 should remain, most others burnt by direction/error
@@ -217,7 +199,7 @@ describe("ProphetsOfEthereum end-to-end", () => {
     const gameEndedCycle = 2; // Second cycle ended, third cycle started
     const tx = await prophets.connect(w2).acceptDivineBlessing(gameEndedCycle);
     const rc = await tx.wait();
-    const gas = rc ? rc.gasUsed * rc.gasPrice : 0n;
+    const gas = rc ? BigInt(rc.gasUsed * rc.gasPrice) : 0n;
     const balAfter = await provider.getBalance(await w2.getAddress());
     expect(balAfter + gas).to.be.greaterThan(balBefore);
   });
