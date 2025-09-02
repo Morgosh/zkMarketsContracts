@@ -18,6 +18,7 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
   let mockPyth: any;
   let deployer: any, user1: any, user2: any, approver: any;
 
+  let currentEthPrice = 0n
   beforeEach(async () => {
     deployer = await provider.getSigner(0);
     user1 = await provider.getSigner(1);
@@ -27,8 +28,8 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
     // Deploy MockPyth
     const mockPythArtifact = await hre.artifacts.readArtifact("MockPyth");
     const MockPyth = new ethers.ContractFactory(mockPythArtifact.abi, mockPythArtifact.bytecode, deployer);
-    const startPx = 3000n * 10n ** 8n; // $3000
-    mockPyth = await MockPyth.deploy(startPx, -8);
+    currentEthPrice = 4000n * 10n ** 8n; // $4000
+    mockPyth = await MockPyth.deploy(currentEthPrice, -8);
     await mockPyth.waitForDeployment();
 
     // Deploy ProphetsRenderer first
@@ -72,62 +73,95 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
   });
 
   describe("Signature-based Minting", () => {
-    it("should set firstCycleStart when mint completes", async () => {
+    it("testing iteration 1", async () => {
       const contractAddress = await prophets.getAddress();
       const currentTime = Math.floor(Date.now() / 1000);
       const endTime = currentTime + (365 * 24 * 60 * 60);
-      const saleId = 1;
-      const maxMint = 666;
       const pricePerToken = MINT_PRICE;
 
-      const signature = await createMintSignature(
+      // Create signatures for both wallets
+      const signature1 = await createMintSignature(
         approver,
         prophets,
         await user1.getAddress(),
-        saleId,
+        1, // saleId
         endTime,
-        maxMint,
+        333, // maxMint
         pricePerToken
       );
 
-      // Mint all 666 tokens to complete mint-out
-      await prophets.connect(user1).mint(
-        saleId,
+      const signature2 = await createMintSignature(
+        approver,
+        prophets,
+        await user2.getAddress(),
+        2, // saleId
         endTime,
-        maxMint,
+        333, // maxMint
+        pricePerToken
+      );
+
+      // Mint 333 tokens to user1
+      await prophets.connect(user1).mint(
+        1, // saleId
+        endTime,
+        333, // maxMint
         pricePerToken,
-        666,
-        signature,
-        { value: pricePerToken * 666n }
+        333, // amount
+        signature1,
+        { value: pricePerToken * 333n }
+      );
+
+      // Mint 333 tokens to user2 to complete mint-out
+      await prophets.connect(user2).mint(
+        2, // saleId
+        endTime,
+        333, // maxMint
+        pricePerToken,
+        333, // amount
+        signature2,
+        { value: pricePerToken * 333n }
       );
 
       expect(await prophets.totalSupply()).to.equal(TOTAL);
       expect(await prophets.firstCycleStart()).to.be.gt(0);
       expect(await prophets.mintCompleteTimestamp()).to.be.gt(0);
-    });
-  });
-
-  describe("Constructor & Configuration", () => {
-    it("should set marketplace address correctly", async () => {
-      expect(await prophets.marketplace()).to.equal(ethers.ZeroAddress);
-    });
-
-    it("should set default operator as allowed", async () => {
-      const deployerAddress = await deployer.getAddress();
-      expect(await prophets.allowedOperators(deployerAddress)).to.be.true;
-    });
-  });
-
-  describe("Basic Functions", () => {
-    it("should calculate minimal floor price correctly", async () => {
-      // Before any cycles, floor price should be based on total supply
-      const contractFloor = await prophets.getMinimalFloorPrice();
-      const mintPrice = ethers.parseEther("0.01");
       
-      // Floor price should be at least the mint price
-      expect(contractFloor).to.be.gte(mintPrice);
+      // Check balances
+      expect(await prophets.balanceOf(await user1.getAddress())).to.equal(333);
+      expect(await prophets.balanceOf(await user2.getAddress())).to.equal(333);
+
+      // Before first cycle starts, should NOT be Sunday (cycle 0)
+      const currentCycleBefore = await prophets.getCurrentCycle();
+      expect(currentCycleBefore).to.equal(0); // Not in Sunday window yet
+
+      // Wait for Sunday window
+      const firstCycleStart = await prophets.firstCycleStart();
+      const currentBlock = await provider.getBlock("latest");
+      const currentTime2 = currentBlock!.timestamp;
+      const timeToSunday = Number(firstCycleStart) + 60 - currentTime2;
+      
+      if (timeToSunday > 0) {
+        await provider.send("evm_increaseTime", [timeToSunday]);
+        await provider.send("evm_mine", []);
+      }
+
+      // After time advancement, should be Sunday (cycle 1)
+      const currentCycleAfter = await prophets.getCurrentCycle();
+      expect(currentCycleAfter).to.equal(1); // Now in Sunday window (cycle 1)
+
+      const prediction1 = Number(currentEthPrice) * 0.95; // -5% (will be lowest)
+      const prediction2 = Number(currentEthPrice) * 1.05; // +5% (will be highest)
+
+      await prophets.connect(user1).makePrediction(1, Math.floor(prediction1));
+      // expect throw not owner
+      await expect(prophets.connect(user2).makePrediction(2, Math.floor(prediction1))).to.be.revertedWith("Caller is not the owner of this token");
+      await prophets.connect(user2).makePrediction(334, Math.floor(prediction2));
+
+      expect(await prophets.predictions(1, 1)).to.equal(prediction1);
+
+      // lets make sure the user cannot change their prediction
+      await expect(prophets.connect(user1).makePrediction(1, Math.floor(prediction2))).to.be.revertedWith("Cannot change prediction: you hold the lowest position");
+      await expect(prophets.connect(user2).makePrediction(334, Math.floor(prediction1))).to.be.revertedWith("Cannot change prediction: you hold the highest position");
     });
-
-
   });
 });

@@ -253,15 +253,15 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
 
     function _ensureCycleWindow() internal view {
         uint256 cycle = getCurrentCycle();
-        require(cycle > 0, "no-cycle");
+        require(cycle > 0, "Game has not started yet, wait for first cycle");
         // recompute window bounds
         uint64 cycleStart = uint64(uint256(firstCycleStart) + (cycle - 1) * 1 weeks);
         // Sunday window: from cycleStart to cycleStart + 1 day
-        require(block.timestamp >= cycleStart && block.timestamp < cycleStart + 1 days, "not-sunday");
+        require(block.timestamp >= cycleStart && block.timestamp < cycleStart + 1 days, "Predictions can only be made during Sunday window (00:00-23:59 UTC)");
     }
 
     // Get ETH price from selected provider. Returns price scaled to 1e8.
-    function _readPoolSpotPrice() internal view returns (int64) {
+    function _readCurrentPrice() internal view returns (int64) {
         if (priceProvider == PriceProvider.PYTH) {
             return _readPythPriceInternal();
         } else if (priceProvider == PriceProvider.AMM) {
@@ -325,8 +325,8 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     function makePrediction(uint256 tokenId, int64 predictedPrice)
         external
     {
-        require(ownerOf(tokenId) == msg.sender, "owner");
-        require(!isBurned(tokenId), "burned");
+        require(ownerOf(tokenId) == msg.sender, "Caller is not the owner of this token");
+        require(!isBurned(tokenId), "This prophet has been burned and cannot make predictions");
         _ensureCycleWindow();
 
         uint256 cycle = getCurrentCycle();
@@ -334,8 +334,8 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
 
         // initialize cycle on first prediction
         if (info.startPrice == int64(0)) {
-            // Read on-chain pool spot price at the Sunday window open
-            int64 sp = _readPoolSpotPrice();
+            // Read on-chain current price at the Sunday window open
+            int64 sp = _readCurrentPrice();
             info.startPrice = sp;
             info.startTime = uint64(block.timestamp);
             // Boundaries useful for UI
@@ -344,13 +344,20 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
 
         // enforce min difference
         int64 startP = info.startPrice;
-        require(startP != int64(0), "no-start");
+        require(startP != int64(0), "Cycle start price not initialized");
 
         uint256 absDiff = _absDiff(startP, predictedPrice);
-        require(absDiff * 10000 >= uint256(int256(startP)) * MIN_PREDICTION_DIFF_BPS, "min-diff");
+        require(absDiff * 10000 >= uint256(int256(startP)) * MIN_PREDICTION_DIFF_BPS, "Prediction must differ by at least 1% from cycle start price");
 
         int64 prevPrice = predictions[tokenId][cycle];
         bool firstForTokenThisCycle = prevPrice == int64(0);
+        
+        // Prevent changes if this token holds an extreme position
+        if (!firstForTokenThisCycle) {
+            require(info.lowestPredictionTokenId != tokenId, "Cannot change prediction: you hold the lowest position");
+            require(info.highestPredictionTokenId != tokenId, "Cannot change prediction: you hold the highest position");
+        }
+        
         predictions[tokenId][cycle] = predictedPrice;
 
         // no persistent state; direction is derived in tokenURI/isBurned
@@ -377,10 +384,10 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     /// - Game must have ended
     /// - Caller must own the winning token
     function acceptDivineBlessing(uint256 gameEndedCycle) external {
-        require(blessedByDivine == 0, "blessed");
-        require(mintCompleteTimestamp > 0, "not-ready");
+        require(blessedByDivine == 0, "Divine treasury has already been claimed");
+        require(mintCompleteTimestamp > 0, "Game is not ready yet");
         uint256 winnerId = getWinner(gameEndedCycle);
-        require(ownerOf(winnerId) == msg.sender, "not-winner");
+        require(ownerOf(winnerId) == msg.sender, "Caller does not own the winning prophet");
 
         uint256 currentCycle = getCurrentCycle();
         
@@ -389,10 +396,10 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         blessedAtCycle = currentCycle;
 
         uint256 amount = getTreasury();
-        require(amount > 0, "no-treasury");
+        require(amount > 0, "No treasury funds available to claim");
         
         (bool ok, ) = payable(msg.sender).call{value: amount}("");
-        require(ok, "transfer");
+        require(ok, "Treasury transfer failed");
 
         emit DivineBlessingAccepted(currentCycle, winnerId, amount);
     }
@@ -441,7 +448,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     modifier onlyAllowedOperator(address from) {
         if (from != address(0)) {
             // Allow if sender is an allowed operator OR if sender is the token owner (OTC)
-            require(allowedOperators[msg.sender] || msg.sender == from, "not-allowed");
+            require(allowedOperators[msg.sender] || msg.sender == from, "Caller is not an allowed operator or token owner");
         }
         _;
     }
@@ -490,7 +497,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         // Get the end price (start price of next cycle or current price)
         int64 endPrice = cycles[gameEndedCycle + 1].startPrice;
         if (endPrice == int64(0)) {
-            endPrice = _readPoolSpotPrice(); // current price as judgment
+            endPrice = _readCurrentPrice(); // current price as judgment
         }
         
         // If ETH ended higher than highest prediction, take highest prediction as winner
@@ -521,7 +528,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         int64 endPrice = cycles[cycle].startPrice;
         // If current cycle hasn't started yet, calculate what the end price would be now
         if (endPrice == int64(0)) {
-            endPrice = _readPoolSpotPrice(); // get current price as judgment
+            endPrice = _readCurrentPrice(); // get current price as judgment
         }
 
         bool wentUp = endPrice > prev.startPrice;
@@ -537,7 +544,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     /// @return The cycle number when the prophet was burned, 0 if not burned
     function getBurnCycle(uint256 tokenId) public view returns (uint256) {
         bool burned = isBurned(tokenId);
-        require(burned, "not-burned");
+        require(burned, "Token is not burned");
         return _getBurnCycle(tokenId);
     }
 
@@ -736,17 +743,17 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     // Transfer Overrides
     // ------------------------------
     function transferFrom(address from, address to, uint256 tokenId) public payable override onlyAllowedOperator(from) {
-        require(!isSoulbound(tokenId), "soulbound");
+        require(!isSoulbound(tokenId), "Burned prophets are soulbound and cannot be transferred");
         super.transferFrom(from, to, tokenId);
     }
 
     function safeTransferFrom(address from, address to, uint256 tokenId) public payable override onlyAllowedOperator(from) {
-        require(!isSoulbound(tokenId), "soulbound");
+        require(!isSoulbound(tokenId), "Burned prophets are soulbound and cannot be transferred");
         super.safeTransferFrom(from, to, tokenId);
     }
 
     function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data) public payable override onlyAllowedOperator(from) {
-        require(!isSoulbound(tokenId), "soulbound");
+        require(!isSoulbound(tokenId), "Burned prophets are soulbound and cannot be transferred");
         super.safeTransferFrom(from, to, tokenId, data);
     }
 
