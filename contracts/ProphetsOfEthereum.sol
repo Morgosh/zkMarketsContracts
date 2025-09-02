@@ -251,14 +251,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         return calculatedCycle;
     }
 
-    function _ensureCycleWindow() internal view {
-        uint256 cycle = getCurrentCycle();
-        require(cycle > 0, "Game has not started yet, wait for first cycle");
-        // recompute window bounds
-        uint64 cycleStart = uint64(uint256(firstCycleStart) + (cycle - 1) * 1 weeks);
-        // Sunday window: from cycleStart to cycleStart + 1 day
-        require(block.timestamp >= cycleStart && block.timestamp < cycleStart + 1 days, "Predictions can only be made during Sunday window (00:00-23:59 UTC)");
-    }
+
 
     // Get ETH price from selected provider. Returns price scaled to 1e8.
     function _readCurrentPrice() internal view returns (int64) {
@@ -327,9 +320,11 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     {
         require(ownerOf(tokenId) == msg.sender, "Caller is not the owner of this token");
         require(!isBurned(tokenId), "This prophet has been burned and cannot make predictions");
-        _ensureCycleWindow();
-
+        
         uint256 cycle = getCurrentCycle();
+        require(cycle > 0, "Game has not started yet, wait for first cycle");
+        require(_isInSundayWindow(), "Predictions can only be made during Sunday window (00:00-23:59 UTC)");
+        
         CycleInfo storage info = cycles[cycle];
 
         // initialize cycle on first prediction
