@@ -281,6 +281,11 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         return _readCurrentPrice();
     }
     
+    // for testing
+    function getCurrentTime() external view returns (uint256) {
+        return block.timestamp;
+    }
+    
     // Pyth price feed. Returns ETH/USD price scaled to 1e8.
     function _readPythPriceInternal() internal view returns (uint64) {
         require(pythContract != address(0), "pyth-not-set");
@@ -325,6 +330,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     function makePrediction(uint256 tokenId, uint64 predictedPrice)
         external
     {
+        require(predictedPrice > 0, "Predicted price must be greater than 0");
         require(ownerOf(tokenId) == msg.sender, "Caller is not the owner of this token");
         require(!isBurned(tokenId), "This prophet has been burned and cannot make predictions");
         

@@ -15,25 +15,13 @@ const provider = new ethers.BrowserProvider(hre.network.provider as any);
 async function advanceTime(seconds: number, signer: any) {
   await provider.send("evm_increaseTime", [seconds]);
   await provider.send("evm_mine", []);
-  
-  // Make a dummy transaction to ensure the time change takes effect
-  const tx = await signer.sendTransaction({
-    to: await signer.getAddress(),
-    value: 0
-  });
-  await tx.wait();
 }
 
-// Helper function to log current on-chain time
-async function logTime(label: string) {
+// Helper function to log current on-chain time using contract's view
+async function logTime(label: string, prophetsContract: any) {
   // Force multiple blocks to be mined to ensure we get the actual latest timestamp
-  for (let i = 0; i < 10; i++) {
-    await provider.send("evm_mine", []);
-  }
-  
+  const timestamp = Number(await prophetsContract.getCurrentTime());
   const blockNumber = await provider.getBlockNumber();
-  const block = await provider.getBlock(blockNumber);
-  const timestamp = block!.timestamp;
   const date = new Date(timestamp * 1000);
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const dayName = dayNames[date.getUTCDay()];
@@ -181,15 +169,16 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
       expect(currentCycleAfter).to.equal(1); // Now in Sunday window (cycle 1)
       
       // Log what day we're actually on after advancing to "Sunday"
-      await logTime("After advancing to Sunday window");
+      await logTime("After advancing to Sunday window", prophets);
 
       const prediction1 = Number(currentEthPrice) * 0.95; // -5% (will be lowest)
       const prediction2 = Number(currentEthPrice) * 1.05; // +5% (will be highest)
 
       await prophets.connect(user1).makePrediction(1, Math.floor(prediction1));
+      await prophets.connect(user1).makePrediction(3, Math.floor(prediction1));
+      await prophets.connect(user2).makePrediction(334, Math.floor(prediction2));
       // expect throw not owner
       await expect(prophets.connect(user2).makePrediction(2, Math.floor(prediction1))).to.be.revertedWith("Caller is not the owner of this token");
-      await prophets.connect(user2).makePrediction(334, Math.floor(prediction2));
 
       expect(await prophets.predictions(1, 1)).to.equal(prediction1);
 
@@ -197,13 +186,14 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
       await expect(prophets.connect(user1).makePrediction(1, Math.floor(prediction2))).to.be.revertedWith("Cannot change prediction: you hold the lowest position");
       await expect(prophets.connect(user2).makePrediction(334, Math.floor(prediction1))).to.be.revertedWith("Cannot change prediction: you hold the highest position");
 
+      
       // Log time before and after advancement
-      await logTime("BEFORE advancement");
+      await logTime("BEFORE advancement", prophets);
       
       // We're currently on Sunday (just made predictions), advance 1 day to Monday
       await advanceTime(24 * 60 * 60, deployer); // 24 hours to be clearly on Monday
       
-      const dayAfter = await logTime("AFTER advancement");
+      const dayAfter = await logTime("AFTER advancement", prophets);
       console.log(`Current cycle: ${await prophets.getCurrentCycle()}`);
       
       // Verify we're now on Monday
@@ -215,6 +205,9 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
       // now the user should not be able to change their prediction
       await expect(prophets.connect(user1).makePrediction(2, Math.floor(prediction2))).to.be.revertedWith("This prophet has been burned and cannot make predictions");
       await expect(prophets.connect(user2).makePrediction(335, Math.floor(prediction1))).to.be.revertedWith("This prophet has been burned and cannot make predictions");
+      // lets log time again on contract side
+      await logTime("After burning", prophets);
+      await expect(prophets.connect(user1).makePrediction(3, Math.floor(prediction2))).to.be.revertedWith("Predictions can only be made during Sunday window (00:00-23:59 UTC)");
     });
   });
 });
