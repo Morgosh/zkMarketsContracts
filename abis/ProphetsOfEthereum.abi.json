@@ -20,6 +20,11 @@
         "internalType": "address",
         "name": "_marketplace",
         "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_pythContract",
+        "type": "address"
       }
     ],
     "stateMutability": "nonpayable",
@@ -373,15 +378,15 @@
       },
       {
         "indexed": false,
-        "internalType": "int64",
+        "internalType": "uint64",
         "name": "startPrice",
-        "type": "int64"
+        "type": "uint64"
       },
       {
         "indexed": false,
-        "internalType": "int64",
+        "internalType": "uint64",
         "name": "predictedPrice",
-        "type": "int64"
+        "type": "uint64"
       },
       {
         "indexed": false,
@@ -554,19 +559,6 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "_readPythPrice",
-    "outputs": [
-      {
-        "internalType": "int64",
-        "name": "",
-        "type": "int64"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -650,6 +642,19 @@
   },
   {
     "inputs": [],
+    "name": "blessedAtCycle",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "blessedByDivine",
     "outputs": [
       {
@@ -672,18 +677,13 @@
     "name": "cycles",
     "outputs": [
       {
-        "internalType": "int64",
-        "name": "startPrice",
-        "type": "int64"
-      },
-      {
         "internalType": "uint64",
-        "name": "startTime",
+        "name": "startPrice",
         "type": "uint64"
       },
       {
         "internalType": "uint64",
-        "name": "endTime",
+        "name": "startTime",
         "type": "uint64"
       },
       {
@@ -697,9 +697,9 @@
         "type": "uint256"
       },
       {
-        "internalType": "int64",
+        "internalType": "uint64",
         "name": "lowestPredictionPrice",
-        "type": "int64"
+        "type": "uint64"
       },
       {
         "internalType": "uint256",
@@ -707,9 +707,9 @@
         "type": "uint256"
       },
       {
-        "internalType": "int64",
+        "internalType": "uint64",
         "name": "highestPredictionPrice",
-        "type": "int64"
+        "type": "uint64"
       }
     ],
     "stateMutability": "view",
@@ -809,19 +809,6 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "name": "getAliveProphetsCount",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -835,6 +822,25 @@
         "internalType": "address",
         "name": "",
         "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getBurnCycle",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -994,14 +1000,14 @@
         "type": "uint256"
       },
       {
-        "internalType": "int64",
+        "internalType": "uint64",
         "name": "predictedPrice",
-        "type": "int64"
+        "type": "uint64"
       }
     ],
     "name": "makePrediction",
     "outputs": [],
-    "stateMutability": "payable",
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -1174,9 +1180,9 @@
     "name": "predictions",
     "outputs": [
       {
-        "internalType": "int64",
+        "internalType": "uint64",
         "name": "",
-        "type": "int64"
+        "type": "uint64"
       }
     ],
     "stateMutability": "view",
@@ -1350,6 +1356,45 @@
   },
   {
     "inputs": [],
+    "name": "readAMMPrice",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "readCurrentPrice",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "readPythPrice",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "renderer",
     "outputs": [
       {
@@ -1513,38 +1558,12 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "_pythContract",
-        "type": "address"
-      }
-    ],
-    "name": "setPythContract",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "uint256",
         "name": "_maxAge",
         "type": "uint256"
       }
     ],
     "name": "setPythMaxAge",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "bytes32",
-        "name": "_priceId",
-        "type": "bytes32"
-      }
-    ],
-    "name": "setPythPriceId",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
