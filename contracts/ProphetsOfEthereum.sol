@@ -260,7 +260,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
             return _readAMMPrice();
         } else {
             // PYTH_OR_AMM: try Pyth first, fallback to AMM
-            try this._readPythPrice() returns (int64 price) {
+            try this.readPythPrice() returns (int64 price) {
                 return price;
             } catch {
                 return _readAMMPrice();
@@ -268,9 +268,17 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         }
     }
     
-    // External wrapper for Pyth price (used in try/catch)
-    function _readPythPrice() external view returns (int64) {
+    // Public functions to read prices from each provider
+    function readPythPrice() external view returns (int64) {
         return _readPythPriceInternal();
+    }
+    
+    function readAMMPrice() external view returns (int64) {
+        return _readAMMPrice();
+    }
+    
+    function readCurrentPrice() external view returns (int64) {
+        return _readCurrentPrice();
     }
     
     // Pyth price feed. Returns ETH/USD price scaled to 1e8.
