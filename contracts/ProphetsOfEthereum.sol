@@ -74,21 +74,21 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
 
     struct CycleInfo {
         // Prices are 1e8 normalized
-        int64 startPrice;           // price logged at first prediction of the cycle (Sunday)
+        uint64 startPrice;           // price logged at first prediction of the cycle (Sunday)
         uint64 startTime;           // Sunday 00:00 UTC start (first prediction timestamp)
         uint32 predictionsCount;    // unique tokens that predicted in this cycle
         // Extremes for tie-break and blessing
         uint256 lowestPredictionTokenId;  // smallest predicted price
-        int64 lowestPredictionPrice;
+        uint64 lowestPredictionPrice;
         uint256 highestPredictionTokenId; // largest predicted price
-        int64 highestPredictionPrice;
+        uint64 highestPredictionPrice;
     }
 
     // ------------------------------
     // Storage
     // ------------------------------
     // Prediction per token per cycle (1e8 normalized); 0 = no prediction
-    mapping(uint256 => mapping(uint256 => int64)) public predictions; // tokenId => cycle => price
+    mapping(uint256 => mapping(uint256 => uint64)) public predictions; // tokenId => cycle => price
     // Mark tokens that were explicitly punished (e.g., listing infractions)
     mapping(uint256 => bool) public divinePunished;
 
@@ -322,7 +322,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     /// @notice Make or update a prediction for the current cycle during Sunday window.
     /// If this is the first prediction in the cycle, records the cycle's start price from AMM.
     /// The predicted price must differ by at least 1% from the cycle start price.
-    function makePrediction(uint256 tokenId, int64 predictedPrice)
+    function makePrediction(uint256 tokenId, uint64 predictedPrice)
         external
     {
         require(ownerOf(tokenId) == msg.sender, "Caller is not the owner of this token");
@@ -515,27 +515,35 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         if (blessedByDivine == tokenId) return false;
         if (divinePunished[tokenId]) return true;
 
+        // lets check if its sunday today
+        bool isSunday = _isInSundayWindow();
         uint256 cycle = getCurrentCycle();
-        if (cycle < 2) return false; // need at least one completed cycle
-        uint256 last = cycle - 1;
-        CycleInfo storage prev = cycles[last];
-        
-        // Lazy check based on stored predictions
-        int64 pLast = predictions[tokenId][last];
-        if (pLast == int64(0)) return true; // made no prediction last cycle = burned
+        if (cycle < 1) return false;
 
-        // Need end price = next cycle's start price
-        int64 endPrice = cycles[cycle].startPrice;
-        // If current cycle hasn't started yet, calculate what the end price would be now
-        if (endPrice == int64(0)) {
-            endPrice = _readCurrentPrice(); // get current price as judgment
+        if(isSunday) {
+            if(cycle == 1) {
+                return false;
+            } else {
+                uint256 last = cycle - 1;
+                CycleInfo storage currentCycleInfo = cycles[cycle];
+                CycleInfo storage prevCycleInfo = cycles[last];
+                int64 pLast = predictions[tokenId][last];
+                if (pLast == 0) return true; // made no prediction last cycle = burned
+                // Need end price = next cycle's start price
+                int64 endPrice = currentCycleInfo.startPrice;
+                // If current cycle hasn't started yet, calculate what the end price would be now
+                if (endPrice == int64(0)) {
+                    endPrice = _readCurrentPrice(); // get current price as judgment
+                }
+                uint256 errBps = _priceChangeBps(pLast, endPrice);
+                if (errBps > JUDGMENT_THRESHOLD_BPS) return true;
+            }
+        } else {
+            int64 pCurrent = predictions[tokenId][cycle];    
+            if(pCurrent == int64(0)) {
+                return true;
+            }
         }
-
-        bool wentUp = endPrice > prev.startPrice;
-        bool predictedUp = pLast > prev.startPrice;
-        uint256 errBps = _priceChangeBps(pLast, endPrice);
-        bool correctDir = (wentUp && predictedUp) || (!wentUp && !predictedUp);
-        if (!correctDir || errBps > JUDGMENT_THRESHOLD_BPS) return true;
         return false;
     }
 
@@ -671,7 +679,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     /// @param price Price in 1e8 format
     /// @return formatted price string
     function _formatPrice(int64 price) internal pure returns (string memory) {
-        if (price <= 0) return "$0.00";
+        if (price == 0) return "$0.00";
         
         uint256 uPrice = uint256(int256(price));
         uint256 dollars = uPrice / 1e8;
@@ -777,19 +785,16 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
 
     function _priceChangeBps(int64 a, int64 b) internal pure returns (uint256) {
         if (a == int64(0)) return 0;
-        uint256 ua = uint256(int256(a < 0 ? -a : a));
-        uint256 ub = uint256(int256(b < 0 ? -b : b));
+        uint256 ua = uint256(int256(a));
+        uint256 ub = uint256(int256(b));
         uint256 diff = ua > ub ? ua - ub : ub - ua;
         return (diff * 10000) / ua;
     }
 
     function _absDiff(int64 a, int64 b) internal pure returns (uint256) {
-        int256 d = int256(a) - int256(b);
-        return uint256(d >= 0 ? d : -d);
-    }
-
-    function _absDiffU(int64 a, int64 b) internal pure returns (uint256) {
-        return _absDiff(a, b);
+        uint256 ua = uint256(int256(a));
+        uint256 ub = uint256(int256(b));
+        return ua > ub ? ua - ub : ub - ua;
     }
 
     // Mark a token as punished (e.g., listing below minimal floor in future extension)

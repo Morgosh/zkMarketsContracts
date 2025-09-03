@@ -11,7 +11,37 @@ const MINT_PRICE = ethers.parseEther("0.01");
 
 const provider = new ethers.BrowserProvider(hre.network.provider as any);
 
+// Helper function to advance time and ensure blockchain state is updated
+async function advanceTime(seconds: number, signer: any) {
+  await provider.send("evm_increaseTime", [seconds]);
+  await provider.send("evm_mine", []);
+  
+  // Make a dummy transaction to ensure the time change takes effect
+  const tx = await signer.sendTransaction({
+    to: await signer.getAddress(),
+    value: 0
+  });
+  await tx.wait();
+}
 
+// Helper function to log current on-chain time
+async function logTime(label: string) {
+  // Force multiple blocks to be mined to ensure we get the actual latest timestamp
+  for (let i = 0; i < 10; i++) {
+    await provider.send("evm_mine", []);
+  }
+  
+  const blockNumber = await provider.getBlockNumber();
+  const block = await provider.getBlock(blockNumber);
+  const timestamp = block!.timestamp;
+  const date = new Date(timestamp * 1000);
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dayName = dayNames[date.getUTCDay()];
+  const time = date.toUTCString().split(' ')[4]; // Gets HH:MM:SS
+  
+  console.log(`${label}: ${dayName} ${time} UTC (${timestamp}) [Block ${blockNumber}]`);
+  return dayName;
+}
 
 describe("ProphetsOfEthereum - Signature Minting Tests", () => {
   let prophets: any;
@@ -75,7 +105,7 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
   describe("Signature-based Minting", () => {
     it("testing iteration 1", async () => {
       const contractAddress = await prophets.getAddress();
-      const currentTime = Math.floor(Date.now() / 1000);
+      let currentTime = Math.floor(Date.now() / 1000);
       const endTime = currentTime + (365 * 24 * 60 * 60);
       const pricePerToken = MINT_PRICE;
 
@@ -136,18 +166,22 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
 
       // Wait for Sunday window
       const firstCycleStart = await prophets.firstCycleStart();
-      const currentBlock = await provider.getBlock("latest");
+      let currentBlock = await provider.getBlock("latest");
       const currentTime2 = currentBlock!.timestamp;
       const timeToSunday = Number(firstCycleStart) + 60 - currentTime2;
       
-      if (timeToSunday > 0) {
-        await provider.send("evm_increaseTime", [timeToSunday]);
-        await provider.send("evm_mine", []);
-      }
+      console.log(`firstCycleStart: ${firstCycleStart} (${new Date(Number(firstCycleStart) * 1000).toUTCString()})`);
+      console.log(`currentTime2: ${currentTime2} (${new Date(currentTime2 * 1000).toUTCString()})`);
+      console.log(`timeToSunday: ${timeToSunday} seconds`);
+      
+      await advanceTime(timeToSunday, deployer);
 
       // After time advancement, should be Sunday (cycle 1)
       const currentCycleAfter = await prophets.getCurrentCycle();
       expect(currentCycleAfter).to.equal(1); // Now in Sunday window (cycle 1)
+      
+      // Log what day we're actually on after advancing to "Sunday"
+      await logTime("After advancing to Sunday window");
 
       const prediction1 = Number(currentEthPrice) * 0.95; // -5% (will be lowest)
       const prediction2 = Number(currentEthPrice) * 1.05; // +5% (will be highest)
@@ -162,6 +196,25 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
       // lets make sure the user cannot change their prediction
       await expect(prophets.connect(user1).makePrediction(1, Math.floor(prediction2))).to.be.revertedWith("Cannot change prediction: you hold the lowest position");
       await expect(prophets.connect(user2).makePrediction(334, Math.floor(prediction1))).to.be.revertedWith("Cannot change prediction: you hold the highest position");
+
+      // Log time before and after advancement
+      await logTime("BEFORE advancement");
+      
+      // We're currently on Sunday (just made predictions), advance 1 day to Monday
+      await advanceTime(24 * 60 * 60, deployer); // 24 hours to be clearly on Monday
+      
+      const dayAfter = await logTime("AFTER advancement");
+      console.log(`Current cycle: ${await prophets.getCurrentCycle()}`);
+      
+      // Verify we're now on Monday
+      expect(dayAfter).to.equal("Monday");
+      
+      // 2 and 335 should be burned
+      expect(await prophets.isBurned(2)).to.be.true;
+      expect(await prophets.isBurned(335)).to.be.true;
+      // now the user should not be able to change their prediction
+      await expect(prophets.connect(user1).makePrediction(2, Math.floor(prediction2))).to.be.revertedWith("This prophet has been burned and cannot make predictions");
+      await expect(prophets.connect(user2).makePrediction(335, Math.floor(prediction1))).to.be.revertedWith("This prophet has been burned and cannot make predictions");
     });
   });
 });
