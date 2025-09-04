@@ -503,9 +503,9 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         // Since next cycle has no predictions, we can use the current price as judgment
         uint64 endPrice = _readCurrentPrice(); // current price as judgment
         
-        // If ETH ended higher than highest prediction, take highest prediction as winner
+        // If ETH ended higher than start price, take highest prediction as winner
         // If only one survivor, they are both highest and lowest, so this works for both cases
-        if (endPrice > endedCycleInfo.highestPredictionPrice) {
+        if (endPrice > endedCycleInfo.startPrice) {
             return endedCycleInfo.highestPredictionTokenId;
         }
         // Otherwise take lowest prediction as winner
@@ -637,16 +637,12 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
                 ',{"trait_type":"Divine Status","value":"Blessed"}'
             ));
         } else {
-            // Calculate burn status once and reuse
-            bool burned = isBurned(tokenId);
-            
-            if (burned) {
+            if (keccak256(abi.encodePacked(state)) == keccak256(abi.encodePacked("burned"))) {
                 // Burned prophets: add burn cycle and soulbound status
                 uint256 burnCycle = _getBurnCycle(tokenId);
                 attributes = string(abi.encodePacked(
                     attributes,
-                    ',{"trait_type":"Burn Cycle","value":"', burnCycle.toString(), '"}',
-                    ',{"trait_type":"Transferable","value":"Soulbound"}'
+                    ',{"trait_type":"Burn Cycle","value":"', burnCycle.toString(), '"}'
                 ));
             } else {
                 // Alive prophets: add current cycle prediction if available
