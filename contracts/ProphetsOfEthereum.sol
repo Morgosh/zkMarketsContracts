@@ -281,11 +281,6 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         return _readCurrentPrice();
     }
     
-    // for testing
-    function getCurrentTime() external view returns (uint256) {
-        return block.timestamp;
-    }
-    
     // Pyth price feed. Returns ETH/USD price scaled to 1e8.
     function _readPythPriceInternal() internal view returns (uint64) {
         require(pythContract != address(0), "pyth-not-set");
@@ -419,24 +414,28 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         require(ok, "withdraw");
     }
     
-    /// @notice Emergency withdrawal if winner doesn't claim blessing within 1 month
+    /// @notice Emergency withdrawal if winner doesn't claim blessing after 1 month of game ending
     /// @param gameEndedCycle The cycle where the game ended
     /// @param to Address to send the treasury to
     function emergencyWithdraw(uint256 gameEndedCycle, address payable to) external onlyOwner {
-        require(blessedByDivine == 0, "already-blessed");
+        // require(isGameEnded(), "game-not-ended"); already checked in getWinner
+        // require(blessedByDivine == 0, "already-blessed"); doesn't matter, funds can still be stuck
         
         // Validate gameEndedCycle is correct by getting the winner (will revert if invalid)
         uint256 winnerId = getWinner(gameEndedCycle);
         require(winnerId > 0, "no-winner");
         
-        uint256 currentCycle = getCurrentCycle();
-        // Check if 1 month (4 weeks) has passed since game ended
-        require(currentCycle >= gameEndedCycle + 4, "too-early");
+        // Calculate time since game ended
+        uint64 gameEndTime = uint64(uint256(firstCycleStart) + gameEndedCycle * 1 weeks);
+        uint256 daysPassed = (block.timestamp - gameEndTime) / 1 days;
+        
+        // Check if 1 month (28 days = 4 weeks) has passed since game ended
+        require(daysPassed >= 28, "must-wait-28-days");
         
         uint256 amount = getTreasury();
         require(amount > 0, "no-treasury");
 
-        blessedAtCycle = currentCycle;
+        blessedAtCycle = gameEndedCycle;
         
         (bool ok, ) = to.call{value: amount}("");
         require(ok, "transfer");
@@ -468,16 +467,15 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
 
     function isGameEnded() public view returns (bool) {
         uint256 cycle = getCurrentCycle();
-        if (cycle <= 1) return false; // need at least 1 completed cycle
+        if (cycle <= 1) return false; // need at least 1 started cycle
         
-        // If we're in Sunday window, check 2 cycles back to avoid timing issues
+        // If we're in Sunday window, check 1 cycle back to avoid timing issues
         if (_isInSundayWindow()) {
-            if (cycle <= 2) return false;
-            return cycles[cycle - 2].predictionsCount <= 1;
+            return cycles[cycle - 1].predictionsCount <= 1;
         }
         
-        // Not in Sunday window - we can safely check the most recent completed cycle
-        return cycles[cycle - 1].predictionsCount <= 1;
+        // Not in Sunday window - we can safely check the most recent started cycle
+        return cycles[cycle].predictionsCount <= 1;
     }
     
     function _isInSundayWindow() internal view returns (bool) {
@@ -492,19 +490,18 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     /// @param gameEndedCycle The cycle where the game ended (last cycle with predictions)
     /// @return tokenId of the winning prophet
     function getWinner(uint256 gameEndedCycle) public view returns (uint256) {
+        // if blessed, return blessed token
+        if (blessedByDivine != 0) {
+            return blessedByDivine;
+        }
         require(isGameEnded(), "game-not-ended");
-        uint256 currentCycle = getCurrentCycle();
-        require(currentCycle > gameEndedCycle, "invalid-cycle");
-        require(cycles[gameEndedCycle + 1].predictionsCount == 0, "next-cycle-has-votes");
-        
+        // to validate gameEndedCycle is correct, we need to ensure next cycle has no predictions, but that the gameEndedCycle has predictions
+        require(cycles[gameEndedCycle + 1].predictionsCount == 0, "next-cycle-has-predictions");
         CycleInfo storage endedCycleInfo = cycles[gameEndedCycle];
         require(endedCycleInfo.predictionsCount > 0, "no-predictions");
         
-        // Get the end price (start price of next cycle or current price)
-        uint64 endPrice = cycles[gameEndedCycle + 1].startPrice;
-        if (endPrice == 0) {
-            endPrice = _readCurrentPrice(); // current price as judgment
-        }
+        // Since next cycle has no predictions, we can use the current price as judgment
+        uint64 endPrice = _readCurrentPrice(); // current price as judgment
         
         // If ETH ended higher than highest prediction, take highest prediction as winner
         // If only one survivor, they are both highest and lowest, so this works for both cases
@@ -540,7 +537,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
                 if (endPrice == 0) {
                     endPrice = _readCurrentPrice(); // get current price as judgment
                 }
-                uint256 errBps = _priceChangeBps(pLast, endPrice);
+                uint256 errBps = _priceChangeBps(endPrice, pLast);
                 if (errBps > JUDGMENT_THRESHOLD_BPS) return true;
             }
         } else {

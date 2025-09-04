@@ -17,23 +17,25 @@ async function advanceTime(seconds: number, signer: any) {
   await provider.send("evm_mine", []);
 }
 
-// Helper function to log current on-chain time using contract's view
-async function logTime(label: string, prophetsContract: any) {
+// Helper function to log current on-chain time using TestUtils contract
+async function logTime(label: string, testUtils: any) {
   // Force multiple blocks to be mined to ensure we get the actual latest timestamp
-  const timestamp = Number(await prophetsContract.getCurrentTime());
+  const timestamp = Number(await testUtils.getCurrentTime());
   const blockNumber = await provider.getBlockNumber();
   const date = new Date(timestamp * 1000);
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const dayName = dayNames[date.getUTCDay()];
+  const dateStr = date.toISOString().split('T')[0]; // Gets YYYY-MM-DD
   const time = date.toUTCString().split(' ')[4]; // Gets HH:MM:SS
   
-  console.log(`${label}: ${dayName} ${time} UTC (${timestamp}) [Block ${blockNumber}]`);
+  console.log(`${label}: ${dayName} ${dateStr} ${time} UTC (${timestamp}) [Block ${blockNumber}]`);
   return dayName;
 }
 
 describe("ProphetsOfEthereum - Signature Minting Tests", () => {
   let prophets: any;
   let mockPyth: any;
+  let testUtils: any;
   let deployer: any, user1: any, user2: any, approver: any;
 
   let currentEthPrice = 0n
@@ -42,6 +44,13 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
     user1 = await provider.getSigner(1);
     user2 = await provider.getSigner(2);
     approver = await provider.getSigner(3);
+
+    // Deploy TestUtils
+    const testUtilsArtifact = await hre.artifacts.readArtifact("TestUtils");
+    const TestUtils = new ethers.ContractFactory(testUtilsArtifact.abi, testUtilsArtifact.bytecode, deployer);
+    testUtils = await TestUtils.deploy();
+    await testUtils.waitForDeployment();
+    console.log(`TestUtils deployed at: ${await testUtils.getAddress()}`);
 
     // Deploy MockPyth
     const mockPythArtifact = await hre.artifacts.readArtifact("MockPyth");
@@ -139,6 +148,7 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
         signature2,
         { value: pricePerToken * 333n }
       );
+      await expect(prophets.connect(user1).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
 
       expect(await prophets.totalSupply()).to.equal(TOTAL);
       expect(await prophets.firstCycleStart()).to.be.gt(0);
@@ -162,6 +172,7 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
       console.log(`currentTime2: ${currentTime2} (${new Date(currentTime2 * 1000).toUTCString()})`);
       console.log(`timeToSunday: ${timeToSunday} seconds`);
       
+      await expect(prophets.connect(user1).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
       await advanceTime(timeToSunday, deployer);
 
       // After time advancement, should be Sunday (cycle 1)
@@ -169,7 +180,7 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
       expect(currentCycleAfter).to.equal(1); // Now in Sunday window (cycle 1)
       
       // Log what day we're actually on after advancing to "Sunday"
-      await logTime("After advancing to Sunday window", prophets);
+      await logTime("After advancing to Sunday window", testUtils);
 
       const prediction1 = Number(currentEthPrice) * 0.95; // -5% (will be lowest)
       const prediction2 = Number(currentEthPrice) * 1.05; // +5% (will be highest)
@@ -188,12 +199,12 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
 
       
       // Log time before and after advancement
-      await logTime("BEFORE advancement", prophets);
+      await logTime("BEFORE advancement", testUtils);
       
       // We're currently on Sunday (just made predictions), advance 1 day to Monday
       await advanceTime(24 * 60 * 60, deployer); // 24 hours to be clearly on Monday
       
-      const dayAfter = await logTime("AFTER advancement", prophets);
+      const dayAfter = await logTime("AFTER advancement", testUtils);
       console.log(`Current cycle: ${await prophets.getCurrentCycle()}`);
       
       // Verify we're now on Monday
@@ -206,8 +217,119 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
       await expect(prophets.connect(user1).makePrediction(2, Math.floor(prediction2))).to.be.revertedWith("This prophet has been burned and cannot make predictions");
       await expect(prophets.connect(user2).makePrediction(335, Math.floor(prediction1))).to.be.revertedWith("This prophet has been burned and cannot make predictions");
       // lets log time again on contract side
-      await logTime("After burning", prophets);
+      await logTime("After burning", testUtils);
       await expect(prophets.connect(user1).makePrediction(3, Math.floor(prediction2))).to.be.revertedWith("Predictions can only be made during Sunday window (00:00-23:59 UTC)");
+
+      // lets try to claim the divine blessing
+      await expect(prophets.connect(user1).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
+      
+      // lets advance next sunday // no need to change price, 3 nfts should SURVIVE
+      await advanceTime(24 * 60 * 60 * 6, deployer);
+      // lets log the cycle
+      console.log(`Current cycle: ${await prophets.getCurrentCycle()}`);
+      await logTime("After advancing to next sunday", testUtils);
+      // expect sunday on contract
+      await expect(prophets.connect(user1).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
+      // lets try to claim the divine blessing with the wrong cycle
+
+      // ALIVE CHECK, LETS CHECK THE 3 ALIVE ONES
+      // Check that tokens 1, 3, and 334 are alive (not burned)
+      expect(await prophets.isBurned(1)).to.be.false;
+      expect(await prophets.isBurned(3)).to.be.false;
+      expect(await prophets.isBurned(334)).to.be.false;
+
+      const winnerPrediction = Math.floor(Number(currentEthPrice) * 0.95);
+      const loserPrediction1 = Math.floor(Number(currentEthPrice) * 0.899);
+      const loserPrediction2 = Math.floor(Number(currentEthPrice) * 1.101);
+
+      // NEW PHASE, 2 WILL BE WRONG, AND BURNED
+      await prophets.connect(user1).makePrediction(1, winnerPrediction);
+      await prophets.connect(user1).makePrediction(3, loserPrediction1);
+      await prophets.connect(user2).makePrediction(334, loserPrediction2);
+
+      await advanceTime(24 * 60 * 60 * 7, deployer);
+      await logTime("After advancing to next sunday", testUtils);
+      await expect(prophets.connect(user1).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
+      await expect(prophets.connect(user2).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
+      expect(await prophets.isBurned(1)).to.be.false;
+      expect(await prophets.isBurned(3)).to.be.true;
+      expect(await prophets.isBurned(334)).to.be.true;
+      await expect(prophets.connect(user1).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
+
+      // make valid prediction on sunday
+      await prophets.connect(user1).makePrediction(1, winnerPrediction);
+      // loop to monday
+      await advanceTime(24 * 60 * 60 * 1, deployer);
+      await logTime("After advancing to monday", testUtils);
+      // expect(await prophets.isBurned(1)).to.be.true; // he didn't vote retard
+      expect(await prophets.isBurned(1)).to.be.false; // he didn't vote retard
+      // lets log cycle 
+      console.log(`Current cycle: ${await prophets.getCurrentCycle()}`);
+
+      // CLAIM DIVINE TREASURY
+      // get user balance before
+      const user1BalanceBefore = await provider.getBalance(await user1.getAddress());
+      console.log(`user1BalanceBefore: ${user1BalanceBefore}`);
+      const treasuryBefore = await prophets.getTreasury();
+      // treasury should be higher
+      expect(treasuryBefore).to.be.gt(0);
+      console.log(`treasuryBefore: ${treasuryBefore}`);
+      // contract balance
+      const contractBalanceBefore = await provider.getBalance(await prophets.getAddress());
+      console.log(`contractBalanceBefore: ${contractBalanceBefore}`);
+      // getWinner should return 1
+      expect(await prophets.getWinner(3)).to.equal(1);
+      const acceptTx = await prophets.connect(user1).acceptDivineBlessing(3);
+      await acceptTx.wait();
+      // mine block
+      await provider.send("evm_mine", []);
+      // log user balance after
+      const user1BalanceAfter1 = await provider.getBalance(await user1.getAddress());
+      console.log(`user1BalanceAfterDivineBlessing: ${user1BalanceAfter1}`);
+      // contract balance after
+      const contractBalanceAfter1 = await provider.getBalance(await prophets.getAddress());
+      console.log(`contractBalanceAfterDivineBlessing: ${contractBalanceAfter1}`);
+
+      expect(await testUtils.getAddressBalance(await user1.getAddress())).to.be.gt(0);
+      expect(await prophets.blessedByDivine()).to.equal(1);
+      expect(await prophets.blessedAtCycle()).to.equal(3);
+      expect(await prophets.getTreasury()).to.be.equal(0);
+      // balance on contract should be 1 ether - use contract's own balance checker
+      expect(await testUtils.getContractBalance(await prophets.getAddress())).to.be.equal(ethers.parseEther("1"));
+      // should  be withdrawable via     function withdrawMaintenanceFee(address payable to) external onlyOwner {
+      const randomAddress = await ethers.getAddress("0x1234567890123456789012345678901234567890");
+      const tx = await prophets.withdrawMaintenanceFee(randomAddress);
+      await expect(prophets.withdrawMaintenanceFee(randomAddress)).to.be.revertedWith("done");
+      await tx.wait();
+      // log user balance after
+      const user1BalanceAfter2 = await provider.getBalance(await user1.getAddress());
+      console.log(`user1BalanceAfterWithdrawMaintenanceFee: ${user1BalanceAfter2}`);
+      expect(await testUtils.getContractBalance(await prophets.getAddress())).to.be.equal(ethers.parseEther("0"));
+      expect(await testUtils.getAddressBalance(randomAddress)).to.be.equal(ethers.parseEther("1"));
+
     });
   });
 });
+
+
+// we can test these cases:
+
+// winner wins by predicting correctly bullish, 5% less than current price, unless he forgets to make prediction on sunday, which is stupid.
+
+
+// winner wins by predicting correctly bullish, 5% more than current price
+// winner wins by predicting correctly bearish, 5% less than current price
+// winner wins by predicting correctly bearish, 5% more than current price
+
+// WHOOOPS FORGOT TO CLAIM DIVINE TREASURY WHEN I WON
+
+
+
+// winner wins by being closest to the price change
+
+// all get burned, everyone burns themselves via listing
+
+// Price goes from 1000 to 1100
+
+
+// there is an edge case where winner needs to do another prophesy, it can be whatever, but he just needs to do it in order to prove he is the only one alive on monday. If he does not, someone else could win
