@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+interface IUniswapV2PairMinimal {
+    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+    function token0() external view returns (address);
+    function token1() external view returns (address);
+}
+
+contract MockUniswapPool is IUniswapV2PairMinimal {
+    address private _token0;
+    address private _token1;
+    uint112 public reserve0;
+    uint112 public reserve1;
+    uint32 public blockTimestampLast;
+    
+    constructor() {
+        // Mock WETH/USDC pool
+        _token0 = address(0x1); // Mock WETH
+        _token1 = address(0x2); // Mock USDC
+        // Set reserves to simulate $4000 ETH price
+        // ETH has 18 decimals, USDC has 6 decimals
+        // Price = (reserve1 * 10^18) / (reserve0 * 10^6) * 1e8
+        // For $4000: reserve1/reserve0 = 4000 * 10^6 / 10^18 = 4000 * 10^-12
+        // Let's use: reserve0 = 100 ETH, reserve1 = 400,000 USDC
+        reserve0 = uint112(100 * 1e18); // 100 ETH
+        reserve1 = uint112(400000 * 1e6); // 400k USDC
+        blockTimestampLast = uint32(block.timestamp);
+    }
+    
+    function getReserves() external view override returns (uint112 _reserve0, uint112 _reserve1, uint32 _blockTimestampLast) {
+        return (reserve0, reserve1, blockTimestampLast);
+    }
+    
+    function token0() external view override returns (address) {
+        return _token0;
+    }
+    
+    function token1() external view override returns (address) {
+        return _token1;
+    }
+    
+    function setReserves(uint112 _reserve0, uint112 _reserve1) external {
+        reserve0 = _reserve0;
+        reserve1 = _reserve1;
+        blockTimestampLast = uint32(block.timestamp);
+    }
+    
+    function setTokens(address newToken0, address newToken1) external {
+        _token0 = newToken0;
+        _token1 = newToken1;
+    }
+    
+    // Helper to set price directly (in 1e8 format)
+    function setPrice(uint64 priceInE8) external {
+        // Price = (reserve1 * 10^18) / (reserve0 * 10^6)
+        // So: reserve1 = (price * reserve0 * 10^6) / 10^18
+        // Let's fix reserve0 = 100 ETH for simplicity
+        uint112 fixedReserve0 = uint112(100 * 1e18);
+        uint112 newReserve1 = uint112((uint256(priceInE8) * uint256(fixedReserve0) * 1e6) / (1e8 * 1e18));
+        
+        reserve0 = fixedReserve0;
+        reserve1 = newReserve1;
+        blockTimestampLast = uint32(block.timestamp);
+    }
+}
+
+contract MockERC20 {
+    string public name;
+    string public symbol;
+    uint8 public decimals;
+    
+    constructor(string memory _name, string memory _symbol, uint8 _decimals) {
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+    }
+}

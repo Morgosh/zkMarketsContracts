@@ -1,0 +1,148 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_pool",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [],
+    "name": "debugCalculation",
+    "outputs": [
+      {
+        "internalType": "uint112",
+        "name": "r0",
+        "type": "uint112"
+      },
+      {
+        "internalType": "uint112",
+        "name": "r1",
+        "type": "uint112"
+      },
+      {
+        "internalType": "uint8",
+        "name": "d0",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "d1",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "num",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "den",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "price1e8",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint64",
+        "name": "finalPrice",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getPoolInfo",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "token0",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "token1",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "token0Symbol",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "token1Symbol",
+        "type": "string"
+      },
+      {
+        "internalType": "uint8",
+        "name": "token0Decimals",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "token1Decimals",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint112",
+        "name": "reserve0",
+        "type": "uint112"
+      },
+      {
+        "internalType": "uint112",
+        "name": "reserve1",
+        "type": "uint112"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "pool",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "readAMMPrice",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_pool",
+        "type": "address"
+      }
+    ],
+    "name": "setPool",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

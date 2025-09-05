@@ -299,6 +299,7 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     // Uniswap V2 spot price. Returns token1 per token0 scaled to 1e8.
     // Assumes pool tokens are WETH (18 decimals) and USDC.e (6 decimals). For other tokens, uses ERC20 decimals.
     function _readAMMPrice() internal view returns (uint64) {
+        require(pool != address(0), "AMM pool not set");
         (uint112 r0, uint112 r1, ) = IUniswapV2PairMinimal(pool).getReserves();
         address t0 = IUniswapV2PairMinimal(pool).token0();
         address t1 = IUniswapV2PairMinimal(pool).token1();

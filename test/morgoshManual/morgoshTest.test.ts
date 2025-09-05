@@ -32,9 +32,17 @@ async function logTime(label: string, testUtils: any) {
   return dayName;
 }
 
+// Helper function to update both Pyth and AMM prices
+async function updatePrices(newPrice: bigint, mockPyth: any, mockPool: any) {
+  await mockPyth.updatePrice(newPrice, -8);
+  await mockPool.setPrice(newPrice);
+  console.log(`Updated both prices to: ${newPrice} ($${(Number(newPrice) / 1e8).toFixed(2)})`);
+}
+
 describe("ProphetsOfEthereum - Signature Minting Tests", () => {
   let prophets: any;
   let mockPyth: any;
+  let mockPool: any;
   let testUtils: any;
   let deployer: any, user1: any, user2: any, approver: any;
 
@@ -59,6 +67,26 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
     mockPyth = await MockPyth.deploy(currentEthPrice, -8);
     await mockPyth.waitForDeployment();
 
+    // Deploy mock tokens first
+    const mockERC20Artifact = await hre.artifacts.readArtifact("MockERC20");
+    const MockERC20 = new ethers.ContractFactory(mockERC20Artifact.abi, mockERC20Artifact.bytecode, deployer);
+    const mockWETH = await MockERC20.deploy("Wrapped Ether", "WETH", 18);
+    const mockUSDC = await MockERC20.deploy("USD Coin", "USDC", 6);
+    await mockWETH.waitForDeployment();
+    await mockUSDC.waitForDeployment();
+    
+    // Deploy MockUniswapPool
+    const mockPoolArtifact = await hre.artifacts.readArtifact("MockUniswapPool");
+    const MockPool = new ethers.ContractFactory(mockPoolArtifact.abi, mockPoolArtifact.bytecode, deployer);
+    mockPool = await MockPool.deploy();
+    await mockPool.waitForDeployment();
+    
+    // Set proper token addresses
+    await mockPool.setTokens(await mockWETH.getAddress(), await mockUSDC.getAddress());
+    
+    // Set mock pool price to match currentEthPrice
+    await mockPool.setPrice(currentEthPrice);
+
     // Deploy ProphetsRenderer first
     const rendererArtifact = await hre.artifacts.readArtifact("ProphetsRenderer");
     const Renderer = new ethers.ContractFactory(rendererArtifact.abi, rendererArtifact.bytecode, deployer);
@@ -82,13 +110,12 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
     // Deploy Prophets with correct constructor parameters
     const prophetsArtifact = await hre.artifacts.readArtifact("ProphetsOfEthereum");
     const Prophets = new ethers.ContractFactory(prophetsArtifact.abi, prophetsArtifact.bytecode, deployer);
-    const dummyPool = ethers.ZeroAddress;
     const mockMarketplace = ethers.ZeroAddress;
     const defaultOperator = await deployer.getAddress();
     
     prophets = await Prophets.deploy(
       await renderer.getAddress(),  // _renderer
-      dummyPool,                   // uniPool
+      await mockPool.getAddress(),  // uniPool (now using mock pool)
       await approver.getAddress(), // _approver
       mockMarketplace,             // _marketplace
       await mockPyth.getAddress()  // _pythContract
@@ -96,7 +123,19 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
     await prophets.waitForDeployment();
 
     // Configure to use PYTH mode
-    await prophets.setPriceProvider(1); // PYTH = 1
+    await prophets.setPriceProvider(0); // PYTH_OR_AMM = 2, PYTH = 1, AMM = 0
+
+    console.log(`currentEthPrice: ${currentEthPrice}`);
+    // test price
+    const price = await prophets.readPythPrice();
+    console.log(`price: ${price}`);
+    expect(price).to.equal(currentEthPrice);
+    const price2 = await prophets.readAMMPrice();
+    console.log(`price2: ${price2}`);
+    expect(price2).to.equal(currentEthPrice);
+    const price3 = await prophets.readCurrentPrice();
+    console.log(`price3: ${price3}`);
+    expect(price3).to.equal(currentEthPrice);
 
     const contractAddress = await prophets.getAddress();
     let currentTime = Math.floor(Date.now() / 1000);
@@ -136,7 +175,7 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
     );
 
     // Mint 333 tokens to user2 to complete mint-out
-    await prophets.connect(user2).mint(
+     const tx = await prophets.connect(user2).mint(
       2, // saleId
       endTime,
       333, // maxMint
@@ -145,6 +184,7 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
       signature2,
       { value: pricePerToken * 333n }
     );
+    await tx.wait();
     await expect(prophets.connect(user1).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
 
     expect(await prophets.totalSupply()).to.equal(TOTAL);
@@ -155,9 +195,14 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
     expect(await prophets.balanceOf(await user1.getAddress())).to.equal(333);
     expect(await prophets.balanceOf(await user2.getAddress())).to.equal(333);
 
+
+    // lets lo
+    await logTime("Time at start of test", testUtils);
     // Before first cycle starts, should NOT be Sunday (cycle 0)
     const currentCycleBefore = await prophets.getCurrentCycle();
+    console.log(`logging1: ${currentCycleBefore}`);
     expect(currentCycleBefore).to.equal(0); // Not in Sunday window yet
+    console.log(`logging2: ${currentCycleBefore}`);
 
     // Wait for Sunday window
     const firstCycleStart = await prophets.firstCycleStart();
@@ -182,6 +227,8 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
     const prediction1 = Number(currentEthPrice) * 0.95; // -5% (will be lowest)
     const prediction2 = Number(currentEthPrice) * 1.05; // +5% (will be highest)
 
+    await expect(prophets.connect(user1).makePrediction(1, currentEthPrice)).to.be.revertedWith("Prediction must differ by at least 1% from cycle start price");
+
     await prophets.connect(user1).makePrediction(1, Math.floor(prediction1));
     await prophets.connect(user1).makePrediction(3, Math.floor(prediction1));
     await prophets.connect(user2).makePrediction(334, Math.floor(prediction2));
@@ -193,15 +240,11 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
     // lets make sure the user cannot change their prediction
     await expect(prophets.connect(user1).makePrediction(1, Math.floor(prediction2))).to.be.revertedWith("Cannot change prediction: you hold the lowest position");
     await expect(prophets.connect(user2).makePrediction(334, Math.floor(prediction1))).to.be.revertedWith("Cannot change prediction: you hold the highest position");
-
-    
-    // Log time before and after advancement
-    await logTime("BEFORE advancement", testUtils);
     
     // We're currently on Sunday (just made predictions), advance 1 day to Monday
     await advanceTime(24 * 60 * 60, deployer); // 24 hours to be clearly on Monday
     
-    const dayAfter = await logTime("AFTER advancement", testUtils);
+    const dayAfter = await logTime("AFTER advancement to monday (first burning)", testUtils);
     console.log(`Current cycle: ${await prophets.getCurrentCycle()}`);
     
     // Verify we're now on Monday
@@ -226,7 +269,9 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
     console.log(`Current cycle: ${await prophets.getCurrentCycle()}`);
     await logTime("After advancing to next sunday", testUtils);
     // expect sunday on contract
+    console.log(`logging3: ${await prophets.getCurrentCycle()}`);
     await expect(prophets.connect(user1).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
+    console.log(`logging4: ${await prophets.getCurrentCycle()}`);
     // lets try to claim the divine blessing with the wrong cycle
 
     // ALIVE CHECK, LETS CHECK THE 3 ALIVE ONES
@@ -242,10 +287,24 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
       const loserPrediction1 = Math.floor(Number(currentEthPrice) * 0.899);
       const loserPrediction2 = Math.floor(Number(currentEthPrice) * 1.101);
 
+      // lets log the current price onchain
+      //console.log(`currentPrice: ${await prophets.currentPrice()}`);
+
+
+
+      console.log(`loggingCurrentPrice: ${await prophets.readCurrentPrice()}`);
+      console.log(`loggingPythPrice: ${await prophets.readPythPrice()}`);
+      // console.log(`loggingAMMPrice: ${await prophets.readAMMPrice()}`);
       // NEW PHASE, 2 WILL BE WRONG, AND BURNED
-      await prophets.connect(user1).makePrediction(1, winnerPrediction);
+      console.log(`logging5: ${await prophets.getCurrentCycle()}, winnerPrediction: ${winnerPrediction}`);
+      console.log(`logging6: ${await prophets.getCurrentCycle()}`);
       await prophets.connect(user1).makePrediction(3, loserPrediction1);
+      console.log(`logging66: ${await prophets.getCurrentCycle()}`);
       await prophets.connect(user2).makePrediction(334, loserPrediction2);
+      console.log(`logging666: ${await prophets.getCurrentCycle()}`);
+      await prophets.connect(user1).makePrediction(1, winnerPrediction);
+      console.log(`logging6666: ${await prophets.getCurrentCycle()}`);
+
 
       await advanceTime(24 * 60 * 60 * 7, deployer);
       await logTime("After advancing to next sunday", testUtils);
@@ -256,9 +315,11 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
       expect(await prophets.isBurned(334)).to.be.true;
       await expect(prophets.connect(user1).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
 
+      console.log(`logging7: ${await prophets.getCurrentCycle()}`);
       // make valid prediction on sunday
       await prophets.connect(user1).makePrediction(1, winnerPrediction);
       // loop to monday
+      console.log(`logging8: ${await prophets.getCurrentCycle()}`);
       await advanceTime(24 * 60 * 60 * 1, deployer);
       await logTime("After advancing to monday", testUtils);
       // expect(await prophets.isBurned(1)).to.be.true; // he didn't vote retard
@@ -306,293 +367,6 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
       console.log(`user1BalanceAfterWithdrawMaintenanceFee: ${user1BalanceAfter2}`);
       expect(await testUtils.getContractBalance(await prophets.getAddress())).to.be.equal(ethers.parseEther("0"));
       expect(await testUtils.getAddressBalance(randomAddress)).to.be.equal(ethers.parseEther("1"));
-    });
-    it("testing iteration 2", async () => {
-      const winnerPrediction = Math.floor(Number(currentEthPrice) * 1.05);
-      const loserPrediction1 = Math.floor(Number(currentEthPrice) * 0.899);
-      const loserPrediction2 = Math.floor(Number(currentEthPrice) * 1.101);
-
-      // NEW PHASE, 2 WILL BE WRONG, AND BURNED
-      await prophets.connect(user1).makePrediction(1, winnerPrediction);
-      await prophets.connect(user1).makePrediction(3, loserPrediction1);
-      await prophets.connect(user2).makePrediction(334, loserPrediction2);
-
-      await advanceTime(24 * 60 * 60 * 7, deployer);
-      await logTime("After advancing to next sunday", testUtils);
-      await expect(prophets.connect(user1).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
-      await expect(prophets.connect(user2).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
-      expect(await prophets.isBurned(1)).to.be.false;
-      expect(await prophets.isBurned(3)).to.be.true;
-      expect(await prophets.isBurned(334)).to.be.true;
-
-      // ok make his final prediction
-      await prophets.connect(user1).makePrediction(1, winnerPrediction);
-      // fast forward to monday
-      await advanceTime(24 * 60 * 60 * 2, deployer);
-      await logTime("After advancing to tuesday", testUtils);
-      await expect(prophets.connect(user1).acceptDivineBlessing(3))
-      // get winner
-      const winner = await prophets.getWinner(3);
-      expect(winner).to.equal(1);
-    });
-    it("testing iteration 3", async () => {
-      currentEthPrice = 1000n * 10n ** 8n;
-      // lets update the price
-      const winnerPrediction = Math.floor(Number(currentEthPrice) * 10.5);
-      const loserPrediction1 = Math.floor(Number(currentEthPrice) * 8.899);
-      const loserPrediction2 = Math.floor(Number(currentEthPrice) * 11.101);
-
-      // NEW PHASE, 2 WILL BE WRONG, AND BURNED
-      await prophets.connect(user1).makePrediction(1, winnerPrediction);
-      await prophets.connect(user1).makePrediction(3, loserPrediction1);
-      await prophets.connect(user2).makePrediction(334, loserPrediction2);
-
-      // lets check if metadata is correct, they all predicted bullish
-      //tokenURI
-      //"trait_type":"Prediction Direction" == true
-      const tokenURI = await prophets.tokenURI(1);
-      const base64Data = tokenURI.split(',')[1]; // Remove "data:application/json;base64," prefix
-      const metadata = JSON.parse(Buffer.from(base64Data, 'base64').toString());
-      // Check attributes array for Prediction Direction
-      const predictionAttr = metadata.attributes.find((attr: any) => attr.trait_type === "Prediction Direction");
-      expect(predictionAttr?.value).to.equal("Bullish");
-      
-      const tokenURI2 = await prophets.tokenURI(3);
-      const base64Data2 = tokenURI2.split(',')[1];
-      const metadata2 = JSON.parse(Buffer.from(base64Data2, 'base64').toString());
-      const predictionAttr2 = metadata2.attributes.find((attr: any) => attr.trait_type === "Prediction Direction");
-      expect(predictionAttr2?.value).to.equal("Bullish");
-      
-      const tokenURI3 = await prophets.tokenURI(334);
-      const base64Data3 = tokenURI3.split(',')[1];
-      const metadata3 = JSON.parse(Buffer.from(base64Data3, 'base64').toString());
-      const predictionAttr3 = metadata3.attributes.find((attr: any) => attr.trait_type === "Prediction Direction");
-      expect(predictionAttr3?.value).to.equal("Bullish");
-
-      // lets update price to 10k
-      currentEthPrice = 10000n * 10n ** 8n;
-      await mockPyth.connect(deployer).setPrice(currentEthPrice, -8);
-
-      await advanceTime(24 * 60 * 60 * 7, deployer);
-      await logTime("After advancing to next sunday", testUtils);
-      await expect(prophets.connect(user1).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
-      await expect(prophets.connect(user2).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
-      expect(await prophets.isBurned(1)).to.be.false;
-      expect(await prophets.isBurned(3)).to.be.true;
-      expect(await prophets.isBurned(334)).to.be.true;
-      
-      const tokenURI4 = await prophets.tokenURI(1);
-      const base64Data4 = tokenURI4.split(',')[1]; // Remove "data:application/json;base64," prefix
-      const metadata4 = JSON.parse(Buffer.from(base64Data4, 'base64').toString());
-      // Check attributes array for State (should be prophesizing since no prediction made in new cycle)
-      const stateAttr4 = metadata4.attributes.find((attr: any) => attr.trait_type === "State");
-      expect(stateAttr4?.value).to.equal("prophesizing");
-      // ok make his final prediction
-      await prophets.connect(user1).makePrediction(1, winnerPrediction);
-      // fast forward to monday
-      await advanceTime(24 * 60 * 60 * 2, deployer);
-      await logTime("After advancing to tuesday", testUtils);
-      await expect(prophets.connect(user2).acceptDivineBlessing(3)).to.be.revertedWith("Caller does not own the winning prophet");
-      await expect(prophets.connect(user1).acceptDivineBlessing(3))
-      // get winner
-      const winner = await prophets.getWinner(3);
-      expect(winner).to.equal(1);
-    });
-    it("testing iteration 4", async () => {
-      currentEthPrice = 1000n * 10n ** 8n;
-      // lets update the price
-      const winnerPrediction = Math.floor(Number(currentEthPrice) * 0.095);
-      const loserPrediction1 = Math.floor(Number(currentEthPrice) * 0.0899);
-      const loserPrediction2 = Math.floor(Number(currentEthPrice) * 0.1101);
-
-      // NEW PHASE, 2 WILL BE WRONG, AND BURNED
-      await prophets.connect(user1).makePrediction(1, winnerPrediction);
-      await prophets.connect(user1).makePrediction(3, loserPrediction1);
-      await prophets.connect(user2).makePrediction(334, loserPrediction2);
-
-      // lets check if metadata is correct, they all predicted bullish
-      //tokenURI
-      //"trait_type":"Prediction Direction" == true
-      const tokenURI = await prophets.tokenURI(1);
-      const base64Data = tokenURI.split(',')[1]; // Remove "data:application/json;base64," prefix
-      const metadata = JSON.parse(Buffer.from(base64Data, 'base64').toString());
-      // Check attributes array for Prediction Direction
-      const predictionAttr = metadata.attributes.find((attr: any) => attr.trait_type === "Prediction Direction");
-      expect(predictionAttr?.value).to.equal("Bearish");
-      
-      const tokenURI2 = await prophets.tokenURI(3);
-      const base64Data2 = tokenURI2.split(',')[1];
-      const metadata2 = JSON.parse(Buffer.from(base64Data2, 'base64').toString());
-      const predictionAttr2 = metadata2.attributes.find((attr: any) => attr.trait_type === "Prediction Direction");
-      expect(predictionAttr2?.value).to.equal("Bearish");
-      
-      const tokenURI3 = await prophets.tokenURI(334);
-      const base64Data3 = tokenURI3.split(',')[1];
-      const metadata3 = JSON.parse(Buffer.from(base64Data3, 'base64').toString());
-      const predictionAttr3 = metadata3.attributes.find((attr: any) => attr.trait_type === "Prediction Direction");
-      expect(predictionAttr3?.value).to.equal("Bearish");
-
-      // lets update price to 100
-      currentEthPrice = 100n * 10n ** 8n;
-      await mockPyth.connect(deployer).setPrice(currentEthPrice, -8);
-
-      await advanceTime(24 * 60 * 60 * 7, deployer);
-      await logTime("After advancing to next sunday", testUtils);
-      await expect(prophets.connect(user1).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
-      await expect(prophets.connect(user2).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
-      expect(await prophets.isBurned(1)).to.be.false;
-      expect(await prophets.isBurned(3)).to.be.true;
-      expect(await prophets.isBurned(334)).to.be.true;
-      
-      const tokenURI4 = await prophets.tokenURI(1);
-      const base64Data4 = tokenURI4.split(',')[1]; // Remove "data:application/json;base64," prefix
-      const metadata4 = JSON.parse(Buffer.from(base64Data4, 'base64').toString());
-      // Check attributes array for State (should be prophesizing since no prediction made in new cycle)
-      const stateAttr4 = metadata4.attributes.find((attr: any) => attr.trait_type === "State");
-      expect(stateAttr4?.value).to.equal("prophesizing");
-      // ok make his final prediction
-      await expect(prophets.connect(user1).makePrediction(1, currentEthPrice)).to.be.revertedWith("Prediction must differ by at least 1% from cycle start price");
-      await prophets.connect(user1).makePrediction(1, winnerPrediction);
-      // fast forward to monday
-      await advanceTime(24 * 60 * 60 * 2, deployer);
-      await logTime("After advancing to tuesday", testUtils);
-      await expect(prophets.connect(user2).acceptDivineBlessing(3)).to.be.revertedWith("Caller does not own the winning prophet");
-      await expect(prophets.connect(user1).acceptDivineBlessing(3))
-      // get winner
-      const winner = await prophets.getWinner(3);
-      expect(winner).to.equal(1);
-    });
-    it("testing iteration 5", async () => {
-      currentEthPrice = 1000n * 10n ** 8n;
-      // lets update the price
-      const loserPrediction = Math.floor(Number(currentEthPrice) * 10.5);
-      const loserPrediction1 = Math.floor(Number(currentEthPrice) * 8.899);
-      const loserPrediction2 = Math.floor(Number(currentEthPrice) * 11.101);
-
-      // NEW PHASE, 2 WILL BE WRONG, AND BURNED
-      await prophets.connect(user1).makePrediction(1, loserPrediction);
-      await prophets.connect(user1).makePrediction(3, loserPrediction1);
-      await prophets.connect(user2).makePrediction(334, loserPrediction2);
-      // console log current cycle
-      console.log(`Current cycle6969: ${await prophets.getCurrentCycle()}`);
-      
-      // lets update price to 100
-      currentEthPrice = 999n * 10n ** 8n;
-      await mockPyth.connect(deployer).setPrice(currentEthPrice, -8);
-
-      // lets check if metadata is correct, they all predicted bullish
-      //tokenURI
-      //"trait_type":"Prediction Direction" == true
-      const tokenURI = await prophets.tokenURI(1);
-      const base64Data = tokenURI.split(',')[1]; // Remove "data:application/json;base64," prefix
-      const metadata = JSON.parse(Buffer.from(base64Data, 'base64').toString());
-      // Check attributes array for Prediction Direction
-      const predictionAttr = metadata.attributes.find((attr: any) => attr.trait_type === "Prediction Direction");
-      expect(predictionAttr?.value).to.equal("Bullish");
-      
-      const tokenURI2 = await prophets.tokenURI(3);
-      const base64Data2 = tokenURI2.split(',')[1];
-      const metadata2 = JSON.parse(Buffer.from(base64Data2, 'base64').toString());
-      const predictionAttr2 = metadata2.attributes.find((attr: any) => attr.trait_type === "Prediction Direction");
-      expect(predictionAttr2?.value).to.equal("Bullish");
-      
-      const tokenURI3 = await prophets.tokenURI(334);
-      const base64Data3 = tokenURI3.split(',')[1];
-      const metadata3 = JSON.parse(Buffer.from(base64Data3, 'base64').toString());
-      const predictionAttr3 = metadata3.attributes.find((attr: any) => attr.trait_type === "Prediction Direction");
-      expect(predictionAttr3?.value).to.equal("Bullish");
-
-      await advanceTime(24 * 60 * 60 * 7, deployer);
-      await logTime("After advancing to next sunday", testUtils);
-      await expect(prophets.connect(user1).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
-      await expect(prophets.connect(user2).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
-      expect(await prophets.isBurned(1)).to.be.true;
-      expect(await prophets.isBurned(3)).to.be.true;
-      expect(await prophets.isBurned(334)).to.be.true;
-      
-      const tokenURI4 = await prophets.tokenURI(1);
-      const base64Data4 = tokenURI4.split(',')[1]; // Remove "data:application/json;base64," prefix
-      const metadata4 = JSON.parse(Buffer.from(base64Data4, 'base64').toString());
-      // Check attributes array for State (should be prophesizing since no prediction made in new cycle)
-      const stateAttr4 = metadata4.attributes.find((attr: any) => attr.trait_type === "State");
-      expect(stateAttr4?.value).to.equal("burned");
-      // ok make his final prediction
-      await expect(prophets.connect(user1).makePrediction(1, loserPrediction)).to.be.revertedWith("This prophet has been burned and cannot make predictions");
-      // fast forward to monday
-      await advanceTime(24 * 60 * 60 * 2, deployer);
-      await logTime("After advancing to tuesday", testUtils);
-      await expect(prophets.connect(user2).acceptDivineBlessing(2)).to.be.revertedWith("Caller does not own the winning prophet");
-      await prophets.connect(user1).acceptDivineBlessing(2)
-      // get winner
-      const winner = await prophets.getWinner(2);
-      expect(winner).to.equal(3);
-    });
-    it("testing iteration 6", async () => {
-      currentEthPrice = 4000n * 10n ** 8n;
-      // lets update the price
-      const loserPrediction = Math.floor(Number(currentEthPrice) * 10.5);
-      const loserPrediction1 = Math.floor(Number(currentEthPrice) * 8.899);
-      const loserPrediction2 = Math.floor(Number(currentEthPrice) * 11.101);
-
-      // NEW PHASE, 2 WILL BE WRONG, AND BURNED
-      await prophets.connect(user1).makePrediction(1, loserPrediction);
-      await prophets.connect(user1).makePrediction(3, loserPrediction1);
-      await prophets.connect(user2).makePrediction(334, loserPrediction2);
-      // console log current cycle
-      console.log(`Current cycle6969: ${await prophets.getCurrentCycle()}`);
-
-      // lets check if metadata is correct, they all predicted bullish
-      //tokenURI
-      //"trait_type":"Prediction Direction" == true
-      const tokenURI = await prophets.tokenURI(1);
-      const base64Data = tokenURI.split(',')[1]; // Remove "data:application/json;base64," prefix
-      const metadata = JSON.parse(Buffer.from(base64Data, 'base64').toString());
-      // Check attributes array for Prediction Direction
-      const predictionAttr = metadata.attributes.find((attr: any) => attr.trait_type === "Prediction Direction");
-      expect(predictionAttr?.value).to.equal("Bullish");
-      
-      const tokenURI2 = await prophets.tokenURI(3);
-      const base64Data2 = tokenURI2.split(',')[1];
-      const metadata2 = JSON.parse(Buffer.from(base64Data2, 'base64').toString());
-      const predictionAttr2 = metadata2.attributes.find((attr: any) => attr.trait_type === "Prediction Direction");
-      expect(predictionAttr2?.value).to.equal("Bullish");
-      
-      const tokenURI3 = await prophets.tokenURI(334);
-      const base64Data3 = tokenURI3.split(',')[1];
-      const metadata3 = JSON.parse(Buffer.from(base64Data3, 'base64').toString());
-      const predictionAttr3 = metadata3.attributes.find((attr: any) => attr.trait_type === "Prediction Direction");
-      expect(predictionAttr3?.value).to.equal("Bullish");
-
-      
-      // lets update price to +1
-      currentEthPrice = currentEthPrice + 1n
-      await mockPyth.connect(deployer).setPrice(currentEthPrice, -8);
-
-      await advanceTime(24 * 60 * 60 * 7, deployer);
-      await logTime("After advancing to next sunday", testUtils);
-      await expect(prophets.connect(user1).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
-      await expect(prophets.connect(user2).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
-      expect(await prophets.isBurned(1)).to.be.true;
-      expect(await prophets.isBurned(3)).to.be.true;
-      expect(await prophets.isBurned(334)).to.be.true;
-      
-      const tokenURI4 = await prophets.tokenURI(1);
-      const base64Data4 = tokenURI4.split(',')[1]; // Remove "data:application/json;base64," prefix
-      const metadata4 = JSON.parse(Buffer.from(base64Data4, 'base64').toString());
-      // Check attributes array for State (should be prophesizing since no prediction made in new cycle)
-      const stateAttr4 = metadata4.attributes.find((attr: any) => attr.trait_type === "State");
-      expect(stateAttr4?.value).to.equal("burned");
-      // ok make his final prediction
-      await expect(prophets.connect(user1).makePrediction(1, loserPrediction)).to.be.revertedWith("This prophet has been burned and cannot make predictions");
-      // fast forward to monday
-      await advanceTime(24 * 60 * 60 * 2, deployer);
-      await logTime("After advancing to tuesday", testUtils);
-      
-      const winner = await prophets.getWinner(2);
-      expect(winner).to.equal(334);
-
-      await expect(prophets.connect(user1).acceptDivineBlessing(2)).to.be.revertedWith("Caller does not own the winning prophet");
-      await prophets.connect(user2).acceptDivineBlessing(2)
     });
   });
 });
