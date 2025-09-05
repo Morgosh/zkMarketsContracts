@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/utils/Base64.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import "./IMarketplace.sol";
 // Using on-chain AMM spot price
@@ -850,8 +851,12 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         address tokenOwner = ownerOf(tokenId);
         require(orderParameters.offerer == tokenOwner, "not-owner");
         
-        // Verify signature via marketplace contract
-        bool isValidSignature = IMarketplace(marketplace).verifySignature(fullHash, signature, tokenOwner);
+        // Verify that the provided fullHash actually matches the orderParameters using marketplace's hash function
+        bytes32 computedHash = IMarketplace(marketplace).createOrderHash(orderParameters);
+        require(computedHash == fullHash, "hash-mismatch");
+        
+        // Verify signature using SignatureChecker (supports both EOA and smart contract signatures)
+        bool isValidSignature = SignatureChecker.isValidSignatureNow(tokenOwner, fullHash, signature);
         require(isValidSignature, "invalid-signature");
         
         // Check that order is within 1 hour grace period

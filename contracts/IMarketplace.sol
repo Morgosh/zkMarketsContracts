@@ -40,5 +40,5 @@ interface IMarketplace {
         bytes signature;
     }
 
-    function verifySignature(bytes32 fullHash, bytes memory _signature, address signer) external view returns (bool);
+    function createOrderHash(OrderParameters memory orderParameters) external view returns (bytes32);
 }
