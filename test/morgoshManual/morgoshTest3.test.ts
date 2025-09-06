@@ -337,6 +337,11 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
       currentEthPrice = 10000n * 10n ** 8n;
       await mockPyth.connect(deployer).setPrice(currentEthPrice, -8);
 
+      //function setPythMaxAge(uint256 _maxAge) external onlyOwner {
+
+      await expect(prophets.setPythMaxAge(59)).to.be.revertedWith("below-min")
+      await prophets.setPythMaxAge(61)
+
       await advanceTime(24 * 60 * 60 * 7, deployer);
       await logTime("After advancing to next sunday", testUtils);
       await expect(prophets.connect(user1).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
@@ -344,6 +349,18 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
       expect(await prophets.isBurned(1)).to.be.false;
       expect(await prophets.isBurned(3)).to.be.true;
       expect(await prophets.isBurned(334)).to.be.true;
+
+      const tokenURI334 = await prophets.tokenURI(334);
+      const base64Data334 = tokenURI334.split(',')[1];
+      const metadata334 = JSON.parse(Buffer.from(base64Data334, 'base64').toString());
+      // console.log("metadataWinner", metadataWinner)
+      const predictionAttr334 = metadata334.attributes.find((attr: any) => attr.trait_type === "Burn Cycle");
+      expect(predictionAttr334?.value).to.equal("3");
+      // also the same resut with getBurnCycle
+      const burnCycle = await prophets.getBurnCycle(334);
+      const burnCycle444 = await prophets.getBurnCycle(444);
+      expect(burnCycle).to.equal(3);
+      expect(burnCycle444).to.equal(1);
       
       const tokenURI4 = await prophets.tokenURI(1);
       const base64Data4 = tokenURI4.split(',')[1]; // Remove "data:application/json;base64," prefix
@@ -357,10 +374,23 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
       await advanceTime(24 * 60 * 60 * 2, deployer);
       await logTime("After advancing to tuesday", testUtils);
       await expect(prophets.connect(user2).acceptDivineBlessing(3)).to.be.revertedWith("Caller does not own the winning prophet");
-      await expect(prophets.connect(user1).acceptDivineBlessing(3))
+      const tx = await prophets.connect(user1).acceptDivineBlessing(3)
+      await tx.wait()
       // get winner
       const winner = await prophets.getWinner(3);
       expect(winner).to.equal(1);
+      // ACCEPT DIVINE
+
+      const tokenURIWinner = await prophets.tokenURI(1);
+      const base64DataWinner = tokenURIWinner.split(',')[1];
+      const metadataWinner = JSON.parse(Buffer.from(base64DataWinner, 'base64').toString());
+      // console.log("metadataWinner", metadataWinner)
+      const predictionAttrWinner = metadataWinner.attributes.find((attr: any) => attr.trait_type === "Divine Status");
+      expect(predictionAttrWinner?.value).to.equal("Blessed");
+      
+      expect(await prophets.blessedByDivine()).to.equal(1);
+      expect(await prophets.isSoulbound(1)).to.equal(false);
+      expect(prophets.getBurnCycle(1)).to.be.revertedWith("Token is not burned")
     });
   });
 });

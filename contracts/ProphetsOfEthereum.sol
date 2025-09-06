@@ -66,12 +66,12 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     // ------------------------------
     // Types
     // ------------------------------
-    enum ProphetState {
-        PROPHESIZING,  // 0 - Default meditation state (Sundays)
-        BULLISH,       // 1 - Predict ETH rise
-        BEARISH,       // 2 - Predict ETH fall
-        BURNED         // 3 - Permanent
-    }
+    // enum ProphetState {
+    //     PROPHESIZING,  // 0 - Default meditation state (Sundays)
+    //     BULLISH,       // 1 - Predict ETH rise
+    //     BEARISH,       // 2 - Predict ETH fall
+    //     BURNED         // 3 - Permanent
+    // }
 
     struct CycleInfo {
         // Prices are 1e8 normalized
@@ -159,8 +159,6 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
             emit OperatorAllowed(_marketplace, true);
         }
         
-        // Set deployer as allowed operator by default
-        allowedOperators[msg.sender] = true;
         emit OperatorAllowed(msg.sender, true);
     }
 
@@ -427,15 +425,14 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         uint256 winnerId = getWinner(gameEndedCycle);
         require(winnerId > 0, "no-winner");
         
-        // Calculate time since game ended
-        uint64 gameEndTime = uint64(uint256(firstCycleStart) + gameEndedCycle * 1 weeks);
+        // Calculate time since game ended, we don't need to add last cycle
+        uint64 gameEndTime = uint64(uint256(firstCycleStart) + (gameEndedCycle - 1) * 1 weeks);
         uint256 daysPassed = (block.timestamp - gameEndTime) / 1 days;
         
         // Check if 1 month (28 days = 4 weeks) has passed since game ended
         require(daysPassed >= 28, "must-wait-28-days");
         
         uint256 amount = getTreasury();
-        require(amount > 0, "no-treasury");
 
         blessedAtCycle = gameEndedCycle;
         
@@ -449,15 +446,6 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     function setAllowedOperator(address operator, bool allowed) external onlyOwner {
         allowedOperators[operator] = allowed;
         emit OperatorAllowed(operator, allowed);
-    }
-
-
-    modifier onlyAllowedOperator(address from) {
-        if (from != address(0)) {
-            // Allow if sender is an allowed operator OR if sender is the token owner (OTC)
-            require(allowedOperators[msg.sender] || msg.sender == from, "Caller is not an allowed operator or token owner");
-        }
-        _;
     }
 
     // ------------------------------
@@ -747,21 +735,33 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
     }
 
     // ------------------------------
-    // Transfer Overrides
-    // ------------------------------
-    function transferFrom(address from, address to, uint256 tokenId) public payable override onlyAllowedOperator(from) {
-        require(!isSoulbound(tokenId), "Burned prophets are soulbound and cannot be transferred");
-        super.transferFrom(from, to, tokenId);
+    // Transfer restrictions handled in _beforeTokenTransfers
+
+    function _beforeTokenTransfers(
+        address from,
+        address to,
+        uint256 startTokenId,
+        uint256 quantity
+    ) internal override {
+        super._beforeTokenTransfers(from, to, startTokenId, quantity);
+        // Skip checks for minting (from == address(0))
+        if (from != address(0)) {
+            // Check operator permissions
+            require(allowedOperators[msg.sender] || msg.sender == from, "Caller is not an allowed operator or token owner");
+            // Check soulbound status
+            require(!isSoulbound(startTokenId), "Burned prophets are soulbound and cannot be transferred");
+        }
     }
 
-    function safeTransferFrom(address from, address to, uint256 tokenId) public payable override onlyAllowedOperator(from) {
-        require(!isSoulbound(tokenId), "Burned prophets are soulbound and cannot be transferred");
-        super.safeTransferFrom(from, to, tokenId);
+    function approve(address to, uint256 tokenId) public override payable {
+        // block disallowed operators here if desired
+        require(allowedOperators[to] || to == address(0), "Operator not allowed");
+        super.approve(to, tokenId);
     }
 
-    function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data) public payable override onlyAllowedOperator(from) {
-        require(!isSoulbound(tokenId), "Burned prophets are soulbound and cannot be transferred");
-        super.safeTransferFrom(from, to, tokenId, data);
+    function setApprovalForAll(address operator, bool approved) public override {
+        require(!approved || allowedOperators[operator], "Operator not allowed");
+        super.setApprovalForAll(operator, approved);
     }
 
     // ------------------------------
@@ -806,16 +806,18 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         uint256 cycle = getCurrentCycle();
         uint256 aliveProphets;
         
-        if (cycle <= 1) {
+        if (cycle < 1) {
             // Pre-game or first cycle, all alive
             aliveProphets = totalSupply();
         } else {
-            // Check if it's currently Sunday (prediction window)
             bool isSunday = _isInSundayWindow();
-            
-            if (isSunday && cycle > 1) {
-                // On Sunday, use previous cycle predictions count
-                aliveProphets = cycles[cycle - 1].predictionsCount;
+            // Check if it's currently Sunday (prediction window)
+            if (isSunday) {
+                if(cycle == 1) {
+                    aliveProphets = totalSupply();
+                } else {
+                    aliveProphets = cycles[cycle - 1].predictionsCount;
+                }
             } else {
                 // Otherwise, use current cycle predictions count
                 aliveProphets = cycles[cycle].predictionsCount;

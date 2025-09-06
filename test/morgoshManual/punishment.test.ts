@@ -115,7 +115,7 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
     });
   });
 
-  describe("punishUnfaithful - Basic Validation (DISABLED - Complex function)", () => {
+  describe("punishUnfaithful - Basic Validation", () => {
     let orderParams: any;
     let signature: string;
     let fullHash: string;
@@ -240,7 +240,6 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
       const minimalFloor = await prophets.getMinimalFloorPrice();
       
       // Only test if there's actually a floor price to test against
-      if (minimalFloor > 0n) {
         orderParams.consideration.amount = minimalFloor - 1n; // Below floor
         
         // Use current blockchain timestamp (should be within grace period)
@@ -257,36 +256,29 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
         
         // Should burn the token
         expect(await prophets.isBurned(1)).to.be.true;
-      } else {
-        console.log("Skipping grace period test - no floor price set");
-      }
     });
 
     it("successfully burns NFT when listing below minimal floor", async () => {
       const minimalFloor = await prophets.getMinimalFloorPrice();
       
       // Only test if there's actually a floor price to test against
-      if (minimalFloor > 0n) {
-        orderParams.consideration.amount = minimalFloor - 1n; // Below floor
-        
-        // Verify token is not burned initially
-        expect(await prophets.isBurned(1)).to.be.false;
-        fullHash = await mockMarketplace.createOrderHash(orderParams);
-        const signingKey = new ethers.SigningKey(user1.privateKey);
-        signature = signingKey.sign(fullHash).serialized;
-        // Execute punishment
-        const tx = await prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash);
-        
-        // Verify token is now burned
-        expect(await prophets.isBurned(1)).to.be.true;
-        
-        // Check event emission
-        await expect(tx)
-          .to.emit(prophets, "UnfaithfulPunished")
-          .withArgs(1n, orderParams.consideration.amount, minimalFloor, await user3.getAddress());
-      } else {
-        console.log("Skipping burn test - no floor price set");
-      }
+      orderParams.consideration.amount = minimalFloor - 1n; // Below floor
+      
+      // Verify token is not burned initially
+      expect(await prophets.isBurned(1)).to.be.false;
+      fullHash = await mockMarketplace.createOrderHash(orderParams);
+      const signingKey = new ethers.SigningKey(user1.privateKey);
+      signature = signingKey.sign(fullHash).serialized;
+      // Execute punishment
+      const tx = await prophets.connect(user3).punishUnfaithful(orderParams, signature, fullHash);
+      
+      // Verify token is now burned
+      expect(await prophets.isBurned(1)).to.be.true;
+      
+      // Check event emission
+      await expect(tx)
+        .to.emit(prophets, "UnfaithfulPunished")
+        .withArgs(1n, orderParams.consideration.amount, minimalFloor, await user3.getAddress());
     });
   });
 
@@ -303,7 +295,7 @@ describe("ProphetsOfEthereum - Punishment Tests (Simplified)", () => {
     });
   });
 
-  describe("Grace Period Protection Scenario (DISABLED - Complex function)", () => {
+  describe("Grace Period Protection Scenario", () => {
     it("demonstrates protection from retroactive punishment when floor rises", async () => {
       // This test demonstrates the scenario described in the requirements:
       // "If the minimal floor price rises due to fewer prophets alive or a larger prize pool 

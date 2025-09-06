@@ -354,6 +354,7 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
       // ok make his final prediction
       await expect(prophets.connect(user1).makePrediction(1, currentEthPrice)).to.be.revertedWith("Prediction must differ by at least 1% from cycle start price");
       await prophets.connect(user1).makePrediction(1, winnerPrediction);
+      expect(prophets.connect(deployer).emergencyWithdraw(3, deployer)).to.be.revertedWith("no-winner");
       // fast forward to monday
       await advanceTime(24 * 60 * 60 * 2, deployer);
       await logTime("After advancing to tuesday", testUtils);
@@ -362,6 +363,48 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
       // get winner
       const winner = await prophets.getWinner(3);
       expect(winner).to.equal(1);
+
+      expect(await prophets.getCurrentCycle()).to.equal(3);
+
+      // lets check if emergency withdraw works
+      expect(prophets.connect(deployer).emergencyWithdraw(3, deployer)).to.be.revertedWith("must-wait-28-days");
+
+      // 21 is not enough
+      await advanceTime((21 ) * 24 * 60 * 60, deployer);
+      expect(prophets.connect(deployer).emergencyWithdraw(3, deployer)).to.be.revertedWith("must-wait-28-days");
+      // advance time 28 days, now it should work
+      await advanceTime((28 ) * 24 * 60 * 60, deployer);
+      await prophets.connect(deployer).emergencyWithdraw(3, deployer)
+
+      // lets fix the amm provider price
+      await mockPool.setPrice(currentEthPrice);
+      await prophets.setPriceProvider(2);
+      // lets check if the price is updated
+      expect(await prophets.readPythPrice()).to.equal(currentEthPrice);
+      expect(await prophets.readCurrentPrice()).to.equal(currentEthPrice);
+      await prophets.setPriceProvider(0);
+      expect(await prophets.readCurrentPrice()).to.equal(currentEthPrice);
+      await prophets.setPriceProvider(1);
+      // lets check if the price is updated
+      // lets update pyth provider     function setPrice(int64 p, int32 e) external {
+      //try scaling in positive
+      await mockPyth.setPrice(currentEthPrice, -6)
+      // lets check if the price is updated
+      expect(await prophets.readPythPrice()).to.equal(currentEthPrice*100n);
+      expect(await prophets.readCurrentPrice()).to.equal(currentEthPrice*100n);
+
+      await mockPyth.setPrice(currentEthPrice, -9)
+      expect(await prophets.readPythPrice()).to.equal(currentEthPrice/10n);
+
+      // update price to 0 
+      await mockPyth.setPrice(0, -8); // update provider to pyth or 
+      // get price should return error
+      await expect(prophets.readPythPrice()).to.be.revertedWith("price is 0");
+      // update     function setPriceProvider(PriceProvider _provider) external onlyOwner { to mm or pyth
+      await prophets.setPriceProvider(2);
+      // now no reverts
+      expect(await prophets.readAMMPrice()).to.equal(currentEthPrice);
+      expect(await prophets.readCurrentPrice()).to.equal(currentEthPrice);
     });
   });
 });

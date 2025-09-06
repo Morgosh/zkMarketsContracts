@@ -25,6 +25,8 @@ contract MockPyth {
         view
         returns (int64, uint64, int32, uint256)
     {
+        // require not 0 pri
+        require(price != 0, "price is 0");
         return (price, 0, expo, block.timestamp);
     }
 }

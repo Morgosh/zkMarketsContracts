@@ -50,7 +50,7 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
   let mockPyth: any;
   let mockPool: any;
   let testUtils: any;
-  let deployer: any, user1: any, user2: any, approver: any;
+  let deployer: any, user1: any, user2: any, approver: any, user4: any;
 
   let currentEthPrice = 0n
 
@@ -71,6 +71,7 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
     user1 = wallets[1];
     user2 = wallets[2];
     approver = wallets[3];
+    user4 = wallets[4];
 
     // Deploy TestUtils
     const testUtilsArtifact = await hre.artifacts.readArtifact("TestUtils");
@@ -129,7 +130,7 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
     // Deploy Prophets with correct constructor parameters
     const prophetsArtifact = await hre.artifacts.readArtifact("ProphetsOfEthereum");
     const Prophets = new ethers.ContractFactory(prophetsArtifact.abi, prophetsArtifact.bytecode, deployer);
-    const mockMarketplace = ethers.ZeroAddress;
+    const mockMarketplace = await user4.getAddress(); // Set user2 as marketplace operator
     const defaultOperator = await deployer.getAddress();
 
     // log the prophets address
@@ -217,6 +218,12 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
     expect(await prophets.balanceOf(await user1.getAddress())).to.equal(333);
     expect(await prophets.balanceOf(await user2.getAddress())).to.equal(333);
 
+    // maxSupply to return 666
+    expect(await prophets.maxSupply()).to.equal(666);
+    // add some random operator to see if it works setAllowedOperator
+    await prophets.connect(deployer).setAllowedOperator(await user4.getAddress(), true);
+    expect(await prophets.allowedOperators(await user4.getAddress())).to.equal(true);
+
     // Wait for Sunday window
     const firstCycleStart = await prophets.firstCycleStart();
     let currentBlock = await provider.getBlock("latest");
@@ -227,6 +234,7 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
     console.log(`currentTime2: ${currentTime2} (${new Date(currentTime2 * 1000).toUTCString()})`);
     console.log(`timeToSunday: ${timeToSunday} seconds`);
     
+    await expect((await prophets.getMinimalFloorPrice()).toString()).to.be.equal(MINT_PRICE.toString());
     await expect(prophets.connect(user1).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
 
     if(timeToSunday > 0) {
@@ -237,7 +245,7 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
     // After time advancement, should be Sunday (cycle 1)
     const currentCycleAfter = await prophets.getCurrentCycle();
     expect(currentCycleAfter).to.equal(1); // Now in Sunday window (cycle 1)
-    
+    await expect((await prophets.getMinimalFloorPrice()).toString()).to.be.equal(MINT_PRICE.toString());    
     // Log what day we're actually on after advancing to "Sunday"
     await logTime("After advancing to Sunday window", testUtils);
 
@@ -258,12 +266,11 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
     await expect(prophets.connect(user1).makePrediction(1, Math.floor(prediction2))).to.be.revertedWith("Cannot change prediction: you hold the lowest position");
     await expect(prophets.connect(user2).makePrediction(334, Math.floor(prediction1))).to.be.revertedWith("Cannot change prediction: you hold the highest position");
     
-    // We're currently on Sunday (just made predictions), advance 1 day to Monday
+    await expect((await prophets.getMinimalFloorPrice()).toString()).to.be.equal(MINT_PRICE.toString());    // We're currently on Sunday (just made predictions), advance 1 day to Monday
     await advanceTime(24 * 60 * 60, deployer); // 24 hours to be clearly on Monday
-    
     const dayAfter = await logTime("AFTER advancement to monday (first burning)", testUtils);
     console.log(`Current cycle: ${await prophets.getCurrentCycle()}`);
-    
+    await expect((await prophets.getMinimalFloorPrice()).toString()).to.be.equal("1886666666666666666");    
     // Verify we're now on Monday
     expect(dayAfter).to.equal("Monday");
     
@@ -300,18 +307,93 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
 
   describe("Signature-based Minting", () => {
     it("testing iteration 1", async () => {
+      // FIRST TEST ALL TRANSFER METHODS BEFORE TOKENS GET BURNED
+      console.log("=== TESTING ALL TRANSFER METHODS ===");
+      
+      // Test basic owner transferFrom
+      await prophets.connect(user1).transferFrom(await user1.getAddress(),await user2.getAddress(),1);
+      expect(await prophets.ownerOf(1)).to.equal(await user2.getAddress());
+      console.log("✓ transferFrom by owner works");
+
+      // Test safeTransferFrom (without data) - transfer back
+      await prophets.connect(user2)["safeTransferFrom(address,address,uint256)"](await user2.getAddress(),await user1.getAddress(),1);
+      expect(await prophets.ownerOf(1)).to.equal(await user1.getAddress());
+      console.log("✓ safeTransferFrom without data works");
+
+      // Test safeTransferFrom (with data)
+      const transferData = ethers.toUtf8Bytes("test transfer data");
+      await prophets.connect(user1)["safeTransferFrom(address,address,uint256,bytes)"](
+        await user1.getAddress(),
+        await user2.getAddress(),
+        1,
+        transferData
+      );
+      expect(await prophets.ownerOf(1)).to.equal(await user2.getAddress());
+      console.log("✓ safeTransferFrom with data works");
+      
+      // transfer back to user1
+      // await prophets.connect(user2).transferFrom(await user2.getAddress(),await user1.getAddress(),1);
+      console.log("✓ transferFrom by owner works");
+      // lets approve deployer to transfer from user2
+
+      // expect Operator not allowed
+      await expect(prophets.connect(user2).setApprovalForAll(await deployer.getAddress(), true)).to.be.revertedWith("Operator not allowed");
+      // lets approve user4 to transfer from user2
+      await prophets.connect(user2).setApprovalForAll(await user4.getAddress(), true);
+      await prophets.connect(user2).approve(await user4.getAddress(), 1);
+      // For now, let's use deployer (who should be an allowed operator) instead of user2
+      await prophets.connect(user4).transferFrom(
+        await user2.getAddress(),
+        await user1.getAddress(),
+        1
+      );
+      // Test burned token transfers (token 2 should be burned from beforeEach)
+      expect(await prophets.isBurned(2)).to.be.true;
+
+      await expect(prophets.connect(user1).transferFrom(await user1.getAddress(),await deployer.getAddress(),2)).to.be.revertedWith("Burned prophets are soulbound and cannot be transferred");
+      await expect(prophets.connect(deployer).setApprover(ethers.ZeroAddress)).to.be.revertedWith("Invalid approver address");
+      await prophets.connect(deployer).setApprover(deployer)
+      expect(await prophets.approver()).to.be.equal(deployer)
+
+
+      // await expect(
+      //   prophets.connect(user1)["safeTransferFrom(address,address,uint256)"](
+      //     await user1.getAddress(),
+      //     await deployer.getAddress(),
+      //     2
+      //   )
+      // ).to.be.revertedWith("Burned prophets are soulbound and cannot be transferred");
+
+      // await expect(
+      //   prophets.connect(user2)["safeTransferFrom(address,address,uint256,bytes)"](
+      //     await user1.getAddress(),
+      //     await deployer.getAddress(),
+      //     2,
+      //     ethers.toUtf8Bytes("test")
+      //   )
+      // ).to.be.revertedWith("Burned prophets are soulbound and cannot be transferred");
+      // console.log("✓ burned token transfers correctly fail");
+
+      // Test royalties
+      const salePrice = ethers.parseEther("1"); // 1 ETH
+      const [royaltyRecipient, royaltyAmount] = await prophets.royaltyInfo(1, salePrice);
+      expect(royaltyRecipient).to.equal(await prophets.getAddress());
+      expect(royaltyAmount).to.equal(salePrice * 500n / 10000n); // 5% of sale price
+      console.log("✓ royalties work correctly");
+
+      // Test ERC721 interface support
+      expect(await prophets.supportsInterface("0x80ac58cd")).to.be.true;
+      console.log("✓ ERC721 interface supported");
+
+      // console.log("=== ALL TRANSFER TESTS PASSED ===");
+
+      // NOW CONTINUE WITH ORIGINAL GAME LOGIC
       const winnerPrediction = Math.floor(Number(currentEthPrice) * 0.95);
       const loserPrediction1 = Math.floor(Number(currentEthPrice) * 0.899);
       const loserPrediction2 = Math.floor(Number(currentEthPrice) * 1.101);
 
-      // lets log the current price onchain
-      //console.log(`currentPrice: ${await prophets.currentPrice()}`);
-
-
-
       console.log(`loggingCurrentPrice: ${await prophets.readCurrentPrice()}`);
       console.log(`loggingPythPrice: ${await prophets.readPythPrice()}`);
-      // console.log(`loggingAMMPrice: ${await prophets.readAMMPrice()}`);
       // NEW PHASE, 2 WILL BE WRONG, AND BURNED
       console.log(`logging5: ${await prophets.getCurrentCycle()}, winnerPrediction: ${winnerPrediction}`);
       console.log(`logging6: ${await prophets.getCurrentCycle()}`);
@@ -325,6 +407,7 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
 
       await advanceTime(24 * 60 * 60 * 7, deployer);
       await logTime("After advancing to next sunday", testUtils);
+      await expect((await prophets.getMinimalFloorPrice()).toString()).to.be.equal("1886666666666666666");
       await expect(prophets.connect(user1).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
       await expect(prophets.connect(user2).acceptDivineBlessing(1)).to.be.revertedWith("game-not-ended");
       expect(await prophets.isBurned(1)).to.be.false;
@@ -339,6 +422,7 @@ describe("ProphetsOfEthereum - Signature Minting Tests", () => {
       console.log(`logging8: ${await prophets.getCurrentCycle()}`);
       await advanceTime(24 * 60 * 60 * 1, deployer);
       await logTime("After advancing to monday", testUtils);
+      await expect((await prophets.getMinimalFloorPrice()).toString()).to.be.equal("5660000000000000000");
       // expect(await prophets.isBurned(1)).to.be.true; // he didn't vote retard
       expect(await prophets.isBurned(1)).to.be.false; // he didn't vote retard
       // lets log cycle 
