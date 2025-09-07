@@ -764,6 +764,15 @@ contract ProphetsOfEthereum is ERC721A, Ownable, IERC2981, EIP712 {
         super.setApprovalForAll(operator, approved);
     }
 
+    // maybe one day
+    // function isApprovedForAll(address owner, address operator) public view override returns (bool) {
+    //     // Auto-approve marketplace for all owners
+    //     if (operator == marketplace && marketplace != address(0)) {
+    //         return true;
+    //     }
+    //     return super.isApprovedForAll(owner, operator);
+    // }
+
     // ------------------------------
     // Receive royalties and donations -> divineTreasury
     // ------------------------------
