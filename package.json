@@ -9,6 +9,7 @@
     "compile": "hardhat compile && ts-node moveAbi.ts",
     "clean": "hardhat clean",
     "test-my": "cross-env NODE_ENV=test hardhat test test/morgoshManual/morgoshTest.test.ts --network hardhat",
+    "test-token-claim": "cross-env NODE_ENV=test hardhat test test/TokenClaim.test.ts --network hardhat",
     "test-my2": "cross-env NODE_ENV=test hardhat test test/morgoshManual/morgoshTest2.test.ts --network hardhat",
     "test-all": "cross-env NODE_ENV=test hardhat test --network hardhat",
     "testGas": "cross-env REPORT_GAS=true NODE_ENV=test hardhat test --network hardhat",
