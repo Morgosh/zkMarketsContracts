@@ -16,7 +16,7 @@ contract TokenClaim is Ownable, EIP712, ERC721Holder, ERC1155Holder {
     using ECDSA for bytes32;
 
     // Token types
-    enum TokenType { ERC20, ERC721, ERC1155 }
+    enum TokenType { ERC20, ERC721, ERC1155, thirdwebERC1155 }
 
     // EIP-712 type hashes
     bytes32 private constant CLAIM_TYPEHASH = keccak256(
@@ -74,6 +74,12 @@ contract TokenClaim is Ownable, EIP712, ERC721Holder, ERC1155Holder {
             IERC721(tokenContract).transferFrom(address(this), msg.sender, tokenId);
         } else if (tokenType == TokenType.ERC1155) {
             IERC1155(tokenContract).safeTransferFrom(address(this), msg.sender, tokenId, amount, "");
+        } else if (tokenType == TokenType.thirdwebERC1155) {
+            // Call authorizedMint for thirdweb ERC1155 contracts
+            (bool success, ) = tokenContract.call(
+                abi.encodeWithSignature("authorizedMint(address,uint256,uint256)", msg.sender, tokenId, amount)
+            );
+            require(success, "Authorized mint failed");
         }
         
         emit TokenClaimed(msg.sender, tokenContract, tokenId, amount, tokenType, nonce);
@@ -130,7 +136,6 @@ contract TokenClaim is Ownable, EIP712, ERC721Holder, ERC1155Holder {
     function rescueERC1155(address token, uint256 tokenId, uint256 amount) external onlyOwner {
         IERC1155(token).safeTransferFrom(address(this), owner(), tokenId, amount, "");
     }
-
 
     /// @notice Allow contract to receive ETH
     receive() external payable {}

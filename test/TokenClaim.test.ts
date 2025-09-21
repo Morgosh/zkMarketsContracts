@@ -215,6 +215,87 @@ describe("TokenClaim Contract Tests", () => {
       expect(await tokenClaim.usedNonces(nonce)).to.be.true;
     });
 
+    it("Should allow valid thirdwebERC1155 claim (mint)", async () => {
+      const tokenId = 10;
+      const amount = 25;
+      const nonce = 8;
+      const tokenType = 3; // thirdwebERC1155
+
+      // Grant MINTER_ROLE to TokenClaim contract
+      await mockERC1155.connect(deployer).grantRole(
+        await mockERC1155.MINTER_ROLE(),
+        await tokenClaim.getAddress()
+      );
+
+      const signature = await createClaimSignature(
+        approver,
+        tokenClaim,
+        await user1.getAddress(),
+        await mockERC1155.getAddress(),
+        tokenId,
+        amount.toString(),
+        nonce,
+        tokenType
+      );
+
+      const balanceBefore = await mockERC1155.balanceOf(await user1.getAddress(), tokenId);
+
+      await tokenClaim.connect(user1).claimToken(
+        await mockERC1155.getAddress(),
+        tokenId,
+        amount,
+        nonce,
+        tokenType,
+        signature
+      );
+
+      const balanceAfter = await mockERC1155.balanceOf(await user1.getAddress(), tokenId);
+      expect(balanceAfter - balanceBefore).to.equal(amount);
+      expect(await tokenClaim.usedNonces(nonce)).to.be.true;
+    });
+
+    it("Should reject thirdwebERC1155 claim without MINTER_ROLE", async () => {
+      const tokenId = 11;
+      const amount = 30;
+      const nonce = 9;
+      const tokenType = 3; // thirdwebERC1155
+
+      // Ensure TokenClaim contract doesn't have MINTER_ROLE
+      const hasMinterRole = await mockERC1155.hasRole(
+        await mockERC1155.MINTER_ROLE(),
+        await tokenClaim.getAddress()
+      );
+      
+      if (hasMinterRole) {
+        await mockERC1155.connect(deployer).revokeRole(
+          await mockERC1155.MINTER_ROLE(),
+          await tokenClaim.getAddress()
+        );
+      }
+
+      const signature = await createClaimSignature(
+        approver,
+        tokenClaim,
+        await user1.getAddress(),
+        await mockERC1155.getAddress(),
+        tokenId,
+        amount.toString(),
+        nonce,
+        tokenType
+      );
+
+      await expect(
+        tokenClaim.connect(user1).claimToken(
+          await mockERC1155.getAddress(),
+          tokenId,
+          amount,
+          nonce,
+          tokenType,
+          signature
+        )
+      ).to.be.revertedWith("Authorized mint failed");
+    });
+
     it("Should reject used nonce", async () => {
       const amount = ethers.parseEther("50");
       const nonce = 3;
