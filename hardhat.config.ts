@@ -58,8 +58,8 @@ const config: HardhatUserConfig = {
       url: "https://api.testnet.abs.xyz",
       ethNetwork: "sepolia",
       // verify url no longer needed in 1.7 + its automatic, blocksout is the default, if etherscan key then etherscan
-      verifyURL: "https://api-explorer-verify.testnet.abs.xyz/contract_verification", // blockscout
-      enableVerifyURL: true, // you can enable verifyurl to verify on multiple explorers
+      //verifyURL: "https://api-explorer-verify.testnet.abs.xyz/contract_verification", // blockscout
+      //enableVerifyURL: true, // you can enable verifyurl to verify on multiple explorers
       zksync: true,
       chainId: 11124,
       accounts: [deployerKey!],
@@ -81,8 +81,8 @@ const config: HardhatUserConfig = {
         network: "abstract-testnet",
         chainId: 11124,
         urls: {
-          apiURL: "https://api.etherscan.io/v2/api?chainid=11124",
-          //apiURL: "https://api-sepolia.abscan.org/api",
+          //apiURL: "https://api.etherscan.io/v2/api?chainid=11124",
+          apiURL: "https://api-sepolia.abscan.org/api",
           browserURL: "https://sepolia.abscan.org/",
         },
       },
@@ -90,8 +90,8 @@ const config: HardhatUserConfig = {
         network: "abstract",
         chainId: 2741,
         urls: {
-          apiURL: "https://api.etherscan.io/v2/api?chainid=2741",
-          //apiURL: "https://api.abscan.org/api",
+          //apiURL: "https://api.etherscan.io/v2/api?chainid=2741",
+          apiURL: "https://api.abscan.org/api",
           browserURL: "https://abscan.org/",
         },
       },

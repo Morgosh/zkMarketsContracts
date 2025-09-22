@@ -30,6 +30,7 @@
     "deploy-prophets": "hardhat deploy-zksync --script deploy_prophets.ts --network abstract",
     "deploy-prophets-renderer": "hardhat deploy-zksync --script deploy_renderer.ts --network abstract",
     "deploy-token-claim": "hardhat deploy-zksync --script deploy_token_claim.ts --network abstract",
+    "deploy-token-claim-test": "hardhat deploy-zksync --script deploy_token_claim.ts --network abstract-testnet",
     "upload-image": "hardhat run scripts/uploadImage.ts --network abstract"
   },
   "devDependencies": {
@@ -60,7 +61,7 @@
   "dependencies": {
     "@limitbreak/creator-token-standards": "^5.0.0",
     "@noble/hashes": "1.3.0",
-    "@nomicfoundation/hardhat-ethers": "^3.0.8",
+    "@nomicfoundation/hardhat-verify": "^3.0.2",
     "@pythnetwork/pyth-sdk-solidity": "^4.2.0",
     "cross-env": "^7.0.3",
     "erc721a": "^4.3.0",
