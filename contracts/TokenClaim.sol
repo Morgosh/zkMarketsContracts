@@ -20,7 +20,7 @@ contract TokenClaim is Ownable, EIP712, ERC721Holder, ERC1155Holder {
 
     // EIP-712 type hashes
     bytes32 private constant CLAIM_TYPEHASH = keccak256(
-        "Claim(address user,address tokenContract,uint256 tokenId,uint256 amount,uint256 nonce,uint8 tokenType)"
+        "Claim(address user,address tokenContract,uint256 tokenId,uint256 amount,uint256 nonce,uint8 tokenType,uint256 value)"
     );
 
     // State variables
@@ -56,11 +56,11 @@ contract TokenClaim is Ownable, EIP712, ERC721Holder, ERC1155Holder {
         uint256 nonce,
         TokenType tokenType,
         bytes calldata signature
-    ) external {
+    ) external payable {
         require(tokenContract != address(0), "Invalid token contract");
         require(amount > 0, "Amount must be greater than 0");
         require(!usedNonces[nonce], "Nonce already used");
-        require(_validateSignature(tokenContract, tokenId, amount, nonce, tokenType, signature), "Invalid signature");
+        require(_validateSignature(tokenContract, tokenId, amount, nonce, tokenType, msg.value, signature), "Invalid signature");
         
         // Mark nonce as used
         usedNonces[nonce] = true;
@@ -92,6 +92,7 @@ contract TokenClaim is Ownable, EIP712, ERC721Holder, ERC1155Holder {
         uint256 amount,
         uint256 nonce,
         TokenType tokenType,
+        uint256 value,
         bytes calldata signature
     ) internal view returns (bool) {
         bytes32 structHash = keccak256(abi.encode(
@@ -101,7 +102,8 @@ contract TokenClaim is Ownable, EIP712, ERC721Holder, ERC1155Holder {
             tokenId,
             amount,
             nonce,
-            uint8(tokenType)
+            uint8(tokenType),
+            value
         ));
         
         bytes32 hash = _hashTypedDataV4(structHash);

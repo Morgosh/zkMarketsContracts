@@ -15,7 +15,8 @@ async function createClaimSignature(
   tokenId: number,
   amount: string,
   nonce: number,
-  tokenType: number
+  tokenType: number,
+  value: string = "0"
 ) {
   const network = await provider.getNetwork();
   const contractAddress = await contract.getAddress();
@@ -34,20 +35,22 @@ async function createClaimSignature(
       { name: "tokenId", type: "uint256" },
       { name: "amount", type: "uint256" },
       { name: "nonce", type: "uint256" },
-      { name: "tokenType", type: "uint8" }
+      { name: "tokenType", type: "uint8" },
+      { name: "value", type: "uint256" }
     ]
   };
 
-  const value = {
+  const claimValue = {
     user: user,
     tokenContract: tokenContract,
     tokenId: tokenId,
     amount: amount,
     nonce: nonce,
-    tokenType: tokenType
+    tokenType: tokenType,
+    value: value
   };
 
-  return await approver.signTypedData(domain, types, value);
+  return await approver.signTypedData(domain, types, claimValue);
 }
 
 describe("TokenClaim Contract Tests", () => {
@@ -651,6 +654,206 @@ describe("TokenClaim Contract Tests", () => {
       await expect(
         tokenClaim.connect(deployer).setApprover(ethers.ZeroAddress)
       ).to.be.revertedWith("Invalid approver");
+    });
+  });
+
+  describe("Paid Claims", () => {
+    it("Should allow paid ERC20 claim with correct value", async () => {
+      const amount = ethers.parseEther("100");
+      const nonce = 200;
+      const tokenType = 0; // ERC20
+      const paymentValue = ethers.parseEther("0.1");
+
+      const signature = await createClaimSignature(
+        approver,
+        tokenClaim,
+        await user1.getAddress(),
+        await mockERC20.getAddress(),
+        0,
+        amount.toString(),
+        nonce,
+        tokenType,
+        paymentValue.toString()
+      );
+
+      const balanceBefore = await mockERC20.balanceOf(await user1.getAddress());
+      
+      await tokenClaim.connect(user1).claimToken(
+        await mockERC20.getAddress(),
+        0,
+        amount,
+        nonce,
+        tokenType,
+        signature,
+        { value: paymentValue }
+      );
+
+      const balanceAfter = await mockERC20.balanceOf(await user1.getAddress());
+      expect(balanceAfter - balanceBefore).to.equal(amount);
+      expect(await tokenClaim.usedNonces(nonce)).to.be.true;
+    });
+
+    it("Should allow paid ERC721 claim with correct value", async () => {
+      const tokenId = 3;
+      const amount = 1;
+      const nonce = 201;
+      const tokenType = 1; // ERC721
+      const paymentValue = ethers.parseEther("0.05");
+
+      const signature = await createClaimSignature(
+        approver,
+        tokenClaim,
+        await user1.getAddress(),
+        await mockERC721.getAddress(),
+        tokenId,
+        amount.toString(),
+        nonce,
+        tokenType,
+        paymentValue.toString()
+      );
+
+      await tokenClaim.connect(user1).claimToken(
+        await mockERC721.getAddress(),
+        tokenId,
+        amount,
+        nonce,
+        tokenType,
+        signature,
+        { value: paymentValue }
+      );
+
+      expect(await mockERC721.ownerOf(tokenId)).to.equal(await user1.getAddress());
+      expect(await tokenClaim.usedNonces(nonce)).to.be.true;
+    });
+
+    it("Should allow paid ERC1155 claim with correct value", async () => {
+      const tokenId = 2;
+      const amount = 75;
+      const nonce = 202;
+      const tokenType = 2; // ERC1155
+      const paymentValue = ethers.parseEther("0.02");
+
+      const signature = await createClaimSignature(
+        approver,
+        tokenClaim,
+        await user1.getAddress(),
+        await mockERC1155.getAddress(),
+        tokenId,
+        amount.toString(),
+        nonce,
+        tokenType,
+        paymentValue.toString()
+      );
+
+      const balanceBefore = await mockERC1155.balanceOf(await user1.getAddress(), tokenId);
+
+      await tokenClaim.connect(user1).claimToken(
+        await mockERC1155.getAddress(),
+        tokenId,
+        amount,
+        nonce,
+        tokenType,
+        signature,
+        { value: paymentValue }
+      );
+
+      const balanceAfter = await mockERC1155.balanceOf(await user1.getAddress(), tokenId);
+      expect(balanceAfter - balanceBefore).to.equal(amount);
+      expect(await tokenClaim.usedNonces(nonce)).to.be.true;
+    });
+
+    it("Should reject claim with incorrect payment value", async () => {
+      const amount = ethers.parseEther("50");
+      const nonce = 203;
+      const tokenType = 0; // ERC20
+      const correctValue = ethers.parseEther("0.1");
+      const incorrectValue = ethers.parseEther("0.05");
+
+      const signature = await createClaimSignature(
+        approver,
+        tokenClaim,
+        await user1.getAddress(),
+        await mockERC20.getAddress(),
+        0,
+        amount.toString(),
+        nonce,
+        tokenType,
+        correctValue.toString()
+      );
+
+      await expect(
+        tokenClaim.connect(user1).claimToken(
+          await mockERC20.getAddress(),
+          0,
+          amount,
+          nonce,
+          tokenType,
+          signature,
+          { value: incorrectValue }
+        )
+      ).to.be.revertedWith("Invalid signature");
+    });
+
+    it("Should reject free claim when payment is required", async () => {
+      const amount = ethers.parseEther("50");
+      const nonce = 204;
+      const tokenType = 0; // ERC20
+      const requiredValue = ethers.parseEther("0.1");
+
+      const signature = await createClaimSignature(
+        approver,
+        tokenClaim,
+        await user1.getAddress(),
+        await mockERC20.getAddress(),
+        0,
+        amount.toString(),
+        nonce,
+        tokenType,
+        requiredValue.toString()
+      );
+
+      await expect(
+        tokenClaim.connect(user1).claimToken(
+          await mockERC20.getAddress(),
+          0,
+          amount,
+          nonce,
+          tokenType,
+          signature
+          // No value sent
+        )
+      ).to.be.revertedWith("Invalid signature");
+    });
+
+    it("Should reject paid claim when free is expected", async () => {
+      const amount = ethers.parseEther("50");
+      const nonce = 205;
+      const tokenType = 0; // ERC20
+      const unexpectedValue = ethers.parseEther("0.1");
+
+      const signature = await createClaimSignature(
+        approver,
+        tokenClaim,
+        await user1.getAddress(),
+        await mockERC20.getAddress(),
+        0,
+        amount.toString(),
+        nonce,
+        tokenType,
+        "0" // Free claim
+      );
+
+      await expect(
+        tokenClaim.connect(user1).claimToken(
+          await mockERC20.getAddress(),
+          0,
+          amount,
+          nonce,
+          tokenType,
+          signature,
+          { value: unexpectedValue }
+        )
+      ).to.be.revertedWith("Invalid signature");
     });
   });
 
