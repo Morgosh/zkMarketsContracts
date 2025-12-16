@@ -39,6 +39,16 @@ contract MockERC1155 is ERC1155, AccessControl {
         return hasRole(MINTER_ROLE, msg.sender);
     }
 
+    function burn(address _owner, uint256 _tokenId, uint256 _amount) external {
+        require(_owner == msg.sender || isApprovedForAll(_owner, msg.sender), "ERC1155: caller is not owner nor approved");
+        _burn(_owner, _tokenId, _amount);
+    }
+
+    function burnBatch(address from, uint256[] memory ids, uint256[] memory amounts) external {
+        require(from == msg.sender || isApprovedForAll(from, msg.sender), "ERC1155: caller is not owner nor approved");
+        _burnBatch(from, ids, amounts);
+    }
+
     function supportsInterface(bytes4 interfaceId) public view virtual override(ERC1155, AccessControl) returns (bool) {
         return super.supportsInterface(interfaceId);
     }

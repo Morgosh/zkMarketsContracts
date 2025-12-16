@@ -8,24 +8,23 @@ dotenv.config()
 enum TokenType { ERC20, ERC721, ERC1155, thirdwebERC1155 }
 
 async function createClaimSignature(
-  approver: any,
-  contract: any,
+  signer: ethers.Wallet,
+  contractAddress: string,
+  chainId: number,
   user: string,
   tokenContract: string,
   tokenId: number,
-  amount: string,
+  amount: number,
   nonce: number,
-  tokenType: number
+  tokenType: number,
+  value: bigint = 0n
 ) {
-  const network = await approver.provider.getNetwork();
-  const contractAddress = await contract.getAddress();
-  
   const domain = {
     name: "TokenClaim",
     version: "1",
-    chainId: Number(network.chainId),
+    chainId,
     verifyingContract: contractAddress
-  };
+  }
 
   const types = {
     Claim: [
@@ -34,20 +33,16 @@ async function createClaimSignature(
       { name: "tokenId", type: "uint256" },
       { name: "amount", type: "uint256" },
       { name: "nonce", type: "uint256" },
-      { name: "tokenType", type: "uint8" }
+      { name: "tokenType", type: "uint8" },
+      { name: "value", type: "uint256" }
     ]
-  };
+  }
 
-  const value = {
-    user: user,
-    tokenContract: tokenContract,
-    tokenId: tokenId,
-    amount: amount,
-    nonce: nonce,
-    tokenType: tokenType
-  };
+  const message = { user, tokenContract, tokenId, amount, nonce, tokenType, value }
 
-  return await approver.signTypedData(domain, types, value);
+  console.log("message", message, "domain", domain, "types", types)
+
+  return signer.signTypedData(domain, types, message)
 }
 
 async function generateClaimSignature() {
@@ -57,32 +52,23 @@ async function generateClaimSignature() {
       console.log(`
 📝 TokenClaim Signature Generator
 
-Usage: yarn ts-node scripts/generateClaimSignature.ts [userAddress] [tokenContract] [tokenId] [amount] [nonce] [tokenType] [contractAddress]
+Usage: yarn ts-node scripts/generateClaimSignature.ts --network <network> --userAddress <addr> --tokenContract <addr> --tokenId <id> --nonce <nonce> --tokenType <type> --contractAddress <addr> [--amount <amt>]
 
-Parameters:
-  userAddress     - Address of user who will claim tokens
-  tokenContract   - Address of the token contract
-  tokenId         - Token ID (0 for ERC20, specific ID for ERC721/ERC1155)
-  amount          - Amount to claim (for ERC20/ERC1155, should be 1 for ERC721)
-  nonce           - Unique nonce (timestamp recommended)
-  tokenType       - Token type: 0=ERC20, 1=ERC721, 2=ERC1155, 3=thirdwebERC1155
-  contractAddress - Address of deployed TokenClaim contract
+Required:
+  --network         Network name (e.g. abstract-testnet, abstract)
+  --userAddress     Address of user who will claim tokens
+  --tokenContract   Address of the token contract
+  --tokenId         Token ID (0 for ERC20, specific ID for ERC721/ERC1155)
+  --nonce           Unique nonce (timestamp recommended)
+  --tokenType       0=ERC20, 1=ERC721, 2=ERC1155, 3=thirdwebERC1155
+  --contractAddress Address of deployed TokenClaim contract
 
-Token Types:
-  0 - ERC20 (tokenId should be 0)
-  1 - ERC721 (amount should be 1)
-  2 - ERC1155
-  3 - thirdwebERC1155 (calls authorizedMint)
+Optional:
+  --amount          Amount to claim (default: 1)
+  --value           ETH value in wei (default: 0)
 
-Examples:
-  # ERC20 claim
-  yarn ts-node scripts/generateClaimSignature.ts 0x123... 0xabc... 0 1000 1234567890 0 0xdef...
-  
-  # ERC721 claim
-  yarn ts-node scripts/generateClaimSignature.ts 0x123... 0xabc... 42 1 1234567890 1 0xdef...
-  
-  # ERC1155 claim
-  yarn ts-node scripts/generateClaimSignature.ts 0x123... 0xabc... 5 10 1234567890 2 0xdef...
+Example:
+  yarn ts-node scripts/generateClaimSignature.ts --network abstract-testnet --userAddress 0x123... --tokenContract 0xabc... --tokenId 1 --nonce 69 --tokenType 3 --contractAddress 0xdef...
 `)
       return
     }
@@ -103,24 +89,35 @@ Examples:
 
     // Create signer from private key
     const signer = new ethers.Wallet(privateKey, provider)
+    const chainId = Number((await provider.getNetwork()).chainId)
     console.log(`🔑 Signer address: ${signer.address}`)
-    console.log(`🌐 Network: ${network}`)
+    console.log(`🌐 Network: ${network} (chainId: ${chainId})`)
     console.log(`🔗 RPC: ${rpcUrl}`)
 
-    // Get parameters from command line args - all required
-    const args = process.argv.slice(2)
-    
-    if (args.length < 7) {
-      throw new Error("All parameters are required: userAddress tokenContract tokenId amount nonce tokenType contractAddress")
+    // Parse named arguments
+    const getArg = (name: string): string | undefined => {
+      const idx = process.argv.indexOf(`--${name}`)
+      return idx !== -1 ? process.argv[idx + 1] : undefined
     }
-    
-    let userAddress = args[0]
-    let tokenContract = args[1]
-    const tokenId = parseInt(args[2])
-    const amount = parseInt(args[3])
-    const nonce = parseInt(args[4])
-    const tokenType = parseInt(args[5])
-    let contractAddress = args[6]
+
+    let userAddress = getArg('userAddress')
+    let tokenContract = getArg('tokenContract')
+    const tokenIdStr = getArg('tokenId')
+    const amountStr = getArg('amount') ?? '1'
+    const nonceStr = getArg('nonce')
+    const tokenTypeStr = getArg('tokenType')
+    let contractAddress = getArg('contractAddress')
+    const valueStr = getArg('value') ?? '0'
+
+    if (!userAddress || !tokenContract || !tokenIdStr || !nonceStr || !tokenTypeStr || !contractAddress) {
+      throw new Error("Required: --userAddress --tokenContract --tokenId --nonce --tokenType --contractAddress")
+    }
+
+    const tokenId = parseInt(tokenIdStr)
+    const amount = parseInt(amountStr)
+    const nonce = parseInt(nonceStr)
+    const tokenType = parseInt(tokenTypeStr)
+    const value = BigInt(valueStr)
     
     // Validate numeric parameters
     if (isNaN(tokenId)) throw new Error("tokenId must be a valid number")
@@ -147,22 +144,19 @@ Examples:
     console.log(`Nonce: ${nonce}`)
     console.log(`Token Type: ${TokenType[tokenType]} (${tokenType})`)
     console.log(`Contract: ${contractAddress}`)
+    console.log(`Value: ${value}`)
 
-    // Create mock contract object with getAddress method
-    const mockContract = {
-      getAddress: () => Promise.resolve(contractAddress)
-    }
-
-    // Use createClaimSignature function
     const signature = await createClaimSignature(
       signer,
-      mockContract,
+      contractAddress,
+      chainId,
       userAddress,
       tokenContract,
       tokenId,
-      amount.toString(),
+      amount,
       nonce,
-      tokenType
+      tokenType,
+      value
     )
     
     console.log(`\n✅ Generated EIP-712 Signature: ${signature}`)
@@ -202,66 +196,34 @@ async function generateClaimSignatureWithParams(params: {
   nonce: number
   tokenType: TokenType
   contractAddress: string
+  value?: bigint
 }) {
-  try {
-    const privateKey = process.env.PRIVATE_KEY
-    if (!privateKey) {
-      throw new Error("PRIVATE_KEY not found in environment variables")
-    }
+  const privateKey = process.env.PRIVATE_KEY
+  if (!privateKey) throw new Error("PRIVATE_KEY not found")
 
-    const network = getNetwork()
-    const rpcUrl = getRPC(network)
-    const provider = new ethers.JsonRpcProvider(rpcUrl)
-    const signer = new ethers.Wallet(privateKey)
-    const chainId = await provider.getNetwork().then(n => Number(n.chainId))
+  const network = getNetwork()
+  const provider = new ethers.JsonRpcProvider(getRPC(network))
+  const signer = new ethers.Wallet(privateKey)
+  const chainId = Number((await provider.getNetwork()).chainId)
 
-    console.log(`🔑 Signer address: ${signer.address}`)
-    console.log(`🌐 Network: ${network}`)
+  console.log(`🔑 Signer: ${signer.address}`)
+  console.log(`🌐 Network: ${network}`)
 
-    const domain = {
-      name: "TokenClaim",
-      version: "1",
-      chainId: chainId,
-      verifyingContract: params.contractAddress
-    }
-
-    const types = {
-      Claim: [
-        { name: "user", type: "address" },
-        { name: "tokenContract", type: "address" },
-        { name: "tokenId", type: "uint256" },
-        { name: "amount", type: "uint256" },
-        { name: "nonce", type: "uint256" },
-        { name: "tokenType", type: "uint8" }
-      ]
-    }
-
-    const value = {
-      user: params.userAddress,
-      tokenContract: params.tokenContract,
-      tokenId: params.tokenId,
-      amount: params.amount,
-      nonce: params.nonce,
-      tokenType: params.tokenType
-    }
-
-    const signature = await signer.signTypedData(domain, types, value)
-    
-    console.log(`\n✅ Generated Signature: ${signature}`)
-    console.log(`📄 Parameters:`)
-    console.log(`- User: ${params.userAddress}`)
-    console.log(`- Token: ${params.tokenContract}`)
-    console.log(`- TokenId: ${params.tokenId}`)
-    console.log(`- Amount: ${params.amount}`)
-    console.log(`- Nonce: ${params.nonce}`)
-    console.log(`- Type: ${TokenType[params.tokenType]}`)
-
-    return signature
-
-  } catch (error) {
-    console.error("❌ Error:", error)
-    throw error
-  }
+  const signature = await createClaimSignature(
+    signer,
+    params.contractAddress,
+    chainId,
+    params.userAddress,
+    params.tokenContract,
+    params.tokenId,
+    params.amount,
+    params.nonce,
+    params.tokenType,
+    params.value ?? 0n
+  )
+  
+  console.log(`\n✅ Signature: ${signature}`)
+  return signature
 }
 
 // Run the script

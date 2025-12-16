@@ -48,11 +48,11 @@ async function mintWithSignature() {
     console.log(`🔗 RPC: ${rpcUrl}`)
 
     // Contract configuration - UPDATE THESE VALUES
-    const contractAddress = "0x10282e513e506a0ece732c18c6ddc84d8ae9ac54" // Update with deployed contract
+    const contractAddress = "0xbEF44E386C59c8dDC9f78681Dff35d19e2f15c91" // Update with deployed contract
     const chainId = await provider.getNetwork().then(n => Number(n.chainId))
 
     // Mint parameters
-    const saleId = 1
+    const saleId = 69
     // BE EXTRA CAUTIOUS WITH THE END TIME, IT SHOULD BE FIXED NOT DYNAMIC TO PREVENT DUPLICATE SIGNATURES
     const endTime = Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours from now
     const maxMint = 1

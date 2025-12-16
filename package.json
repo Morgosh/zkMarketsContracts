@@ -31,6 +31,7 @@
     "deploy-prophets-renderer": "hardhat deploy-zksync --script deploy_renderer.ts --network abstract",
     "deploy-token-claim": "hardhat deploy-zksync --script deploy_token_claim.ts --network abstract",
     "deploy-token-claim-test": "hardhat deploy-zksync --script deploy_token_claim.ts --network abstract-testnet",
+    "deploy-mock-erc1155": "hardhat deploy-zksync --script deploy_mock_erc1155.ts --network abstract-testnet",
     "upload-image": "hardhat run scripts/uploadImage.ts --network abstract"
   },
   "devDependencies": {
