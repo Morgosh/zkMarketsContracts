@@ -6,6 +6,11 @@ import { getRichWallets } from "../utils/utils";
 
 const provider = new ethers.BrowserProvider(hre.network.provider as any);
 
+// Helper to get balance using hardhat's provider directly
+async function getBalance(address: string): Promise<bigint> {
+  return await hre.ethers.provider.getBalance(address);
+}
+
 // Helper function to create claim signature
 async function createClaimSignature(
   approver: any,
@@ -89,10 +94,10 @@ describe("TokenClaim Contract Tests", () => {
     tokenClaim = await TokenClaim.deploy(await approver.getAddress());
     await tokenClaim.waitForDeployment();
 
-    console.log(`TokenClaim deployed at: ${await tokenClaim.getAddress()}`);
-    console.log(`MockERC20 deployed at: ${await mockERC20.getAddress()}`);
-    console.log(`MockERC721 deployed at: ${await mockERC721.getAddress()}`);
-    console.log(`MockERC1155 deployed at: ${await mockERC1155.getAddress()}`);
+    //console.log(`TokenClaim deployed at: ${await tokenClaim.getAddress()}`);
+    //console.log(`MockERC20 deployed at: ${await mockERC20.getAddress()}`);
+    //console.log(`MockERC721 deployed at: ${await mockERC721.getAddress()}`);
+    //console.log(`MockERC1155 deployed at: ${await mockERC1155.getAddress()}`);
 
     // Setup tokens in contract
     // Transfer ERC20 tokens to claim contract
@@ -655,6 +660,31 @@ describe("TokenClaim Contract Tests", () => {
         tokenClaim.connect(deployer).setApprover(ethers.ZeroAddress)
       ).to.be.revertedWith("Invalid approver");
     });
+
+    it("Should update referral fee (owner only)", async () => {
+      const newFeeBps = 500; // 5%
+
+      await tokenClaim.connect(deployer).setReferralFee(newFeeBps);
+
+      expect(await tokenClaim.referralFeeBps()).to.equal(newFeeBps);
+    });
+
+    it("Should reject referral fee update from non-owner", async () => {
+      await expect(
+        tokenClaim.connect(user1).setReferralFee(500)
+      ).to.be.revertedWith("Ownable: caller is not the owner");
+    });
+
+    it("Should reject referral fee over 100%", async () => {
+      await expect(
+        tokenClaim.connect(deployer).setReferralFee(10001)
+      ).to.be.revertedWith("Fee cannot exceed 100%");
+    });
+
+    it("Should allow referral fee of exactly 100%", async () => {
+      await tokenClaim.connect(deployer).setReferralFee(10000);
+      expect(await tokenClaim.referralFeeBps()).to.equal(10000);
+    });
   });
 
   describe("Paid Claims", () => {
@@ -857,6 +887,249 @@ describe("TokenClaim Contract Tests", () => {
     });
   });
 
+  describe("Referral Claims", () => {
+    it("Should pay referral fee on paid ERC20 claim", async () => {
+      const amount = ethers.parseEther("100");
+      const nonce = 300;
+      const tokenType = 0; // ERC20
+      const paymentValue = ethers.parseEther("1");
+      const referralFeeBps = 1000; // 10%
+
+      // Set referral fee
+      await tokenClaim.connect(deployer).setReferralFee(referralFeeBps);
+
+      const signature = await createClaimSignature(
+        approver,
+        tokenClaim,
+        await user1.getAddress(),
+        await mockERC20.getAddress(),
+        0,
+        amount.toString(),
+        nonce,
+        tokenType,
+        paymentValue.toString()
+      );
+
+      const referrerBalanceBefore = await getBalance(await user2.getAddress());
+
+      await tokenClaim.connect(user1).claimTokenReferral(
+        await mockERC20.getAddress(),
+        0,
+        amount,
+        nonce,
+        tokenType,
+        signature,
+        await user2.getAddress(), // referrer
+        { value: paymentValue }
+      );
+
+      const referrerBalanceAfter = await getBalance(await user2.getAddress());
+      const expectedReferral = (paymentValue * BigInt(referralFeeBps)) / BigInt(10000);
+      expect(referrerBalanceAfter - referrerBalanceBefore).to.equal(expectedReferral);
+    });
+
+    it("Should pay referral fee on paid NFT mint (thirdwebERC1155)", async () => {
+      const tokenId = 100;
+      const amount = 5;
+      const nonce = 301;
+      const tokenType = 3; // thirdwebERC1155
+      const paymentValue = ethers.parseEther("0.5");
+      const referralFeeBps = 500; // 5%
+
+      // Grant MINTER_ROLE to TokenClaim contract
+      await mockERC1155.connect(deployer).grantRole(
+        await mockERC1155.MINTER_ROLE(),
+        await tokenClaim.getAddress()
+      );
+
+      // Set referral fee
+      await tokenClaim.connect(deployer).setReferralFee(referralFeeBps);
+
+      const signature = await createClaimSignature(
+        approver,
+        tokenClaim,
+        await user1.getAddress(),
+        await mockERC1155.getAddress(),
+        tokenId,
+        amount.toString(),
+        nonce,
+        tokenType,
+        paymentValue.toString()
+      );
+
+      const referrerBalanceBefore = await getBalance(await user2.getAddress());
+
+      await tokenClaim.connect(user1).claimTokenReferral(
+        await mockERC1155.getAddress(),
+        tokenId,
+        amount,
+        nonce,
+        tokenType,
+        signature,
+        await user2.getAddress(), // referrer
+        { value: paymentValue }
+      );
+
+      const referrerBalanceAfter = await getBalance(await user2.getAddress());
+      const expectedReferral = (paymentValue * BigInt(referralFeeBps)) / BigInt(10000);
+      expect(referrerBalanceAfter - referrerBalanceBefore).to.equal(expectedReferral);
+    });
+
+    it("Should not pay referral when referrer is zero address", async () => {
+      const amount = ethers.parseEther("50");
+      const nonce = 302;
+      const tokenType = 0; // ERC20
+      const paymentValue = ethers.parseEther("0.5");
+      const referralFeeBps = 1000; // 10%
+
+      await tokenClaim.connect(deployer).setReferralFee(referralFeeBps);
+
+      const signature = await createClaimSignature(
+        approver,
+        tokenClaim,
+        await user1.getAddress(),
+        await mockERC20.getAddress(),
+        0,
+        amount.toString(),
+        nonce,
+        tokenType,
+        paymentValue.toString()
+      );
+
+      const contractBalanceBefore = await getBalance(await tokenClaim.getAddress());
+
+      // claimTokenReferral with zero address referrer
+      await tokenClaim.connect(user1).claimTokenReferral(
+        await mockERC20.getAddress(),
+        0,
+        amount,
+        nonce,
+        tokenType,
+        signature,
+        ethers.ZeroAddress, // no referrer
+        { value: paymentValue }
+      );
+
+      // All ETH should stay in contract (no referral paid)
+      const contractBalanceAfter = await getBalance(await tokenClaim.getAddress());
+      expect(contractBalanceAfter - contractBalanceBefore).to.equal(paymentValue);
+    });
+
+    it("Should not pay referral when fee is zero", async () => {
+      const amount = ethers.parseEther("50");
+      const nonce = 303;
+      const tokenType = 0; // ERC20
+      const paymentValue = ethers.parseEther("0.5");
+
+      // Ensure referral fee is 0
+      await tokenClaim.connect(deployer).setReferralFee(0);
+
+      const signature = await createClaimSignature(
+        approver,
+        tokenClaim,
+        await user1.getAddress(),
+        await mockERC20.getAddress(),
+        0,
+        amount.toString(),
+        nonce,
+        tokenType,
+        paymentValue.toString()
+      );
+
+      const referrerBalanceBefore = await getBalance(await user2.getAddress());
+
+      await tokenClaim.connect(user1).claimTokenReferral(
+        await mockERC20.getAddress(),
+        0,
+        amount,
+        nonce,
+        tokenType,
+        signature,
+        await user2.getAddress(),
+        { value: paymentValue }
+      );
+
+      const referrerBalanceAfter = await getBalance(await user2.getAddress());
+      expect(referrerBalanceAfter).to.equal(referrerBalanceBefore); // No change
+    });
+
+    it("Should not pay referral when msg.value is zero (free claim)", async () => {
+      const amount = ethers.parseEther("50");
+      const nonce = 304;
+      const tokenType = 0; // ERC20
+      const referralFeeBps = 1000; // 10%
+
+      await tokenClaim.connect(deployer).setReferralFee(referralFeeBps);
+
+      const signature = await createClaimSignature(
+        approver,
+        tokenClaim,
+        await user1.getAddress(),
+        await mockERC20.getAddress(),
+        0,
+        amount.toString(),
+        nonce,
+        tokenType,
+        "0" // free claim
+      );
+
+      const referrerBalanceBefore = await getBalance(await user2.getAddress());
+
+      await tokenClaim.connect(user1).claimTokenReferral(
+        await mockERC20.getAddress(),
+        0,
+        amount,
+        nonce,
+        tokenType,
+        signature,
+        await user2.getAddress()
+        // no value sent
+      );
+
+      const referrerBalanceAfter = await getBalance(await user2.getAddress());
+      expect(referrerBalanceAfter).to.equal(referrerBalanceBefore); // No change
+    });
+
+    it("Should work with claimToken (no referrer)", async () => {
+      const amount = ethers.parseEther("50");
+      const nonce = 305;
+      const tokenType = 0; // ERC20
+      const paymentValue = ethers.parseEther("0.5");
+      const referralFeeBps = 1000; // 10%
+
+      await tokenClaim.connect(deployer).setReferralFee(referralFeeBps);
+
+      const signature = await createClaimSignature(
+        approver,
+        tokenClaim,
+        await user1.getAddress(),
+        await mockERC20.getAddress(),
+        0,
+        amount.toString(),
+        nonce,
+        tokenType,
+        paymentValue.toString()
+      );
+
+      const contractBalanceBefore = await getBalance(await tokenClaim.getAddress());
+
+      // Use claimToken (not claimTokenReferral) - should not pay any referral
+      await tokenClaim.connect(user1).claimToken(
+        await mockERC20.getAddress(),
+        0,
+        amount,
+        nonce,
+        tokenType,
+        signature,
+        { value: paymentValue }
+      );
+
+      // All ETH should stay in contract
+      const contractBalanceAfter = await getBalance(await tokenClaim.getAddress());
+      expect(contractBalanceAfter - contractBalanceBefore).to.equal(paymentValue);
+    });
+  });
+
   describe("Events", () => {
     it("Should emit TokenClaimed event", async () => {
       const amount = ethers.parseEther("100");
@@ -902,6 +1175,54 @@ describe("TokenClaim Contract Tests", () => {
         tokenClaim.connect(deployer).setApprover(newApprover)
       ).to.emit(tokenClaim, "ApproverUpdated")
         .withArgs(oldApprover, newApprover);
+    });
+
+    it("Should emit ReferralFeeUpdated event", async () => {
+      const newFeeBps = 500;
+      const oldFeeBps = 0; // default
+
+      await expect(
+        tokenClaim.connect(deployer).setReferralFee(newFeeBps)
+      ).to.emit(tokenClaim, "ReferralFeeUpdated")
+        .withArgs(oldFeeBps, newFeeBps);
+    });
+
+    it("Should emit ReferralPaid event", async () => {
+      const amount = ethers.parseEther("100");
+      const nonce = 400;
+      const tokenType = 0; // ERC20
+      const paymentValue = ethers.parseEther("1");
+      const referralFeeBps = 1000; // 10%
+
+      await tokenClaim.connect(deployer).setReferralFee(referralFeeBps);
+
+      const signature = await createClaimSignature(
+        approver,
+        tokenClaim,
+        await user1.getAddress(),
+        await mockERC20.getAddress(),
+        0,
+        amount.toString(),
+        nonce,
+        tokenType,
+        paymentValue.toString()
+      );
+
+      const expectedReferral = (paymentValue * BigInt(referralFeeBps)) / BigInt(10000);
+
+      await expect(
+        tokenClaim.connect(user1).claimTokenReferral(
+          await mockERC20.getAddress(),
+          0,
+          amount,
+          nonce,
+          tokenType,
+          signature,
+          await user2.getAddress(),
+          { value: paymentValue }
+        )
+      ).to.emit(tokenClaim, "ReferralPaid")
+        .withArgs(await user2.getAddress(), expectedReferral);
     });
   });
 });

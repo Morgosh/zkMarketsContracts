@@ -26,6 +26,7 @@ contract TokenClaim is Ownable, EIP712, ERC721Holder, ERC1155Holder {
     // State variables
     address public approver;
     mapping(uint256 => bool) public usedNonces;
+    uint256 public referralFeeBps; // Referral fee in basis points (0-10000, where 10000 = 100%)
 
     // Events
     event TokenClaimed(
@@ -37,6 +38,8 @@ contract TokenClaim is Ownable, EIP712, ERC721Holder, ERC1155Holder {
         uint256 indexed nonce
     );
     event ApproverUpdated(address indexed oldApprover, address indexed newApprover);
+    event ReferralFeeUpdated(uint256 oldFeeBps, uint256 newFeeBps);
+    event ReferralPaid(address indexed referrer, uint256 amount);
 
     constructor(address _approver) EIP712("TokenClaim", "1") {
         approver = _approver;
@@ -57,14 +60,57 @@ contract TokenClaim is Ownable, EIP712, ERC721Holder, ERC1155Holder {
         TokenType tokenType,
         bytes calldata signature
     ) external payable {
+        _claimTokenInternal(tokenContract, tokenId, amount, nonce, tokenType, signature, address(0));
+    }
+
+    /// @notice Claim tokens with a valid signature and pay referral fee to referrer
+    /// @param tokenContract The contract address of the token
+    /// @param tokenId Token ID (for ERC721/ERC1155, 0 for ERC20)
+    /// @param amount Amount to claim (for ERC20/ERC1155, 1 for ERC721)
+    /// @param nonce Unique nonce provided by backend
+    /// @param tokenType Type of token (0=ERC20, 1=ERC721, 2=ERC1155)
+    /// @param signature Valid signature from approver
+    /// @param referrer Address to receive referral fee (ignored if address(0))
+    function claimTokenReferral(
+        address tokenContract,
+        uint256 tokenId,
+        uint256 amount,
+        uint256 nonce,
+        TokenType tokenType,
+        bytes calldata signature,
+        address referrer
+    ) external payable {
+        _claimTokenInternal(tokenContract, tokenId, amount, nonce, tokenType, signature, referrer);
+    }
+
+    /// @notice Internal claim logic shared by claimToken and claimTokenReferral
+    function _claimTokenInternal(
+        address tokenContract,
+        uint256 tokenId,
+        uint256 amount,
+        uint256 nonce,
+        TokenType tokenType,
+        bytes calldata signature,
+        address referrer
+    ) private {
         require(tokenContract != address(0), "Invalid token contract");
         require(amount > 0, "Amount must be greater than 0");
         require(!usedNonces[nonce], "Nonce already used");
         require(_validateSignature(tokenContract, tokenId, amount, nonce, tokenType, msg.value, signature), "Invalid signature");
-        
+
         // Mark nonce as used
         usedNonces[nonce] = true;
-        
+
+        // Pay referral fee from msg.value if referrer is set
+        if (referrer != address(0) && referralFeeBps > 0 && msg.value > 0) {
+            uint256 referralAmount = (msg.value * referralFeeBps) / 10000;
+            if (referralAmount > 0) {
+                (bool ok, ) = referrer.call{value: referralAmount}("");
+                require(ok, "Referral payment failed");
+                emit ReferralPaid(referrer, referralAmount);
+            }
+        }
+
         // Transfer tokens based on type
         if (tokenType == TokenType.ERC20) {
             require(tokenId == 0, "TokenId must be 0 for ERC20");
@@ -81,7 +127,7 @@ contract TokenClaim is Ownable, EIP712, ERC721Holder, ERC1155Holder {
             );
             require(success, "Authorized mint failed");
         }
-        
+
         emit TokenClaimed(msg.sender, tokenContract, tokenId, amount, tokenType, nonce);
     }
 
@@ -118,6 +164,15 @@ contract TokenClaim is Ownable, EIP712, ERC721Holder, ERC1155Holder {
         address oldApprover = approver;
         approver = newApprover;
         emit ApproverUpdated(oldApprover, newApprover);
+    }
+
+    /// @notice Update referral fee (owner only)
+    /// @param newFeeBps New fee in basis points (0-10000, where 10000 = 100%)
+    function setReferralFee(uint256 newFeeBps) external onlyOwner {
+        require(newFeeBps <= 10000, "Fee cannot exceed 100%");
+        uint256 oldFeeBps = referralFeeBps;
+        referralFeeBps = newFeeBps;
+        emit ReferralFeeUpdated(oldFeeBps, newFeeBps);
     }
 
     // rescue
