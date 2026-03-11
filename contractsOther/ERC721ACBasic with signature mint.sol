@@ -24,10 +24,13 @@ contract ERC721ACBasic is OwnableBasic, ERC721AC, BasicRoyalties, EIP712 {
     
     // Hash => amount minted by user
     mapping(bytes32 => uint256) public mintedByHash;
-    
+    // Authorized minters (e.g. TokenClaim contract)
+    mapping(address => bool) public authorizedMinters;
+
     event MintWithSignature(address indexed to, uint256 amount, bytes32 indexed saleHash);
     event ApproverUpdated(address indexed oldApprover, address indexed newApprover);
     event MaxSupplyUpdated(uint256 oldMaxSupply, uint256 newMaxSupply);
+    event AuthorizedMinterUpdated(address indexed minter, bool allowed);
     
     constructor(
         address royaltyReceiver_,
@@ -137,6 +140,24 @@ contract ERC721ACBasic is OwnableBasic, ERC721AC, BasicRoyalties, EIP712 {
         emit MaxSupplyUpdated(oldMaxSupply, newMaxSupply);
     }
     
+    /// @notice Mint tokens from an authorized contract (e.g. TokenClaim)
+    /// @param _to The receiver of the tokens
+    /// @param _quantity Number of tokens to mint
+    function authorizedMint(address _to, uint256 _quantity) external {
+        require(authorizedMinters[msg.sender], "Not authorized minter");
+        require(totalSupply() + _quantity <= maxSupply, "Exceeds max supply");
+        _mint(_to, _quantity);
+    }
+
+    /// @notice Add or remove an authorized minter
+    /// @param minter The minter address
+    /// @param allowed Whether the minter is allowed
+    function setAuthorizedMinter(address minter, bool allowed) external onlyOwner {
+        require(minter != address(0), "Invalid minter");
+        authorizedMinters[minter] = allowed;
+        emit AuthorizedMinterUpdated(minter, allowed);
+    }
+
     function withdraw() external onlyOwner {
         uint256 balance = address(this).balance;
         require(balance > 0, "No ETH to withdraw");

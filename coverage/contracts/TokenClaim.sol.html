@@ -1,0 +1,662 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Code coverage report for contracts\TokenClaim.sol</title>
+    <meta charset="utf-8" />
+    <link rel="stylesheet" href="../prettify.css" />
+    <link rel="stylesheet" href="../base.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style type='text/css'>
+        .coverage-summary .sorter {
+            background-image: url(../sort-arrow-sprite.png);
+        }
+    </style>
+</head>
+<body>
+<div class='wrapper'>
+  <div class='pad1'>
+    <h1>
+      <a href="../index.html">all files</a> / <a href="index.html">contracts/</a> TokenClaim.sol
+    </h1>
+    <div class='clearfix'>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">0% </span>
+        <span class="quiet">Statements</span>
+        <span class='fraction'>0/40</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">0% </span>
+        <span class="quiet">Branches</span>
+        <span class='fraction'>0/48</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">0% </span>
+        <span class="quiet">Functions</span>
+        <span class='fraction'>0/11</span>
+      </div>
+      <div class='fl pad1y space-right2'>
+        <span class="strong">0% </span>
+        <span class="quiet">Lines</span>
+        <span class='fraction'>0/41</span>
+      </div>
+    </div>
+  </div>
+  <div class='status-line low'></div>
+<pre><table class="coverage">
+<tr><td class="line-count quiet">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184
+185
+186
+187
+188
+189
+190
+191
+192
+193
+194
+195
+196
+197
+198
+199
+200</td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+&nbsp;
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
+import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
+/// @title Token Claim Contract
+/// @notice Allows users to claim ERC20, ERC721, or ERC1155 tokens with valid signatures
+contract TokenClaim is Ownable, EIP712, ERC721Holder, ERC1155Holder {
+    using ECDSA for bytes32;
+&nbsp;
+    // Token types
+    enum TokenType { ERC20, ERC721, ERC1155, thirdwebERC1155 }
+&nbsp;
+    // EIP-712 type hashes
+    bytes32 private constant CLAIM_TYPEHASH = keccak256(
+        "Claim(address user,address tokenContract,uint256 tokenId,uint256 amount,uint256 nonce,uint8 tokenType,uint256 value)"
+    );
+&nbsp;
+    // State variables
+    address public approver;
+    mapping(uint256 =&gt; bool) public usedNonces;
+    uint256 public referralFeeBps; // Referral fee in basis points (0-10000, where 10000 = 100%)
+&nbsp;
+    // Events
+    event TokenClaimed(
+        address indexed user,
+        address indexed tokenContract,
+        uint256 tokenId,
+        uint256 amount,
+        TokenType tokenType,
+        uint256 indexed nonce
+    );
+    event ApproverUpdated(address indexed oldApprover, address indexed newApprover);
+    event ReferralFeeUpdated(uint256 oldFeeBps, uint256 newFeeBps);
+    event ReferralPaid(address indexed referrer, uint256 amount);
+&nbsp;
+<span class="fstat-no" title="function not covered" >    constructor(address _approver) EIP712("TokenClaim", "1") {</span>
+        approver = _approver;
+    }
+&nbsp;
+    /// @notice Claim tokens with a valid signature
+    /// @param tokenContract The contract address of the token
+    /// @param tokenId Token ID (for ERC721/ERC1155, 0 for ERC20)
+    /// @param amount Amount to claim (for ERC20/ERC1155, 1 for ERC721)
+    /// @param nonce Unique nonce provided by backend
+    /// @param tokenType Type of token (0=ERC20, 1=ERC721, 2=ERC1155)
+    /// @param signature Valid signature from approver
+<span class="fstat-no" title="function not covered" >    function claimToken(</span>
+        address tokenContract,
+        uint256 tokenId,
+        uint256 amount,
+        uint256 nonce,
+        TokenType tokenType,
+        bytes calldata signature
+    ) external payable {
+<span class="cstat-no" title="statement not covered" >        _claimTokenInternal(tokenContract, tokenId, amount, nonce, tokenType, signature, address(0))</span>;
+    }
+&nbsp;
+    /// @notice Claim tokens with a valid signature and pay referral fee to referrer
+    /// @param tokenContract The contract address of the token
+    /// @param tokenId Token ID (for ERC721/ERC1155, 0 for ERC20)
+    /// @param amount Amount to claim (for ERC20/ERC1155, 1 for ERC721)
+    /// @param nonce Unique nonce provided by backend
+    /// @param tokenType Type of token (0=ERC20, 1=ERC721, 2=ERC1155)
+    /// @param signature Valid signature from approver
+    /// @param referrer Address to receive referral fee (ignored if address(0))
+<span class="fstat-no" title="function not covered" >    function claimTokenReferral(</span>
+        address tokenContract,
+        uint256 tokenId,
+        uint256 amount,
+        uint256 nonce,
+        TokenType tokenType,
+        bytes calldata signature,
+        address referrer
+    ) external payable {
+<span class="cstat-no" title="statement not covered" >        _claimTokenInternal(tokenContract, tokenId, amount, nonce, tokenType, signature, referrer)</span>;
+    }
+&nbsp;
+    /// @notice Internal claim logic shared by claimToken and claimTokenReferral
+<span class="fstat-no" title="function not covered" >    function _claimTokenInternal(</span>
+        address tokenContract,
+        uint256 tokenId,
+        uint256 amount,
+        uint256 nonce,
+        TokenType tokenType,
+        bytes calldata signature,
+        address referrer
+    ) private {
+<span class="cstat-no" title="statement not covered" >        require(tokenContract != address(0), "Invalid token contract")</span>;
+<span class="cstat-no" title="statement not covered" >        require(amount &gt; 0, "Amount must be greater than 0")</span>;
+<span class="cstat-no" title="statement not covered" >        require(!usedNonces[nonce], "Nonce already used")</span>;
+<span class="cstat-no" title="statement not covered" >        require(_validateSignature(tokenContract, tokenId, amount, nonce, tokenType, msg.value, signature), "Invalid signature")</span>;
+&nbsp;
+        // Mark nonce as used
+        usedNonces[nonce] = true;
+&nbsp;
+        // Pay referral fee from msg.value if referrer is set
+<span class="cstat-no" title="statement not covered" >        if (referrer != address(0) &amp;&amp; referralFeeBps &gt; 0 &amp;&amp; msg.value &gt; 0) {</span>
+<span class="cstat-no" title="statement not covered" >            uint256 referralAmount = (msg.value * referralFeeBps) / 10000;</span>
+<span class="cstat-no" title="statement not covered" >            if (referralAmount &gt; 0) {</span>
+<span class="cstat-no" title="statement not covered" >                (bool ok, ) = referrer.call{value: referralAmount}("");</span>
+<span class="cstat-no" title="statement not covered" >                require(ok, "Referral payment failed")</span>;
+<span class="cstat-no" title="statement not covered" >                emit ReferralPaid(referrer, referralAmount);</span>
+            }
+        }
+&nbsp;
+        // Transfer tokens based on type
+<span class="cstat-no" title="statement not covered" >        if (tokenType == TokenType.ERC20) {</span>
+<span class="cstat-no" title="statement not covered" >            require(tokenId == 0, "TokenId must be 0 for ERC20")</span>;
+<span class="cstat-no" title="statement not covered" >            IERC20(tokenContract).transfer(msg.sender, amount)</span>;
+        } else <span class="cstat-no" title="statement not covered" >if (tokenType == TokenType.ERC721) {</span>
+<span class="cstat-no" title="statement not covered" >            require(amount == 1, "Amount must be 1 for ERC721")</span>;
+<span class="cstat-no" title="statement not covered" >            IERC721(tokenContract).transferFrom(address(this), msg.sender, tokenId)</span>;
+        } else <span class="cstat-no" title="statement not covered" >if (tokenType == TokenType.ERC1155) {</span>
+<span class="cstat-no" title="statement not covered" >            IERC1155(tokenContract).safeTransferFrom(address(this), msg.sender, tokenId, amount, "")</span>;
+        } else <span class="cstat-no" title="statement not covered" >if (tokenType == TokenType.thirdwebERC1155) {</span>
+            // Call authorizedMint for thirdweb ERC1155 contracts
+<span class="cstat-no" title="statement not covered" >            (bool success, ) = tokenContract.call(</span>
+                abi.encodeWithSignature("authorizedMint(address,uint256,uint256)", msg.sender, tokenId, amount)
+            );
+<span class="cstat-no" title="statement not covered" >            require(success, "Authorized mint failed")</span>;
+        }
+&nbsp;
+<span class="cstat-no" title="statement not covered" >        emit TokenClaimed(msg.sender, tokenContract, tokenId, amount, tokenType, nonce);</span>
+    }
+&nbsp;
+    /// @notice Validate signature for claim
+<span class="fstat-no" title="function not covered" >    function _validateSignature(</span>
+        address tokenContract,
+        uint256 tokenId,
+        uint256 amount,
+        uint256 nonce,
+        TokenType tokenType,
+        uint256 value,
+        bytes calldata signature
+    ) internal view returns (bool) {
+<span class="cstat-no" title="statement not covered" >        bytes32 structHash = keccak256(abi.encode(</span>
+            CLAIM_TYPEHASH,
+            msg.sender,
+            tokenContract,
+            tokenId,
+            amount,
+            nonce,
+            uint8(tokenType),
+            value
+        ));
+        
+<span class="cstat-no" title="statement not covered" >        bytes32 hash = _hashTypedDataV4(structHash);</span>
+<span class="cstat-no" title="statement not covered" >        address signer = hash.recover(signature);</span>
+        
+<span class="cstat-no" title="statement not covered" >        return signer == approver;</span>
+    }
+&nbsp;
+    /// @notice Update approver address (owner only)
+<span class="fstat-no" title="function not covered" >    function setApprover(address newApprover) external onlyOwner {</span>
+<span class="cstat-no" title="statement not covered" >        require(newApprover != address(0), "Invalid approver")</span>;
+<span class="cstat-no" title="statement not covered" >        address oldApprover = approver;</span>
+        approver = newApprover;
+<span class="cstat-no" title="statement not covered" >        emit ApproverUpdated(oldApprover, newApprover);</span>
+    }
+&nbsp;
+    /// @notice Update referral fee (owner only)
+    /// @param newFeeBps New fee in basis points (0-10000, where 10000 = 100%)
+<span class="fstat-no" title="function not covered" >    function setReferralFee(uint256 newFeeBps) external onlyOwner {</span>
+<span class="cstat-no" title="statement not covered" >        require(newFeeBps &lt;= 10000, "Fee cannot exceed 100%")</span>;
+<span class="cstat-no" title="statement not covered" >        uint256 oldFeeBps = referralFeeBps;</span>
+        referralFeeBps = newFeeBps;
+<span class="cstat-no" title="statement not covered" >        emit ReferralFeeUpdated(oldFeeBps, newFeeBps);</span>
+    }
+&nbsp;
+    // rescue
+<span class="fstat-no" title="function not covered" >    function rescueETH(uint256 amount) external onlyOwner {</span>
+<span class="cstat-no" title="statement not covered" >        (bool ok,) = owner().call{value: amount}("");</span>
+<span class="cstat-no" title="statement not covered" >        require(ok, "rescue fail")</span>;
+    }
+    
+<span class="fstat-no" title="function not covered" >    function rescueERC20(address token, uint256 amount) external onlyOwner {</span>
+<span class="cstat-no" title="statement not covered" >        require(token != address(this), "no")</span>;
+<span class="cstat-no" title="statement not covered" >        IERC20(token).transfer(owner(), amount)</span>;
+    }
+    
+<span class="fstat-no" title="function not covered" >    function rescueERC721(address token, uint256 tokenId) external onlyOwner {</span>
+<span class="cstat-no" title="statement not covered" >        IERC721(token).transferFrom(address(this), owner(), tokenId)</span>;
+    }
+    
+<span class="fstat-no" title="function not covered" >    function rescueERC1155(address token, uint256 tokenId, uint256 amount) external onlyOwner {</span>
+<span class="cstat-no" title="statement not covered" >        IERC1155(token).safeTransferFrom(address(this), owner(), tokenId, amount, "")</span>;
+    }
+&nbsp;
+    /// @notice Allow contract to receive ETH
+    receive() external payable {}
+}
+&nbsp;</pre></td></tr>
+</table></pre>
+<div class='push'></div><!-- for sticky footer -->
+</div><!-- /wrapper -->
+<div class='footer quiet pad2 space-top1 center small'>
+  Code coverage
+  generated by <a href="http://istanbul-js.org/" target="_blank">istanbul</a> at Wed Mar 11 2026 15:51:00 GMT+0100 (Central European Standard Time)
+</div>
+</div>
+<script src="../prettify.js"></script>
+<script>
+window.onload = function () {
+        if (typeof prettyPrint === 'function') {
+            prettyPrint();
+        }
+};
+</script>
+<script src="../sorter.js"></script>
+</body>
+</html>

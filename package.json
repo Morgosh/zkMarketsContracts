@@ -11,7 +11,7 @@
     "test-my": "cross-env NODE_ENV=test hardhat test test/morgoshManual/morgoshTest.test.ts --network hardhat",
     "test-token-claim": "cross-env NODE_ENV=test hardhat test test/TokenClaim.test.ts --network hardhat",
     "test-my2": "cross-env NODE_ENV=test hardhat test test/morgoshManual/morgoshTest2.test.ts --network hardhat",
-    "test-all": "cross-env NODE_ENV=test hardhat test --network hardhat",
+    "test": "cross-env NODE_ENV=test hardhat test --network hardhat",
     "testGas": "cross-env REPORT_GAS=true NODE_ENV=test hardhat test --network hardhat",
     "testzk": "cross-env NODE_ENV=test hardhat test --network zkHardhat",
     "verify": "hardhat deploy-zksync --script verify.ts --network abstract",
@@ -54,7 +54,7 @@
     "keccak256": "^1.0.6",
     "merkletreejs": "^0.3.9",
     "mocha": "^10.2.0",
-    "solidity-coverage": "^0.8.16",
+    "solidity-coverage": "^0.8.17",
     "ts-node": "^10.9.1",
     "typescript": "^4.9.5",
     "zksync-ethers": "6"
@@ -66,6 +66,7 @@
     "@pythnetwork/pyth-sdk-solidity": "^4.2.0",
     "cross-env": "^7.0.3",
     "erc721a": "^4.3.0",
+    "erc721a-upgradeable": "^4.3.0",
     "hardhat-gas-reporter": "^2.2.0",
     "i": "^0.3.7",
     "npm": "^10.8.2"

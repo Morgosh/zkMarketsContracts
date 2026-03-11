@@ -4,7 +4,7 @@ import "@matterlabs/hardhat-zksync"
 import { generatePrivateKeyWithSalt } from "./functions"
 import * as dotenv from "dotenv"
 import "hardhat-gas-reporter";
-//import 'solidity-coverage';
+import 'solidity-coverage';
 
 
 // const network: string = process.argv.includes("--network") ? process.argv[process.argv.indexOf("--network") + 1] : "zksync-era-testnet"
@@ -52,7 +52,7 @@ const config: HardhatUserConfig = {
       accounts: [],
     },
     "hardhat": {
-      // zksync: true,
+      zksync: false,
     },
     "abstract-testnet": {
       url: "https://api.testnet.abs.xyz",

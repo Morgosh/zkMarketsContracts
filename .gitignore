@@ -7,3 +7,4 @@ cache-zk
 cache
 .vscode
 deployments-zk
+.claude
