@@ -4,7 +4,7 @@ import { ethers } from "ethers";
 import hre from "hardhat";
 import { getRichWallets } from "../utils/utils";
 
-describe("BasicERC721ACUpgradeable Tests", () => {
+describe("MoodyArchives Tests", () => {
   let nft: any;
   let nftImpl: any;
   let proxy: any;
@@ -14,7 +14,7 @@ describe("BasicERC721ACUpgradeable Tests", () => {
 
   // Helper to deploy a fresh proxy
   async function deployProxy() {
-    nftArtifact = await hre.artifacts.readArtifact("BasicERC721ACUpgradeable");
+    nftArtifact = await hre.artifacts.readArtifact("MoodyArchives");
     NftFactory = new ethers.ContractFactory(nftArtifact.abi, nftArtifact.bytecode, deployer);
     nftImpl = await NftFactory.deploy();
     await nftImpl.waitForDeployment();

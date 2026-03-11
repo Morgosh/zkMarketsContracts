@@ -1,5 +1,5 @@
 // To run use
-//HARDHAT_CONFIG=hardhat.coverage.config.ts npx hardhat coverage --testfiles "test/BasicERC721ACUpgradeable.test.ts,test/Staking.test.ts"
+//HARDHAT_CONFIG=hardhat.coverage.config.ts npx hardhat coverage --testfiles "test/MoodyArchives.test.ts,test/Staking.test.ts"
 
 
 

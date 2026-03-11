@@ -22,10 +22,10 @@ interface ITransferValidator {
     function validateTransfer(address caller, address from, address to, uint256 tokenId) external view;
 }
 
-/// @title BasicERC721AC
+/// @title MoodyArchives
 /// @notice Upgradeable ERC721A with ERC2981 royalties and ICreatorToken transfer validation.
 /// @dev UUPS proxy pattern. No limitbreak dependency — implements ICreatorToken directly.
-contract BasicERC721ACUpgradeable is ERC721AUpgradeable, OwnableUpgradeable, ERC2981Upgradeable, UUPSUpgradeable, ICreatorToken {
+contract MoodyArchives is ERC721AUpgradeable, OwnableUpgradeable, ERC2981Upgradeable, UUPSUpgradeable, ICreatorToken {
     using SafeERC20 for IERC20;
 
     // ------------------------------

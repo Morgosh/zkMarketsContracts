@@ -21,8 +21,8 @@ describe("Staking Contract Tests", () => {
     user1 = wallets[1];
     user2 = wallets[2];
 
-    // Deploy BasicERC721ACUpgradeable as UUPS proxy
-    const nftArtifact = await hre.artifacts.readArtifact("BasicERC721ACUpgradeable");
+    // Deploy MoodyArchives as UUPS proxy
+    const nftArtifact = await hre.artifacts.readArtifact("MoodyArchives");
     const NftFactory = new ethers.ContractFactory(nftArtifact.abi, nftArtifact.bytecode, deployer);
     const nftImpl = await NftFactory.deploy();
     await nftImpl.waitForDeployment();
@@ -104,7 +104,7 @@ describe("Staking Contract Tests", () => {
 
     it("Should reject staking from non-whitelisted collection", async () => {
       // Deploy a second collection as UUPS proxy (not whitelisted)
-      const nftArtifact = await hre.artifacts.readArtifact("BasicERC721ACUpgradeable");
+      const nftArtifact = await hre.artifacts.readArtifact("MoodyArchives");
       const Factory = new ethers.ContractFactory(nftArtifact.abi, nftArtifact.bytecode, deployer);
       const otherImpl = await Factory.deploy();
       await otherImpl.waitForDeployment();
