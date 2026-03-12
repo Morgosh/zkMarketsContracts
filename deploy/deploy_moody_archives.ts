@@ -16,6 +16,7 @@ export default async function deployMoodyArchives(hre: HardhatRuntimeEnvironment
     const name = "Moody Archives"
     const symbol = "MA"
     const baseTokenURI = ""
+    // default limitbreak validator is 0x05990015171dfc5ed3057bf8836d0bcc2d99ac84
 
     try {
         const options = {
